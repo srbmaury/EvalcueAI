@@ -1,10 +1,3 @@
- 22 files changed, 278 insertions(+), 23 deletions(-)
- create mode 100644 NETLIFY_DEPLOYMENT.md
- create mode 100644 client/src/__tests__/deploymentSurface.test.js
- create mode 100644 client/src/components/DeploymentSurfaceGuard.jsx
- create mode 100644 client/src/utils/deploymentSurface.js
- create mode 100644 netlify.toml
- create mode 100644 server/src/config/clientOrigins.js
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
