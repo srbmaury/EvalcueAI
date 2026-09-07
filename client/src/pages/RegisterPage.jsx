@@ -27,11 +27,15 @@ const RegisterPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [params] = useSearchParams();
+    const requested = location.state?.from;
     const workspaceParam = params.get("workspace");
     const routeWorkspace = workspaceForSurface(surfaceForPath(location.pathname));
     const requestedWorkspace = ["practice", "hiring"].includes(workspaceParam) ? workspaceParam : routeWorkspace;
     const authSurface = requestedWorkspace || "combined";
     const productName = requestedWorkspace === "hiring" ? "Evalcue AI Hire" : requestedWorkspace === "practice" ? "Evalcue AI Practice" : "Evalcue AI";
+    const requestedDestination = requested?.pathname
+        ? `${requested.pathname}${requested.search || ""}${requested.hash || ""}`
+        : null;
 
     useEffect(() => {
         if (requestedWorkspace) setWorkspacePreference(requestedWorkspace);
@@ -129,7 +133,7 @@ const RegisterPage = () => {
                     try {
                         const authenticatedUser = await googleLogin(response.credential);
                         const workspace = requestedWorkspace || getWorkspacePreference(authenticatedUser?._id) || "practice";
-                        navigate(getWorkspaceHome(workspace), { replace: true });
+                        navigate(requestedDestination || getWorkspaceHome(workspace), { replace: true });
                     } catch {
                         setErrors((prev) => ({ ...prev, password: "Google sign-in failed" }));
                     }
@@ -143,7 +147,9 @@ const RegisterPage = () => {
         } catch (e) {
             console.warn("Google button init failed", e);
         }
-    }, [acceptedTerms, gsiReady, googleLogin, navigate, requestedWorkspace]);
+    }, [acceptedTerms, gsiReady, googleLogin, navigate, requestedDestination, requestedWorkspace]);
+
+    const authState = requested ? { from: requested } : undefined;
 
     return (
         <AuthShell
@@ -172,10 +178,10 @@ const RegisterPage = () => {
                     <FormControlLabel control={<Checkbox checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />} label={<Typography variant="body2">I agree to the <Link component={RouterLink} to="/terms">Terms</Link> and acknowledge the <Link component={RouterLink} to="/privacy">Privacy Notice</Link>.</Typography>} />
                     <Button type="submit" variant="contained" size="large" startIcon={<PersonAddIcon />} disabled={submitting || !acceptedTerms} sx={{ py: 1.25, borderRadius: 2, textTransform: "none", fontWeight: 700 }}>{submitting ? "Creating account..." : requestedWorkspace === "hiring" ? "Create hiring account" : requestedWorkspace === "practice" ? "Create practice account" : "Create account"}</Button>
                     {acceptedTerms && <Stack spacing={2} alignItems="center"><div ref={googleDivRef} /><Typography variant="caption" color="text.secondary" align="center">Google sign-up may not display in embedded browsers. If the Google window is blank, open Evalcue AI in Chrome or Safari, or create your account with email.</Typography></Stack>}
-                    {submittedEmail && <Stack spacing={1} alignItems="center"><Typography variant="body2" color="text.secondary">Didn’t get the email? Check spam or resend.</Typography><Button variant="text" onClick={async () => { try { const r = await resendVerification(submittedEmail); setSuccessMsg(r?.message || "Verification email re-sent"); } catch (e) { console.warn("Resend verification failed", e); } }}>Resend verification</Button><Button component={RouterLink} to={loginPath} size="small">Continue to sign in</Button></Stack>}
+                    {submittedEmail && <Stack spacing={1} alignItems="center"><Typography variant="body2" color="text.secondary">Didn’t get the email? Check spam or resend.</Typography><Button variant="text" onClick={async () => { try { const r = await resendVerification(submittedEmail); setSuccessMsg(r?.message || "Verification email re-sent"); } catch (e) { console.warn("Resend verification failed", e); } }}>Resend verification</Button><Button component={RouterLink} to={loginPath} state={authState} size="small">Continue to sign in</Button></Stack>}
                 </Stack>
             </Box>
-            <Typography align="center" color="text.secondary" sx={{ mt: { xs: 4, md: 2 } }}>Already have an account? <Link component={RouterLink} to={loginPath} underline="hover">Login</Link></Typography>
+            <Typography align="center" color="text.secondary" sx={{ mt: { xs: 4, md: 2 } }}>Already have an account? <Link component={RouterLink} to={loginPath} state={authState} underline="hover">Login</Link></Typography>
         </AuthShell>
     );
 };
