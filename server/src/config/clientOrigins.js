@@ -2,11 +2,6 @@ const normalizeOrigin = (value, fallback) => String(value || fallback).split(","
 
 const legacyClientOrigin = () => process.env.CLIENT_ORIGIN || process.env.CLIENT_URL || "http://localhost:5173";
 
-export const landingClientOrigin = () => normalizeOrigin(
-    process.env.LANDING_CLIENT_ORIGIN,
-    legacyClientOrigin(),
-);
-
 export const practiceClientOrigin = () => normalizeOrigin(
     process.env.PRACTICE_CLIENT_ORIGIN,
     legacyClientOrigin(),
