@@ -9,7 +9,7 @@ import { setWorkspacePreference } from "../utils/workspacePreference";
 const choices = [
     {
         workspace: "practice",
-        eyebrow: "For candidates",
+        eyebrow: "Practice workspace",
         title: "Prepare for interviews",
         body: "Practice role-specific technical interviews and get clear feedback on what to improve next.",
         points: ["Voice, coding and system-design practice", "Job-description and resume context", "Feedback and progress tracking"],
@@ -17,7 +17,7 @@ const choices = [
     },
     {
         workspace: "hiring",
-        eyebrow: "For hiring teams",
+        eyebrow: "Hiring workspace",
         title: "Assess candidates",
         body: "Create structured technical assessments, invite candidates, and review consistent evidence in one place.",
         points: ["Structured assessment builder", "Candidate pipeline and reports", "Human-controlled hiring decisions"],
@@ -52,10 +52,10 @@ export default function LandingPage() {
                     <Stack spacing={2} alignItems="center" textAlign="center" mb={{ xs: 4, md: 6 }}>
                         <Chip label="Choose your Evalcue AI workspace" color="primary" variant="outlined" />
                         <Typography component="h1" sx={{ fontSize: { xs: "2.5rem", sm: "3.5rem", md: "4.4rem" }, lineHeight: 1, letterSpacing: "-.05em", fontWeight: 850, maxWidth: 820 }}>
-                            What are you here to do?
+                            Prepare better. Hire with clearer evidence.
                         </Typography>
                         <Typography color="text.secondary" sx={{ fontSize: { xs: "1.05rem", md: "1.2rem" }, lineHeight: 1.65, maxWidth: 680 }}>
-                            Practice for your next interview or run structured candidate assessments. Each product has its own focused workspace.
+                            Choose the workspace that matches what you need today. Practice and Hire stay separate and focused.
                         </Typography>
                     </Stack>
 
@@ -99,7 +99,11 @@ export default function LandingPage() {
                                             endIcon={<ArrowForwardRounded />}
                                             sx={{ mt: "auto", alignSelf: { xs: "stretch", sm: "flex-start" }, px: 3 }}
                                         >
-                                            {user ? `Open ${choice.workspace === "hiring" ? "Hire" : "Practice"}` : choice.workspace === "hiring" ? "Go to Hire" : "Go to Practice"}
+                                            {user
+                                                ? `Open ${choice.workspace === "hiring" ? "Hire" : "Practice"}`
+                                                : choice.workspace === "hiring"
+                                                    ? "Assess candidates"
+                                                    : "Practice interviews"}
                                         </Button>
                                     </Paper>
                                 </Grid>
