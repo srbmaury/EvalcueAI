@@ -7,6 +7,7 @@ import api from "../api/axios";
 import { useNotify } from "../context/NotificationContext";
 import { OrganizationContext } from "../context/OrganizationContext";
 import { hiringPermissionsFor } from "../utils/hiringPermissions";
+import { externalSurfaceUrl } from "../utils/deploymentSurface";
 
 const SystemDesignCanvas = lazy(() => import("../components/SystemDesignCanvas"));
 
@@ -56,7 +57,7 @@ export default function AssessmentReportPage() {
     useEffect(() => { if (location.state?.notice) notify(location.state.notice, "success"); }, [location.state, notify]);
     if (loading) return <Stack minHeight="60vh" alignItems="center" justifyContent="center"><CircularProgress /></Stack>;
     if (error || !data) return <Container sx={{ py: 5 }}><Alert severity="error">{error}</Alert></Container>;
-    const { assessment, attempts } = data; const link = `${window.location.origin}/assessment/${assessment.shareToken}`;
+    const { assessment, attempts } = data; const link = externalSurfaceUrl("practice", `/assessment/${assessment.shareToken}`);
     const visibleAttempts = attempts.filter((attempt) => (status === "all" || attempt.status === status) && `${attempt.candidateName} ${attempt.candidateEmail}`.toLowerCase().includes(query.trim().toLowerCase()));
     const changeStatus = async (nextStatus) => { try { const { data: updated } = await api.patch(`/assessments/${assessmentId}`, { status: nextStatus }); setData((current) => ({ ...current, assessment: updated })); notify(nextStatus === "active" ? "Assessment published. Candidate access is now enabled." : nextStatus === "closed" ? "Assessment closed to new candidates." : "Assessment archived.", "success"); } catch (err) { notify(err?.response?.data?.message || "Assessment status could not be changed.", "error"); } };
     const exportCsv = () => {
