@@ -15,11 +15,14 @@ describe("deployment surfaces", () => {
         expect(configuredSurface("all")).toBeNull();
     });
 
-    it("routes candidate assessments to the practice deployment", () => {
+    it("routes each URL family to the intended deployment", () => {
         expect(deploymentSurfaceForPath("/assessment/token")).toBe("practice");
         expect(deploymentSurfaceForPath("/hire/team")).toBe("hiring");
         expect(deploymentSurfaceForPath("/practice/dashboard")).toBe("practice");
         expect(deploymentSurfaceForPath("/docs")).toBe("landing");
+        expect(deploymentSurfaceForPath("/forgot-password")).toBe("landing");
+        expect(deploymentSurfaceForPath("/reset-password")).toBe("landing");
+        expect(deploymentSurfaceForPath("/verify-email")).toBe("landing");
     });
 
     it("builds cross-domain URLs without duplicate slashes", () => {
@@ -45,5 +48,6 @@ describe("deployment surfaces", () => {
         expect(deploymentRedirectUrl("hiring", "practice", "/practice", env)).toBe("https://evalcueai.com/");
         expect(deploymentRedirectUrl("landing", "practice", "/practice", env)).toBe("https://practice.evalcueai.com/practice");
         expect(deploymentRedirectUrl("practice", "landing", "/docs", env)).toBe("https://evalcueai.com/docs");
+        expect(deploymentRedirectUrl("hiring", "landing", "/forgot-password", env)).toBe("https://evalcueai.com/forgot-password");
     });
 });
