@@ -27,7 +27,10 @@ export default function DeploymentSurfaceGuard({ children }) {
     }, [deployedSurface, location.hash, location.pathname, location.search, requestedSurface, shouldSwitchDomain]);
 
     if (!deployedSurface) return children;
-    if (isSurfaceRoot) return <Navigate to={surfaceHomePath(deployedSurface)} replace />;
+    if (isSurfaceRoot) {
+        if (deployedSurface === "landing") return children;
+        return <Navigate to={surfaceHomePath(deployedSurface)} replace />;
+    }
     if (!shouldSwitchDomain) return children;
 
     return (
