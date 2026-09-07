@@ -114,7 +114,11 @@ Important values:
 
 - `VITE_API_BASE_URL=/api` for same-origin/proxied API calls
 - `VITE_PUBLIC_ORIGIN=https://your-public-origin.example` in production for canonical URLs, JSON-LD, `sitemap.xml`, and `robots.txt`
+- `VITE_APP_SURFACE=landing`, `practice`, or `hiring` when deploying the shared client as separate sites
+- `VITE_LANDING_ORIGIN`, `VITE_PRACTICE_ORIGIN`, and `VITE_HIRING_ORIGIN` for safe cross-site navigation and candidate links
 - CAPTCHA and Google client IDs when those integrations are enabled
+
+See [NETLIFY_DEPLOYMENT.md](NETLIFY_DEPLOYMENT.md) for the two-site Netlify and GoDaddy DNS setup.
 
 ### Run locally
 
