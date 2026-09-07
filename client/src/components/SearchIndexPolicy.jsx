@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { isProductResourcePath } from "../utils/productResourcePages";
 
 export const isIndexablePath = (pathname) => (
     pathname === "/" ||
@@ -9,7 +10,8 @@ export const isIndexablePath = (pathname) => (
     pathname === "/privacy" ||
     pathname === "/terms" ||
     pathname === "/docs" ||
-    pathname.startsWith("/docs/")
+    pathname.startsWith("/docs/") ||
+    isProductResourcePath(pathname)
 );
 
 export default function SearchIndexPolicy() {

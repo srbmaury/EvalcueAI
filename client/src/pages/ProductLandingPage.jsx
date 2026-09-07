@@ -14,6 +14,7 @@ import { Box, Button, Container, Grid, Paper, Stack, Typography } from "@mui/mat
 import { AuthContext } from "../context/AuthContext";
 import SiteFooter from "../components/SiteFooter";
 import { productHomePath, productLoginPath, productRegisterPath } from "../utils/productRoutes";
+import { resourcePagesForSurface, resourcePathFor } from "../utils/productResourcePages";
 import { setWorkspacePreference } from "../utils/workspacePreference";
 
 const COPY = {
@@ -64,6 +65,7 @@ export default function ProductLandingPage({ surface = "practice" }) {
     const ProductIcon = config.icon;
     const primaryPath = user ? productHomePath(workspace) : productRegisterPath(workspace);
     const secondaryPath = productLoginPath(workspace);
+    const featuredResources = resourcePagesForSurface(workspace).slice(0, 3);
 
     const rememberSurface = () => setWorkspacePreference(workspace, user?._id);
 
@@ -146,8 +148,27 @@ export default function ProductLandingPage({ surface = "practice" }) {
                 </Container>
             </Box>
 
+            <Container maxWidth="lg" sx={{ py: { xs: 7, md: 8 } }}>
+                <Stack spacing={1} mb={3}>
+                    <Typography variant="overline" color="primary.main" fontWeight={850}>{surface === "hiring" ? "Hiring resources" : "Practice resources"}</Typography>
+                    <Typography variant="h4" fontWeight={850}>{surface === "hiring" ? "Start from a working assessment template." : "Turn a guide into a practice session."}</Typography>
+                    <Typography color="text.secondary">These pages are interactive entry points into Evalcue AI, not standalone blog posts.</Typography>
+                </Stack>
+                <Grid container spacing={2.5}>
+                    {featuredResources.map((page) => (
+                        <Grid size={{ xs: 12, md: 4 }} key={page.slug}>
+                            <Paper component={RouterLink} to={resourcePathFor(page)} variant="outlined" sx={{ p: 3, display: "block", height: "100%", borderRadius: 4, color: "inherit", textDecoration: "none", "&:hover": { borderColor: "primary.main" } }}>
+                                <Typography variant="h6" fontWeight={850}>{page.title}</Typography>
+                                <Typography variant="body2" color="text.secondary" mt={1} lineHeight={1.6}>{page.description}</Typography>
+                                <Typography color="primary.main" fontWeight={800} mt={2}>Open interactive resource →</Typography>
+                            </Paper>
+                        </Grid>
+                    ))}
+                </Grid>
+            </Container>
+
             {surface === "hiring" && (
-                <Container maxWidth="lg" sx={{ pt: { xs: 6, md: 7 } }}>
+                <Container maxWidth="lg" sx={{ pt: { xs: 1, md: 2 } }}>
                     <Paper variant="outlined" sx={{ p: { xs: 3, md: 4 }, borderRadius: 4 }}>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
                             <ShieldOutlined color="primary" />

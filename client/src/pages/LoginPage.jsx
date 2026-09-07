@@ -194,7 +194,7 @@ const LoginPage = () => {
                 {showWorkSso && <Button fullWidth variant="outlined" size="large" startIcon={<BusinessRounded />} disabled={ssoSubmitting || submitting} onClick={handleSso}>{ssoSubmitting ? "Opening your identity provider…" : "Continue with work SSO"}</Button>}
                 <Typography variant="caption" color="text.secondary" align="center">{showWorkSso ? "Work SSO is available for Evalcue AI Hire organizations. " : ""}Google sign-in may not display in embedded browsers; use Chrome or Safari if needed.</Typography>
             </Stack>
-            <Typography align="center" color="text.secondary">Don’t have an account? <Link component={RouterLink} to={registerPath} underline="hover">Register</Link></Typography>
+            <Typography align="center" color="text.secondary">Don’t have an account? <Link component={RouterLink} to={registerPath} state={requested ? { from: requested } : undefined} underline="hover">Register</Link></Typography>
         </AuthShell>
     );
 };

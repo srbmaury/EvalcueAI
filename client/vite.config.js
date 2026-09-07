@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import { resourcePathsForSurface } from "./src/utils/productResourcePages.js";
 
 const LANDING_INDEXABLE_ROUTES = [
     "/",
@@ -17,16 +18,19 @@ const LANDING_INDEXABLE_ROUTES = [
     "/terms",
 ];
 
+const PRACTICE_INDEXABLE_ROUTES = ["/practice", ...resourcePathsForSurface("practice")];
+const HIRING_INDEXABLE_ROUTES = ["/hire", ...resourcePathsForSurface("hiring")];
+
 const INDEXABLE_ROUTES_BY_SURFACE = Object.freeze({
     landing: LANDING_INDEXABLE_ROUTES,
-    practice: ["/practice"],
-    hiring: ["/hire"],
+    practice: PRACTICE_INDEXABLE_ROUTES,
+    hiring: HIRING_INDEXABLE_ROUTES,
 });
 
 const ALL_INDEXABLE_ROUTES = [
     ...LANDING_INDEXABLE_ROUTES,
-    "/practice",
-    "/hire",
+    ...PRACTICE_INDEXABLE_ROUTES,
+    ...HIRING_INDEXABLE_ROUTES,
 ];
 
 const normalizePublicOrigin = (raw) => {

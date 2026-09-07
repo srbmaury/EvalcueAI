@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useLocation } from "react-router-dom";
 import Seo from "./Seo";
+import { PRODUCT_RESOURCE_PAGES, resourcePathFor } from "../utils/productResourcePages";
 
 const ROUTES = {
     "/": {
@@ -65,8 +66,14 @@ const ROUTES = {
     },
 };
 
+const RESOURCE_ROUTES = Object.fromEntries(PRODUCT_RESOURCE_PAGES.map((page) => [
+    resourcePathFor(page),
+    { title: page.metaTitle, description: page.description, schema: "TechArticle" },
+]));
+
 export const seoForPath = (pathname) => {
     if (ROUTES[pathname]) return { ...ROUTES[pathname], canonicalPath: pathname };
+    if (RESOURCE_ROUTES[pathname]) return { ...RESOURCE_ROUTES[pathname], canonicalPath: pathname };
     if (pathname.startsWith("/docs/")) return { ...ROUTES["/docs"], canonicalPath: pathname };
     return null;
 };
