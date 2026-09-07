@@ -12,7 +12,10 @@ export default function DeploymentSurfaceGuard({ children }) {
     const location = useLocation();
     const deployedSurface = configuredSurface();
     const requestedSurface = deploymentSurfaceForPath(location.pathname);
-    const shouldSwitchDomain = Boolean(deployedSurface && requestedSurface && requestedSurface !== deployedSurface);
+    const isSurfaceRoot = location.pathname === "/";
+    const shouldSwitchDomain = Boolean(
+        !isSurfaceRoot && deployedSurface && requestedSurface && requestedSurface !== deployedSurface,
+    );
 
     useEffect(() => {
         if (!shouldSwitchDomain) return;
@@ -23,7 +26,7 @@ export default function DeploymentSurfaceGuard({ children }) {
     }, [location.hash, location.pathname, location.search, requestedSurface, shouldSwitchDomain]);
 
     if (!deployedSurface) return children;
-    if (location.pathname === "/") return <Navigate to={surfaceHomePath(deployedSurface)} replace />;
+    if (isSurfaceRoot) return <Navigate to={surfaceHomePath(deployedSurface)} replace />;
     if (!shouldSwitchDomain) return children;
 
     return (
