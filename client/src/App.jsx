@@ -27,6 +27,7 @@ const ResumeReviewPage = lazy(() => import("./pages/ResumeReviewPage.jsx"));
 const ResumeMatcherPage = lazy(() => import("./pages/ResumeMatcherPage.jsx"));
 const LandingPage = lazy(() => import("./pages/LandingPage.jsx"));
 const ProductLandingPage = lazy(() => import("./pages/ProductLandingPage.jsx"));
+const ProductResourcePage = lazy(() => import("./pages/ProductResourcePage.jsx"));
 const LegalPage = lazy(() => import("./pages/LegalPage.jsx"));
 const ProgressPage = lazy(() => import("./pages/ProgressPage.jsx"));
 const ReviewHistoryPage = lazy(() => import("./pages/ReviewHistoryPage.jsx"));
@@ -85,6 +86,8 @@ function App() {
                 <Route path="/" element={<GuestOnlyRoute><LandingPage /></GuestOnlyRoute>} />
                 <Route path="/practice" element={<ProductLandingPage surface="practice" />} />
                 <Route path="/hire" element={<ProductLandingPage surface="hiring" />} />
+                <Route path="/practice/resources/:slug" element={<ProductResourcePage surface="practice" />} />
+                <Route path="/hire/resources/:slug" element={<ProductResourcePage surface="hiring" />} />
                 <Route path="/interview-practice" element={<CanonicalProductRedirect />} />
                 <Route path="/technical-hiring" element={<CanonicalProductRedirect />} />
                 <Route path="/practice/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
