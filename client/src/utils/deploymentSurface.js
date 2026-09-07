@@ -32,3 +32,15 @@ export const externalSurfaceUrl = (surface, pathname, env = import.meta?.env || 
     const origin = deploymentOrigins(env)[surface];
     return origin ? `${origin}${pathname || surfaceHomePath(surface)}` : (pathname || surfaceHomePath(surface));
 };
+
+export const deploymentRedirectUrl = (deployedSurface, requestedSurface, pathname, env = import.meta?.env || {}) => {
+    if (!deployedSurface || !requestedSurface || deployedSurface === requestedSurface) return null;
+
+    // Product deployments are deliberately isolated. Users return to the common
+    // site before entering the other product; only the common site links to both.
+    if (deployedSurface !== "landing" && requestedSurface !== "landing") {
+        return externalSurfaceUrl("landing", "/", env);
+    }
+
+    return externalSurfaceUrl(requestedSurface, pathname, env);
+};
