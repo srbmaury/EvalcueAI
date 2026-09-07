@@ -10,6 +10,7 @@ import { ThemeModeProvider } from "./context/ThemeContext.jsx";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import PublicRouteSeo from "./components/PublicRouteSeo.jsx";
 
+// Public VITE_* deployment settings are embedded into each surface at build time.
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ThemeModeProvider>
