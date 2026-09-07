@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     configuredSurface,
+    deploymentRedirectUrl,
     deploymentSurfaceForPath,
     externalSurfaceUrl,
     surfaceHomePath,
@@ -31,5 +32,18 @@ describe("deployment surfaces", () => {
         expect(externalSurfaceUrl("practice", "", env)).toBe("https://practice.evalcueai.com/practice");
         expect(surfaceHomePath("hiring")).toBe("/hire");
         expect(surfaceHomePath("landing")).toBe("/");
+    });
+
+    it("forces product-to-product navigation through the common site", () => {
+        const env = {
+            VITE_LANDING_ORIGIN: "https://evalcueai.com",
+            VITE_PRACTICE_ORIGIN: "https://practice.evalcueai.com",
+            VITE_HIRING_ORIGIN: "https://hiring.evalcueai.com",
+        };
+
+        expect(deploymentRedirectUrl("practice", "hiring", "/hire", env)).toBe("https://evalcueai.com/");
+        expect(deploymentRedirectUrl("hiring", "practice", "/practice", env)).toBe("https://evalcueai.com/");
+        expect(deploymentRedirectUrl("landing", "practice", "/practice", env)).toBe("https://practice.evalcueai.com/practice");
+        expect(deploymentRedirectUrl("practice", "landing", "/docs", env)).toBe("https://evalcueai.com/docs");
     });
 });
