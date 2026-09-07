@@ -11,6 +11,7 @@ import GuestOnlyRoute from "./components/GuestOnlyRoute";
 import HiringOrganizationGate from "./components/HiringOrganizationGate";
 import SearchIndexPolicy from "./components/SearchIndexPolicy";
 import CanonicalProductRedirect from "./components/CanonicalProductRedirect";
+import DeploymentSurfaceGuard from "./components/DeploymentSurfaceGuard";
 
 const CreateInterviewPage = lazy(() => import("./pages/CreateInterviewPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -74,6 +75,7 @@ function App() {
     const hiddenStyle = { position: "absolute", left: "-10000px", top: "auto", width: 1, height: 1, overflow: "hidden", zIndex: 10000 };
     const visibleStyle = { position: "absolute", left: 8, top: 8, background: "#fff", color: "#000", padding: "8px 12px", borderRadius: 4, boxShadow: "0 1px 4px rgba(0,0,0,0.2)", zIndex: 10000 };
     return (
+        <DeploymentSurfaceGuard>
         <div className="min-h-screen">
             <SearchIndexPolicy />
             <a href="#main-content" onFocus={() => setShowSkip(true)} onBlur={() => setShowSkip(false)} style={showSkip ? visibleStyle : hiddenStyle}>Skip to main content</a>
@@ -119,6 +121,7 @@ function App() {
                 <Route path="/hire/assessments/:assessmentId/preview" element={<HiringRoute><AssessmentPreviewPage /></HiringRoute>} />
                 <Route path="/hire/team" element={<HiringRoute><HiringTeamPage /></HiringRoute>} />
                 <Route path="/hire/pilot" element={<HiringRoute><HiringPilotPage /></HiringRoute>} />
+                <Route path="/hire/billing/success" element={<ProtectedRoute><BillingSuccessPage /></ProtectedRoute>} />
                 <Route path="/hire/sso" element={<HiringRoute><SsoSettingsPage /></HiringRoute>} />
                 <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
                 <Route path="/admin/overview" element={<ProtectedRoute><AdminRoute><AdminOverviewPage /></AdminRoute></ProtectedRoute>} />
@@ -151,6 +154,7 @@ function App() {
                 </Routes></Suspense></ErrorBoundary>
             </main>
         </div>
+        </DeploymentSurfaceGuard>
     );
 }
 
