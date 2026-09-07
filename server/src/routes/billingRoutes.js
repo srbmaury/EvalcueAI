@@ -11,9 +11,9 @@ import { getStripe } from "../config/stripe.js";
 import { getConfiguredPriceId, getOneTimePrice, getPlanPrice } from "../services/billingCatalog.js";
 import { organizationContext, requireOrganizationRole } from "../middleware/organizationContext.js";
 import metrics from "../metrics/index.js";
+import { hiringClientOrigin, practiceClientOrigin } from "../config/clientOrigins.js";
 
 const router = express.Router();
-const clientOrigin = () => process.env.CLIENT_ORIGIN || "http://localhost:5173";
 const billingConfigured = () => Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET);
 const PORTAL_REQUIRED_STATUSES = new Set(["incomplete", "trialing", "active", "past_due", "unpaid", "paused"]);
 const PAID_HIRING_PLANS = new Set(["starter", "growth", "enterprise"]);
@@ -105,8 +105,8 @@ router.post(
                 metadata: { billingProduct: "practice", userId: String(req.user._id), plan: selectedPlan },
                 subscription_data: { metadata: { billingProduct: "practice", userId: String(req.user._id), plan: selectedPlan } },
                 allow_promotion_codes: true,
-                success_url: `${clientOrigin()}/billing/success?product=practice`,
-                cancel_url: `${clientOrigin()}/pricing?checkout=cancelled`,
+                success_url: `${practiceClientOrigin()}/practice/billing/success?product=practice`,
+                cancel_url: `${practiceClientOrigin()}/practice/pricing?checkout=cancelled`,
             });
             metrics.billingCheckoutTotal.labels("success").inc();
             return res.json({ url: session.url });
@@ -122,7 +122,7 @@ router.post("/practice/portal-session", protect, async (req, res, next) => {
         if (!req.user.practiceBillingCustomerId) return res.status(400).json({ message: "No Practice billing account found" });
         const session = await getStripe().billingPortal.sessions.create({
             customer: req.user.practiceBillingCustomerId,
-            return_url: `${clientOrigin()}/pricing`,
+            return_url: `${practiceClientOrigin()}/practice/pricing`,
         });
         return res.json({ url: session.url });
     } catch (error) {
@@ -233,8 +233,8 @@ router.post(
                 client_reference_id: String(organization._id),
                 metadata,
                 payment_intent_data: { metadata },
-                success_url: `${clientOrigin()}/billing/success?product=hiring&purchase=pilot&organizationId=${organization._id}`,
-                cancel_url: `${clientOrigin()}/hiring/team?billing=cancelled`,
+                success_url: `${hiringClientOrigin()}/hire/billing/success?product=hiring&purchase=pilot&organizationId=${organization._id}`,
+                cancel_url: `${hiringClientOrigin()}/hire/team?billing=cancelled`,
             });
             metrics.billingCheckoutTotal.labels("success").inc();
             return res.json({ url: session.url });
@@ -286,8 +286,8 @@ router.post(
                     },
                 },
                 allow_promotion_codes: true,
-                success_url: `${clientOrigin()}/billing/success?product=hiring&organizationId=${organization._id}`,
-                cancel_url: `${clientOrigin()}/hiring/team?billing=cancelled`,
+                success_url: `${hiringClientOrigin()}/hire/billing/success?product=hiring&organizationId=${organization._id}`,
+                cancel_url: `${hiringClientOrigin()}/hire/team?billing=cancelled`,
             });
             metrics.billingCheckoutTotal.labels("success").inc();
             return res.json({ url: session.url });
@@ -309,7 +309,7 @@ router.post(
             if (!organization?.hiringBillingCustomerId) return res.status(400).json({ message: "No Hiring billing account found for this organization" });
             const session = await getStripe().billingPortal.sessions.create({
                 customer: organization.hiringBillingCustomerId,
-                return_url: `${clientOrigin()}/hiring/team`,
+                return_url: `${hiringClientOrigin()}/hire/team`,
             });
             return res.json({ url: session.url });
         } catch (error) {
