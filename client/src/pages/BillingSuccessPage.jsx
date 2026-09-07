@@ -11,7 +11,7 @@ export default function BillingSuccessPage() {
     const organizationId = params.get("organizationId") || "";
     const [status, setStatus] = useState("checking");
     const [activePlan, setActivePlan] = useState("");
-    const returnPath = product === "hiring" ? "/hiring/team" : "/dashboard";
+    const returnPath = product === "hiring" ? "/hire/team" : "/practice/dashboard";
     const endpoint = product === "hiring" ? "/billing/hiring/entitlements" : "/billing/practice/entitlements";
     const requestConfig = useMemo(() => product === "hiring" && organizationId
         ? { headers: { "X-Organization-Id": organizationId } }
