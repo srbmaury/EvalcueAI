@@ -39,6 +39,7 @@ import { useNotifications } from "../context/NotificationContext";
 import ProductFeedbackDialog from "./ProductFeedbackDialog";
 import { hiringHomeForRole, hiringPermissionsFor } from "../utils/hiringPermissions";
 import { productHomePath, productLoginPath, productRegisterPath } from "../utils/productRoutes";
+import { configuredSurface, deploymentRedirectUrl } from "../utils/deploymentSurface";
 import { setWorkspacePreference } from "../utils/workspacePreference";
 
 const CONFIG = {
@@ -48,7 +49,6 @@ const CONFIG = {
         icon: SchoolOutlined,
         publicHome: "/practice",
         appHome: "/practice/dashboard",
-        crossPath: "/hire",
         crossLabel: "Open Evalcue AI Hire",
     },
     hiring: {
@@ -57,7 +57,6 @@ const CONFIG = {
         icon: WorkOutlineRounded,
         publicHome: "/hire",
         appHome: "/hire/assessments",
-        crossPath: "/practice",
         crossLabel: "Open Evalcue AI Practice",
     },
 };
@@ -67,6 +66,20 @@ const navButtonSx = (active) => ({
     color: active ? "primary.main" : "text.secondary",
     bgcolor: active ? "action.selected" : "transparent",
     "&:hover": { bgcolor: "action.hover", color: "text.primary" },
+});
+
+const productSwitchButtonSx = (active) => ({
+    minWidth: 0,
+    px: 1.25,
+    borderRadius: 999,
+    fontWeight: 850,
+    textTransform: "none",
+    color: active ? "primary.contrastText" : "text.secondary",
+    bgcolor: active ? "primary.main" : "transparent",
+    "&:hover": {
+        bgcolor: active ? "primary.dark" : "action.selected",
+        color: active ? "primary.contrastText" : "text.primary",
+    },
 });
 
 export const isProductNavItemActive = (location, item) => {
@@ -89,6 +102,7 @@ export default function ProductHeader({ surface = "practice" }) {
     const { notifications, unreadCount, markNotificationRead, markAllRead } = useNotifications();
     const location = useLocation();
     const navigate = useNavigate();
+    const deployedSurface = configuredSurface();
     const [mobileAnchor, setMobileAnchor] = useState(null);
     const [profileAnchor, setProfileAnchor] = useState(null);
     const [organizationAnchor, setOrganizationAnchor] = useState(null);
@@ -147,11 +161,26 @@ export default function ProductHeader({ surface = "practice" }) {
         else navigate("/practice/new");
     };
 
-    const openOtherProduct = () => {
-        const nextWorkspace = surface === "hiring" ? "practice" : "hiring";
+    const openProduct = (nextWorkspace) => {
+        const nextConfig = CONFIG[nextWorkspace] || CONFIG.practice;
         if (user?._id) setWorkspacePreference(nextWorkspace, user._id);
-        navigate(user ? productHomePath(nextWorkspace) : config.crossPath);
+        else setWorkspacePreference(nextWorkspace);
+
+        const targetPath = user ? productHomePath(nextWorkspace) : nextConfig.publicHome;
+        if (nextWorkspace === surface) {
+            navigate(targetPath);
+            return;
+        }
+
+        const deploymentUrl = deploymentRedirectUrl(deployedSurface, nextWorkspace, targetPath);
+        if (deploymentUrl) {
+            window.location.assign(deploymentUrl);
+            return;
+        }
+        navigate(targetPath);
     };
+
+    const openOtherProduct = () => openProduct(surface === "hiring" ? "practice" : "hiring");
 
     const selectHiringOrganization = (organization) => {
         if (!organization?._id) return;
@@ -168,6 +197,46 @@ export default function ProductHeader({ surface = "practice" }) {
         return <Button key={`${item.label}-${item.hash || ""}`} onClick={() => openNavItem(item)} sx={navButtonSx(active)}>{item.label}</Button>;
     };
 
+    const renderProductSwitcher = () => (
+        <Box
+            role="group"
+            aria-label="Choose Evalcue AI product"
+            sx={{
+                display: { xs: "none", sm: "flex" },
+                alignItems: "center",
+                gap: .25,
+                p: .35,
+                ml: { sm: .75, lg: 1.5 },
+                border: "1px solid",
+                borderColor: "divider",
+                bgcolor: "action.hover",
+                borderRadius: 999,
+                flexShrink: 0,
+            }}
+        >
+            <Button
+                size="small"
+                startIcon={<SchoolOutlined fontSize="small" />}
+                onClick={() => openProduct("practice")}
+                aria-current={surface === "practice" ? "page" : undefined}
+                title={deployedSurface && surface !== "practice" ? "Return to the Evalcue AI home before entering Practice" : "Open Evalcue AI Practice"}
+                sx={productSwitchButtonSx(surface === "practice")}
+            >
+                Practice
+            </Button>
+            <Button
+                size="small"
+                startIcon={<WorkOutlineRounded fontSize="small" />}
+                onClick={() => openProduct("hiring")}
+                aria-current={surface === "hiring" ? "page" : undefined}
+                title={deployedSurface && surface !== "hiring" ? "Return to the Evalcue AI home before entering Hire" : "Open Evalcue AI Hire"}
+                sx={productSwitchButtonSx(surface === "hiring")}
+            >
+                Hire
+            </Button>
+        </Box>
+    );
+
     return (
         <>
             <AppBar position="sticky" color="transparent" elevation={0} sx={{ bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider", color: "text.primary", backdropFilter: "blur(18px)", zIndex: 1200 }}>
@@ -180,6 +249,8 @@ export default function ProductHeader({ surface = "practice" }) {
                                 <Typography variant="caption" color="text.secondary" fontWeight={800} lineHeight={1} sx={{ display: { xs: "none", sm: "block" } }}>{config.label}</Typography>
                             </Box>
                         </Stack>
+
+                        {renderProductSwitcher()}
 
                         {surface === "hiring" && user && hasHiringOrganization && organizations.length > 0 && (
                             <>
@@ -196,7 +267,6 @@ export default function ProductHeader({ surface = "practice" }) {
                             {navigation.map((item) => renderNavItem(item))}
                             {user && (surface === "practice" || permissions.canManageAssessments) && <Button variant="contained" startIcon={<AddRounded />} onClick={openPrimaryAction} sx={{ ml: 1.1 }}>{surface === "hiring" ? "New assessment" : "New practice"}</Button>}
                             {!user && !loading && <>
-                                <Button component={RouterLink} to={config.crossPath} color="inherit">{surface === "hiring" ? "For candidates" : "For hiring teams"}</Button>
                                 <Button component={RouterLink} to={productLoginPath(config.workspace)} color="inherit">Sign in</Button>
                                 <Button component={RouterLink} to={productRegisterPath(config.workspace)} variant="contained">{surface === "hiring" ? "Start hiring" : "Start practicing"}</Button>
                             </>}
@@ -223,6 +293,10 @@ export default function ProductHeader({ surface = "practice" }) {
                             </>}
                             <IconButton onClick={(event) => setMobileAnchor(event.currentTarget)} aria-label="Open navigation" sx={{ display: { xs: "inline-flex", md: "none" } }}><MenuIcon /></IconButton>
                             <Menu anchorEl={mobileAnchor} open={Boolean(mobileAnchor?.isConnected)} onClose={() => setMobileAnchor(null)} PaperProps={{ sx: { minWidth: 250 } }}>
+                                <Box px={2} pt={1.25} pb={.5}><Typography variant="overline" color="text.secondary" fontWeight={850}>Choose product</Typography></Box>
+                                <MenuItem selected={surface === "practice"} onClick={() => { setMobileAnchor(null); openProduct("practice"); }}><SchoolOutlined sx={{ mr: 1.25 }} />Practice</MenuItem>
+                                <MenuItem selected={surface === "hiring"} onClick={() => { setMobileAnchor(null); openProduct("hiring"); }}><WorkOutlineRounded sx={{ mr: 1.25 }} />Hire</MenuItem>
+                                <Divider />
                                 {user ? <>
                                     {navigation.map((item) => renderNavItem(item, true))}
                                     {(surface === "practice" || permissions.canManageAssessments) && <MenuItem onClick={openPrimaryAction}><AddRounded sx={{ mr: 1.25 }} />{surface === "hiring" ? "New assessment" : "New practice"}</MenuItem>}
@@ -233,7 +307,6 @@ export default function ProductHeader({ surface = "practice" }) {
                                     {user?.role === "admin" && <MenuItem component={RouterLink} to="/admin/overview" onClick={() => setMobileAnchor(null)}><SettingsOutlined sx={{ mr: 1.25 }} />Admin</MenuItem>}
                                     <MenuItem onClick={handleLogout}><LogoutRounded sx={{ mr: 1.25 }} />Sign out</MenuItem>
                                 </> : <>
-                                    <MenuItem component={RouterLink} to={config.crossPath}>{surface === "hiring" ? "For candidates" : "For hiring teams"}</MenuItem>
                                     <MenuItem component={RouterLink} to={productLoginPath(config.workspace)}>Sign in</MenuItem>
                                     <MenuItem component={RouterLink} to={productRegisterPath(config.workspace)}>{surface === "hiring" ? "Start hiring" : "Start practicing"}</MenuItem>
                                 </>}
