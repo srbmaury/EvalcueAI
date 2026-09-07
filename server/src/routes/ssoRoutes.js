@@ -11,6 +11,7 @@ import protect from "../middleware/authMiddleware.js";
 import { organizationContext, requireOrganizationRole } from "../middleware/organizationContext.js";
 import validate from "../middleware/validate.js";
 import { issueRefreshToken, signAccessToken } from "../utils/tokens.js";
+import { hiringClientOrigin } from "../config/clientOrigins.js";
 import {
     createOidcLoginState,
     discoverOidcProvider,
@@ -38,7 +39,7 @@ const settingsSchema = z.object({
 });
 
 const DOMAIN_PATTERN = /^(?=.{1,253}$)(?!-)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
-const clientOrigin = () => (process.env.CLIENT_ORIGIN || "http://localhost:5173").replace(/\/+$/, "");
+const clientOrigin = hiringClientOrigin;
 const serverOrigin = (req) => (process.env.SERVER_ORIGIN || `${req.protocol}://${req.get("host")}`).replace(/\/+$/, "");
 const callbackUri = (req) => `${serverOrigin(req)}/api/sso/callback`;
 export const refreshCookieOptions = () => ({

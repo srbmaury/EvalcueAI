@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import ReminderDelivery from "../models/ReminderDelivery.js";
 import { sendMail } from "../utils/mailer.js";
 import metrics from "../metrics/index.js";
+import { practiceClientOrigin } from "../config/clientOrigins.js";
 
 const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const localParts = (date, timeZone) => Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone, weekday: "long", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
@@ -10,7 +11,7 @@ const retryDelayMs = (attempts) => Math.min(6 * 60 * 60 * 1000, 5 * 60 * 1000 * 
 
 const mailFor = (user) => {
     const role = user.targetRole ? ` for ${user.targetRole}` : "";
-    const dashboard = `${process.env.CLIENT_ORIGIN || "http://localhost:5173"}/dashboard`;
+    const dashboard = `${practiceClientOrigin()}/practice/dashboard`;
     return {
         to: user.email,
         subject: "Your Evalcue AI practice reminder",

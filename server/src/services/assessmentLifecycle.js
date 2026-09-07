@@ -1,10 +1,11 @@
 import Assessment from "../models/Assessment.js";
 import { sendMail } from "../utils/mailer.js";
+import { practiceClientOrigin } from "../config/clientOrigins.js";
 
 const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 
 const invitationMail = (assessment, invitation) => {
-    const appUrl = (process.env.CLIENT_ORIGIN || process.env.CLIENT_URL || "http://localhost:5173").split(",")[0].trim().replace(/\/+$/, "");
+    const appUrl = practiceClientOrigin();
     const link = `${appUrl}/assessment/${assessment.shareToken}?invite=${invitation._id}`;
     const deadline = assessment.expiresAt ? new Intl.DateTimeFormat("en", { dateStyle: "full", timeStyle: "short", timeZone: assessment.timezone || "UTC" }).format(assessment.expiresAt) : "No fixed deadline";
     return { to: invitation.email, subject: `Invitation: ${assessment.title}`, text: `Hi ${invitation.name || "there"},\n\nYou have been invited to complete ${assessment.title} for ${assessment.jobRole}.\n\nOpen assessment: ${link}\n\nDeadline: ${deadline} (${assessment.timezone || "UTC"}).`, html: `<p>Hi ${escapeHtml(invitation.name || "there")},</p><p>You have been invited to complete <strong>${escapeHtml(assessment.title)}</strong> for ${escapeHtml(assessment.jobRole)}.</p><p><a href="${escapeHtml(link)}">Start assessment</a></p><p>Deadline: ${escapeHtml(deadline)} (${escapeHtml(assessment.timezone || "UTC")}).</p>` };

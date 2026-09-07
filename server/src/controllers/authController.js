@@ -18,6 +18,7 @@ import ResumeReview from "../models/ResumeReview.js";
 import SavedExperience from "../models/SavedExperience.js";
 import ProductFeedback from "../models/ProductFeedback.js";
 import PracticeUsageCounter from "../models/PracticeUsageCounter.js";
+import { practiceClientOrigin } from "../config/clientOrigins.js";
 import ReminderDelivery from "../models/ReminderDelivery.js";
 import ProductEvent from "../models/ProductEvent.js";
 import Assessment from "../models/Assessment.js";
@@ -73,7 +74,7 @@ export const registerUser = async (req, res, next) => {
         });
 
         if (user) {
-            const baseUrl = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+            const baseUrl = practiceClientOrigin();
             const verifyUrl = `${baseUrl}/verify-email?token=${verificationTokenRaw}&email=${encodeURIComponent(email)}`;
             const mail = buildVerificationEmail(user.name || "there", verifyUrl);
             if (process.env.NODE_ENV === "development") {
@@ -205,7 +206,7 @@ export const resendVerification = async (req, res, next) => {
             user.verificationTokenExpires = new Date(Date.now() + 1000 * 60 * 60 * 24);
             await user.save();
 
-            const baseUrl = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+            const baseUrl = practiceClientOrigin();
             const verifyUrl = `${baseUrl}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
             const mail = buildVerificationEmail(user.name || "there", verifyUrl);
             if (process.env.NODE_ENV === "development") {
@@ -420,7 +421,7 @@ export const forgotPassword = async (req, res, next) => {
         user.resetPasswordExpires = new Date(Date.now() + 1000 * 60 * 30); // 30 min
         await user.save();
 
-        const baseUrl = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+        const baseUrl = practiceClientOrigin();
         const resetUrl = `${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
         const subject = "Reset your password";
         const html = `

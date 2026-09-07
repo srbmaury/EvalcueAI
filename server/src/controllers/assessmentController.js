@@ -13,6 +13,7 @@ import { createJobId } from "../queues/jobIds.js";
 import candidateAssessmentProcessor from "../queues/workers/candidateAssessment.js";
 import { sendMail } from "../utils/mailer.js";
 import { isValidSystemDesignDiagram, summarizeSystemDesignDiagram } from "../utils/systemDesignDiagram.js";
+import { practiceClientOrigin } from "../config/clientOrigins.js";
 
 const tokenHash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
@@ -339,7 +340,7 @@ export const inviteCandidates = async (req, res, next) => {
         const assessment = await Assessment.findOne({ _id: req.params.assessmentId, organization: req.organizationId });
         if (!assessment) return res.status(404).json({ message: "Assessment not found" });
         if (!["draft", "scheduled", "active"].includes(assessment.status)) return res.status(409).json({ message: "Invitations cannot be changed for this assessment." });
-        const appUrl = (process.env.CLIENT_URL || "http://localhost:5173").split(",")[0].trim();
+        const appUrl = practiceClientOrigin();
         const link = `${appUrl}/assessment/${assessment.shareToken}`;
         const results = [];
         for (const entry of req.body.candidates) {

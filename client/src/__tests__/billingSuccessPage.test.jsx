@@ -11,7 +11,7 @@ describe("BillingSuccessPage", () => {
         api.get.mockResolvedValue({ data: { plan: "growth" } });
         render(<MemoryRouter initialEntries={["/billing/success?product=hiring&organizationId=org-1"]}><BillingSuccessPage /></MemoryRouter>);
         expect(await screen.findByText("Growth Hiring is active for this organization.")).toBeTruthy();
-        expect(screen.getByRole("link", { name: "Continue to Hiring" }).getAttribute("href")).toBe("/hiring/team");
+        expect(screen.getByRole("link", { name: "Continue to Hiring" }).getAttribute("href")).toBe("/hire/team");
         expect(api.get).toHaveBeenCalledWith("/billing/hiring/entitlements", { headers: { "X-Organization-Id": "org-1" } });
     });
 
@@ -19,6 +19,6 @@ describe("BillingSuccessPage", () => {
         api.get.mockResolvedValue({ data: { plan: "pro" } });
         render(<MemoryRouter initialEntries={["/billing/success?product=practice"]}><BillingSuccessPage /></MemoryRouter>);
         expect(await screen.findByText("Practice Pro is active on your account.")).toBeTruthy();
-        expect(screen.getByRole("link", { name: "Continue to Practice" }).getAttribute("href")).toBe("/dashboard");
+        expect(screen.getByRole("link", { name: "Continue to Practice" }).getAttribute("href")).toBe("/practice/dashboard");
     });
 });
