@@ -4,12 +4,19 @@ import { Box, CircularProgress } from "@mui/material";
 import { AuthContext } from "../context/AuthContext";
 import { getWorkspaceHome, getWorkspacePreference } from "../utils/workspacePreference";
 import { surfaceForPath, workspaceForSurface } from "../utils/productRoutes";
+import { configuredSurface } from "../utils/deploymentSurface";
 
 export default function GuestOnlyRoute({ children }) {
     const { user, loading } = useContext(AuthContext);
     const location = useLocation();
 
     if (loading) return <Box sx={{ minHeight: "60vh", display: "grid", placeItems: "center" }}><CircularProgress /></Box>;
+
+    // The common landing deployment must remain reachable even for signed-in
+    // users because it is the only bridge between Practice and Hire domains.
+    if (user && configuredSurface() === "landing" && location.pathname === "/") {
+        return children;
+    }
 
     const requested = location.state?.from;
     const requestedDestination = requested?.pathname
