@@ -21,11 +21,7 @@ export const deploymentSurfaceForPath = (pathname = "") => (
         ? PRODUCT_SURFACES.PRACTICE
         : pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/sso/callback"
             ? PRODUCT_SURFACES.HIRING
-            : surfaceForPath(pathname) || (
-                ["/verify-email", "/forgot-password", "/reset-password"].includes(pathname)
-                    ? PRODUCT_SURFACES.PRACTICE
-                    : "landing"
-            )
+            : surfaceForPath(pathname) || "landing"
 );
 
 export const externalSurfaceUrl = (surface, pathname, env = import.meta?.env || {}) => {
