@@ -4,12 +4,10 @@ import {
     ArrowForwardRounded,
     AutoAwesomeRounded,
     CheckCircleOutlineRounded,
-    ContentCopyRounded,
     SchoolOutlined,
     WorkOutlineRounded,
 } from "@mui/icons-material";
 import {
-    Alert,
     Box,
     Button,
     Chip,
@@ -23,6 +21,7 @@ import {
     Typography,
 } from "@mui/material";
 import api from "../api/axios";
+import HiringOrganizationGate from "../components/HiringOrganizationGate";
 import SiteFooter from "../components/SiteFooter";
 import { AuthContext } from "../context/AuthContext";
 import { OrganizationContext } from "../context/OrganizationContext";
@@ -37,6 +36,11 @@ const CREATE_DRAFT_KEY = "ia:create-interview";
 const selectedFromSearch = (config, search) => {
     const params = new URLSearchParams(search);
     return config.examples.find((example) => example.id === params.get("example")) || config.examples[0];
+};
+
+const hiringActionSearch = (example, role) => {
+    const params = new URLSearchParams({ action: "create", example: example.id, role });
+    return `?${params.toString()}`;
 };
 
 const hiringPayload = (config, example, role) => ({
@@ -80,16 +84,15 @@ export default function ProductResourcePage({ surface }) {
     }, [config, location.search]);
 
     const createHiringDraft = async (example = selected, targetRole = role) => {
+        const actionSearch = hiringActionSearch(example, targetRole);
         if (!user) {
-            const params = new URLSearchParams({ action: "create", example: example.id, role: targetRole });
             navigate("/hire/login", {
-                state: { from: { pathname: location.pathname, search: `?${params.toString()}`, hash: "" } },
+                state: { from: { pathname: location.pathname, search: actionSearch, hash: "" } },
             });
             return;
         }
         if (!activeOrganization) {
-            notify("Create or join a hiring organization first, then return to this template.", "info");
-            navigate("/hire/assessments?create=1");
+            navigate({ pathname: location.pathname, search: actionSearch }, { replace: true });
             return;
         }
         setCreating(true);
@@ -140,6 +143,16 @@ export default function ProductResourcePage({ surface }) {
     if (!config) return <Navigate to={surface === "hiring" ? "/hire" : "/practice"} replace />;
 
     const isHiring = config.surface === "hiring";
+    const pendingHiringCreate = isHiring && new URLSearchParams(location.search).get("action") === "create";
+    if (pendingHiringCreate && user && !organizationLoading && !activeOrganization) {
+        return (
+            <Box>
+                <HiringOrganizationGate><Box /></HiringOrganizationGate>
+                <SiteFooter />
+            </Box>
+        );
+    }
+
     const ProductIcon = isHiring ? WorkOutlineRounded : SchoolOutlined;
     const primaryAction = isHiring ? () => createHiringDraft() : () => startPractice();
     const related = config.related.map((relatedSlug) => resourcePageFor(config.surface, relatedSlug)).filter(Boolean);
