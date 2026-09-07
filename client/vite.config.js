@@ -4,10 +4,8 @@ import process from "node:process";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
-const INDEXABLE_ROUTES = [
+const LANDING_INDEXABLE_ROUTES = [
     "/",
-    "/practice",
-    "/hire",
     "/docs",
     "/docs/technical-hiring/structured-technical-assessments",
     "/docs/technical-hiring/system-design-interviews",
@@ -17,6 +15,18 @@ const INDEXABLE_ROUTES = [
     "/docs/hiring/oidc-sso",
     "/privacy",
     "/terms",
+];
+
+const INDEXABLE_ROUTES_BY_SURFACE = Object.freeze({
+    landing: LANDING_INDEXABLE_ROUTES,
+    practice: ["/practice"],
+    hiring: ["/hire"],
+});
+
+const ALL_INDEXABLE_ROUTES = [
+    ...LANDING_INDEXABLE_ROUTES,
+    "/practice",
+    "/hire",
 ];
 
 const normalizePublicOrigin = (raw) => {
@@ -29,13 +39,13 @@ const normalizePublicOrigin = (raw) => {
     return url.origin;
 };
 
-const seoFilesPlugin = (origin) => ({
+const seoFilesPlugin = (origin, routes) => ({
     name: "evalcue-seo-files",
     async closeBundle() {
         if (!origin) return;
         const outDir = path.resolve(process.cwd(), "dist");
         await mkdir(outDir, { recursive: true });
-        const urls = INDEXABLE_ROUTES.map((route) => `  <url><loc>${origin}${route}</loc></url>`).join("\n");
+        const urls = routes.map((route) => `  <url><loc>${origin}${route}</loc></url>`).join("\n");
         const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
         const robots = [
             "User-agent: *",
@@ -53,6 +63,12 @@ const seoFilesPlugin = (origin) => ({
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "");
     const publicOrigin = normalizePublicOrigin(env.VITE_PUBLIC_ORIGIN);
+    const appSurface = ["landing", "practice", "hiring"].includes(env.VITE_APP_SURFACE)
+        ? env.VITE_APP_SURFACE
+        : null;
+    const indexableRoutes = appSurface
+        ? INDEXABLE_ROUTES_BY_SURFACE[appSurface]
+        : ALL_INDEXABLE_ROUTES;
 
     return {
         test: {
@@ -60,7 +76,7 @@ export default defineConfig(({ mode }) => {
             globals: true,
             exclude: ["e2e/**", "node_modules/**"],
         },
-        plugins: [react(), seoFilesPlugin(publicOrigin)],
+        plugins: [react(), seoFilesPlugin(publicOrigin, indexableRoutes)],
         build: {
             rollupOptions: {
                 output: {

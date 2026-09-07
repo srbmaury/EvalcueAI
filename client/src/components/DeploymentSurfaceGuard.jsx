@@ -3,8 +3,8 @@ import { Navigate, useLocation } from "react-router-dom";
 import { Box, CircularProgress } from "@mui/material";
 import {
     configuredSurface,
+    deploymentRedirectUrl,
     deploymentSurfaceForPath,
-    externalSurfaceUrl,
     surfaceHomePath,
 } from "../utils/deploymentSurface";
 
@@ -12,18 +12,25 @@ export default function DeploymentSurfaceGuard({ children }) {
     const location = useLocation();
     const deployedSurface = configuredSurface();
     const requestedSurface = deploymentSurfaceForPath(location.pathname);
-    const shouldSwitchDomain = Boolean(deployedSurface && requestedSurface && requestedSurface !== deployedSurface);
+    const isSurfaceRoot = location.pathname === "/";
+    const shouldSwitchDomain = Boolean(
+        !isSurfaceRoot && deployedSurface && requestedSurface && requestedSurface !== deployedSurface,
+    );
 
     useEffect(() => {
         if (!shouldSwitchDomain) return;
-        window.location.replace(externalSurfaceUrl(
+        window.location.replace(deploymentRedirectUrl(
+            deployedSurface,
             requestedSurface,
             `${location.pathname}${location.search}${location.hash}`,
         ));
-    }, [location.hash, location.pathname, location.search, requestedSurface, shouldSwitchDomain]);
+    }, [deployedSurface, location.hash, location.pathname, location.search, requestedSurface, shouldSwitchDomain]);
 
     if (!deployedSurface) return children;
-    if (location.pathname === "/") return <Navigate to={surfaceHomePath(deployedSurface)} replace />;
+    if (isSurfaceRoot) {
+        if (deployedSurface === "landing") return children;
+        return <Navigate to={surfaceHomePath(deployedSurface)} replace />;
+    }
     if (!shouldSwitchDomain) return children;
 
     return (

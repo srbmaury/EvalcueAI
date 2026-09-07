@@ -1,6 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 import process from "node:process";
 
+const webServerCommand = process.env.CI
+    ? "npm run preview -- --host 127.0.0.1 --port 4173"
+    : "npm run dev -- --host 127.0.0.1 --port 4173";
+
 export default defineConfig({
     testDir: "./e2e",
     fullyParallel: true,
@@ -21,7 +25,9 @@ export default defineConfig({
         { name: "mobile-chromium", use: { ...devices["Pixel 7"] } },
     ],
     webServer: {
-        command: "npm run dev -- --host 127.0.0.1 --port 4173",
+        // CI already builds immediately before Playwright. Serving that optimized
+        // output avoids dev-server transform contention between parallel browsers.
+        command: webServerCommand,
         url: "http://127.0.0.1:4173",
         reuseExistingServer: !process.env.CI,
         timeout: 120000,

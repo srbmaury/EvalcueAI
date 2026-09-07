@@ -21,14 +21,22 @@ export const deploymentSurfaceForPath = (pathname = "") => (
         ? PRODUCT_SURFACES.PRACTICE
         : pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/sso/callback"
             ? PRODUCT_SURFACES.HIRING
-            : surfaceForPath(pathname) || (
-                ["/verify-email", "/forgot-password", "/reset-password"].includes(pathname)
-                    ? PRODUCT_SURFACES.PRACTICE
-                    : "landing"
-            )
+            : surfaceForPath(pathname) || "landing"
 );
 
 export const externalSurfaceUrl = (surface, pathname, env = import.meta?.env || {}) => {
     const origin = deploymentOrigins(env)[surface];
     return origin ? `${origin}${pathname || surfaceHomePath(surface)}` : (pathname || surfaceHomePath(surface));
+};
+
+export const deploymentRedirectUrl = (deployedSurface, requestedSurface, pathname, env = import.meta?.env || {}) => {
+    if (!deployedSurface || !requestedSurface || deployedSurface === requestedSurface) return null;
+
+    // Product deployments are deliberately isolated. Users return to the common
+    // site before entering the other product; only the common site links to both.
+    if (deployedSurface !== "landing" && requestedSurface !== "landing") {
+        return externalSurfaceUrl("landing", "/", env);
+    }
+
+    return externalSurfaceUrl(requestedSurface, pathname, env);
 };
