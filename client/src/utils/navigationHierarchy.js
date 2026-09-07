@@ -18,6 +18,7 @@ const ROOT_PATHS = new Set([
     "/practice/profile",
     "/practice/pricing",
     "/practice/billing/success",
+    "/hire/billing/success",
     "/admin/feedback",
     "/admin/audit",
     "/hire/team",
