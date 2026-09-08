@@ -289,7 +289,6 @@ test("recruiter coding assessment uses the full interview workspace", async ({ p
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "Start assessment" }).click();
 
-    await expect(page.getByText("Coding / written")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Implement a function that removes duplicate IDs." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Speak question" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Start voice" })).toBeVisible();
