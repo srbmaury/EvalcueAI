@@ -40,7 +40,7 @@ describe("SystemDesignDiscussionPanel", () => {
         expect(countDiscussionWords("   ")).toBe(0);
     });
 
-    it("renders only the design board and speaker conversation", () => {
+    it("renders only the design board and speaker conversation", async () => {
         render(
             <SystemDesignDiscussionPanel
                 {...baseProps}
@@ -52,7 +52,7 @@ describe("SystemDesignDiscussionPanel", () => {
             />,
         );
 
-        expect(screen.getByTestId("system-design-canvas")).toBeTruthy();
+        expect(await screen.findByTestId("system-design-canvas")).toBeTruthy();
         expect(screen.getByText("Design a URL shortening service like Bitly.")).toBeTruthy();
         expect(screen.getByText("I would clarify scale first.")).toBeTruthy();
         expect(screen.getByText("Assume one billion redirects per day.")).toBeTruthy();
