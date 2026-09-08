@@ -112,26 +112,32 @@ export const useOAForm = ({
         try {
             clearTimeout(autosaveTimerRef.current);
             setOaSubmitting(true);
+            setOaFeedbackProgress(8);
             trackEvent("first_answer_submitted");
             const outgoing = Array.from({ length: selectedRound.questions.length }, (_, i) => (answersToSubmit?.[i] ?? "").toString());
             await api.post(`/questions/${selectedRound._id}/answers`, { answers: outgoing });
             lastServerSnapshotRef.current = JSON.stringify(outgoing);
 
-            // Feedback may generate in the background, but it must not block the
-            // interview or coach the candidate before later rounds.
+            let feedbackJobId = null;
             try {
                 const answered = (selectedRound.questions || [])
                     .map((q, i) => ({ index: i, questionId: q.question?._id, answer: (outgoing[i] || "").toString().trim() }))
                     .filter((it) => it.questionId && it.answer.length > 0);
                 if (answered.length > 0) {
                     const { data: job } = await api.post(`/jobs/bulk-feedback`, { roundId: selectedRound._id, items: answered, attach: true });
-                    if (job?.jobId) pollJobStatus("bulk-feedback", job.jobId, setOaFeedbackProgress).catch(() => {});
+                    if (job?.jobId) feedbackJobId = job.jobId;
                 }
             } catch (e) {
                 console.error("bulk feedback enqueue error", e);
             }
 
             await api.post(`/questions/${selectedRound._id}/complete`);
+            if (feedbackJobId) {
+                const result = await pollJobStatus("bulk-feedback", feedbackJobId, setOaFeedbackProgress, 60000).catch(() => "timeout");
+                if (result !== "completed") {
+                    showToast("warning", "Round saved. Feedback is still being prepared; reopen this round in a moment if it is not visible yet.", true);
+                }
+            }
             const { data } = await api.get(`/interviews/${interviewId}`);
             setInterview(data);
             const index = data.rounds.findIndex((r) => r.round._id === selectedRound._id);
