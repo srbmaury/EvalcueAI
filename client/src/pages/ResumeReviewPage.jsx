@@ -15,7 +15,6 @@ import {
     DialogTitle,
     Divider,
     Grid,
-    IconButton,
     LinearProgress,
     FormControlLabel,
     Link,
@@ -29,6 +28,7 @@ import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import DownloadIcon from "@mui/icons-material/Download";
 import JobPostImporter from "../components/JobPostImporter";
 import { useNotify } from "../context/NotificationContext";
+import { resumeFileError } from "../utils/resumeFileValidation";
 
 export default function ResumeReviewPage() {
     const location = useLocation();
@@ -58,6 +58,12 @@ export default function ResumeReviewPage() {
     const handleUpload = async (e) => {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
+        const validationError = resumeFileError(file);
+        if (validationError) {
+            notify(validationError, "error");
+            e.target.value = "";
+            return;
+        }
         try {
             setUploading(true);
             const newResume = await uploadResume(file);
@@ -70,6 +76,7 @@ export default function ResumeReviewPage() {
             notify("The resume could not be uploaded. Check the PDF and try again.", "error");
         } finally {
             setUploading(false);
+            e.target.value = "";
         }
     };
 
@@ -120,45 +127,31 @@ export default function ResumeReviewPage() {
                         {resumes.map((r) => (
                             <MenuItem key={r._id} value={r._id}>
                                 {r.fileName || "Untitled Resume"} — {new Date(r.createdAt).toLocaleDateString()}
-                                <IconButton
-                                    aria-label={`Download ${r.fileName || "resume"}`}
-                                    color="primary"
-                                    size="small"
-                                    component="a"
-                                    href={r.fileUrl}
-                                    download
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                    sx={{ ml: 1 }}
-                                >
-                                    <DownloadIcon />
-                                </IconButton>
-                                {r.fileType === "application/pdf" && (
-                                    <IconButton
-                                        aria-label={`Preview ${r.fileName || "resume"}`}
-                                        color="primary"
-                                        size="small"
-                                        onMouseDown={(e) => e.stopPropagation()}
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            handlePreviewResume(r);
-                                        }}
-                                        sx={{ ml: 0.5 }}
-                                    >
-                                        <PictureAsPdfIcon />
-                                    </IconButton>
-                                )}
                             </MenuItem>
                         ))}
                     </TextField>
                 )}
+                {selected && <Paper variant="outlined" sx={{ p: 2, bgcolor: "action.hover" }}>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: "center" }}>
+                        <Box minWidth={0}>
+                            <Typography variant="overline" color="text.secondary" fontWeight={800}>Selected resume</Typography>
+                            <Typography fontWeight={800} sx={{ overflowWrap: "anywhere" }}>{selected.fileName || "Untitled resume"}</Typography>
+                            <Typography variant="body2" color="text.secondary">Uploaded {new Date(selected.createdAt).toLocaleDateString()}</Typography>
+                        </Box>
+                        <Stack direction="row" spacing={1} flexWrap="wrap">
+                            {selected.fileType === "application/pdf" && <Button size="small" variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={() => handlePreviewResume(selected)}>Preview</Button>}
+                            <Button size="small" variant="outlined" startIcon={<DownloadIcon />} component="a" href={selected.fileUrl} download>Download</Button>
+                        </Stack>
+                    </Stack>
+                </Paper>}
                 <FormControlLabel
                     sx={{ alignItems: "flex-start", m: 0 }}
                     control={<Checkbox checked={uploadConsent} onChange={(event) => setUploadConsent(event.target.checked)} size="small" />}
-                    label={<Typography variant="body2" color="text.secondary">I understand my resume is stored and processed to provide AI feedback. See the <Link href="/privacy">privacy notice</Link>.</Typography>}
+                    label={<Typography variant="body2" color="text.secondary">I understand my resume is stored and processed to provide AI feedback. See the <Link component={RouterLink} to="/privacy">privacy notice</Link>.</Typography>}
                 />
                 <Button fullWidth variant="outlined" component="label" disabled={uploading || !uploadConsent}>
                     {uploading ? "Uploading…" : "Upload resume PDF"}
-                    <input type="file" hidden accept="application/pdf" onChange={handleUpload} />
+                    <input type="file" hidden accept="application/pdf,.pdf" onChange={handleUpload} />
                 </Button>
 
                 <JobPostImporter onImport={({ jobRole, jobDescription: importedDescription }) => { setRole(jobRole); setJobDescription(importedDescription); }} />
@@ -177,7 +170,6 @@ export default function ResumeReviewPage() {
                 {loadingReview && <LinearProgress />}
             </Stack>
 
-            {/* Analysis section below inputs */}
             {!review ? (
                 <Box sx={{ p: 2, color: "text.secondary" }}>
                     <Typography variant="subtitle1">Your AI review will appear here</Typography>
@@ -238,9 +230,6 @@ export default function ResumeReviewPage() {
                 </Box>
             )}
 
-            {null}
-
-            {/* PDF preview dialog */}
             <Dialog
                 open={previewOpen}
                 onClose={() => setPreviewOpen(false)}
