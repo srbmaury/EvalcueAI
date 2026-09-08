@@ -1,13 +1,11 @@
 import { useContext, useEffect, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 
-// API / Context
 import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
 import { useResumes } from "../hooks/useResumes";
 import { trackEvent } from "../utils/analytics";
 
-// UI Components
 import Alert from "@mui/material/Alert";
 import {
     Box,
@@ -35,21 +33,16 @@ import {
     Typography,
 } from "@mui/material";
 
-// Icons
 import DeleteIcon from "@mui/icons-material/Delete";
 import DownloadIcon from "@mui/icons-material/Download";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 
-// Local components
 import RoundSelector from "../components/RoundSelector";
 import { getDefaultQuestionLimit } from "../utils/roundDefaults";
-import { storage } from "../utils/interviewStorage";
+import { clearPracticeCreateDraft, readPracticeCreateDraft, writePracticeCreateDraft } from "../utils/practiceCreateDraft";
 import { useNotify } from "../context/NotificationContext";
 import JobPostImporter from "../components/JobPostImporter";
-
-const CREATE_DRAFT_KEY = "ia:create-interview";
-const savedCreateDraft = storage.get(CREATE_DRAFT_KEY) || {};
 
 const INTERVIEW_PRESETS = [
     { name: "Frontend", company: "", jobRole: "Frontend Engineer", jobDescription: "Build accessible, performant web applications with React, JavaScript, testing, API integration, and modern frontend architecture." },
@@ -62,8 +55,9 @@ const CreateInterviewPage = () => {
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
     const notify = useNotify();
+    const [initialDraft] = useState(() => readPracticeCreateDraft());
 
-    const [formData, setFormData] = useState(savedCreateDraft.formData || {
+    const [formData, setFormData] = useState(initialDraft.formData || {
         company: "",
         jobRole: "",
         jobDescription: "",
@@ -79,20 +73,19 @@ const CreateInterviewPage = () => {
     const [uploading, setUploading] = useState(false);
     const [uploadConsent, setUploadConsent] = useState(false);
 
-    const [suggestedRounds, setSuggestedRounds] = useState(savedCreateDraft.suggestedRounds || []);
-    const [grounding, setGrounding] = useState(savedCreateDraft.grounding || null);
-    const [selectedRounds, setSelectedRounds] = useState(savedCreateDraft.selectedRounds || []);
+    const [suggestedRounds, setSuggestedRounds] = useState(initialDraft.suggestedRounds || []);
+    const [grounding, setGrounding] = useState(initialDraft.grounding || null);
+    const [selectedRounds, setSelectedRounds] = useState(initialDraft.selectedRounds || []);
     const [loadingRounds, setLoadingRounds] = useState(false);
     const [previewOpen, setPreviewOpen] = useState(false);
     const [previewUrl, setPreviewUrl] = useState("");
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
-    const [activeStep, setActiveStep] = useState(savedCreateDraft.activeStep || 0);
+    const [activeStep, setActiveStep] = useState(initialDraft.activeStep || 0);
 
     useEffect(() => {
-        storage.set(CREATE_DRAFT_KEY, { formData, suggestedRounds, grounding, selectedRounds, activeStep });
+        writePracticeCreateDraft({ formData, suggestedRounds, grounding, selectedRounds, activeStep });
     }, [formData, suggestedRounds, grounding, selectedRounds, activeStep]);
 
-    // Fetch resumes on mount
     useEffect(() => {
         const fetchResumes = async () => {
             const res = await getResumes();
@@ -190,28 +183,19 @@ const CreateInterviewPage = () => {
             const exists = prev.some((r) => r.roundName === round.roundName);
             if (exists) {
                 return prev.filter((r) => r.roundName !== round.roundName);
-            } else {
-                const deliveryMode = round.deliveryMode || "conversational";
-                return [...prev, { ...round, deliveryMode, questionLimit: getDefaultQuestionLimit({ ...round, deliveryMode }) }];
             }
+            const deliveryMode = round.deliveryMode || "conversational";
+            return [...prev, { ...round, deliveryMode, questionLimit: getDefaultQuestionLimit({ ...round, deliveryMode }) }];
         });
     };
 
     const handleChangeMode = (roundName, mode) => {
-        setSelectedRounds((prev) =>
-            prev.map((r) =>
-                r.roundName === roundName ? { ...r, deliveryMode: mode } : r
-            )
-        );
+        setSelectedRounds((prev) => prev.map((r) => r.roundName === roundName ? { ...r, deliveryMode: mode } : r));
     };
 
     const handleChangeCount = (roundName, num) => {
         const safe = Math.min(Math.max(Number(num) || 4, 1), 20);
-        setSelectedRounds((prev) =>
-            prev.map((r) =>
-                r.roundName === roundName ? { ...r, questionLimit: safe } : r
-            )
-        );
+        setSelectedRounds((prev) => prev.map((r) => r.roundName === roundName ? { ...r, questionLimit: safe } : r));
     };
 
     const handleSubmit = async (e) => {
@@ -222,13 +206,12 @@ const CreateInterviewPage = () => {
         }
 
         try {
-            // Bulk create interview with raw rounds
             const { data } = await api.post(`/interviews`, {
                 ...formData,
                 rounds: selectedRounds,
             });
             if (data && data._id) {
-                storage.remove(CREATE_DRAFT_KEY);
+                clearPracticeCreateDraft();
                 trackEvent("interview_created");
                 notify("Interview created.", "success");
                 navigate(`/practice/interviews/${data._id}`);
@@ -237,13 +220,13 @@ const CreateInterviewPage = () => {
             }
         } catch (error) {
             console.log("error", error);
-            notify("Interview could not be created.", "error");
+            if (error?.response?.data?.code !== "PRACTICE_LIMIT_REACHED") {
+                notify(error?.response?.data?.message || "Interview could not be created.", "error");
+            }
         }
     };
 
-    const isFormValid =
-        formData.jobRole &&
-        formData.jobDescription;
+    const isFormValid = formData.jobRole && formData.jobDescription;
 
     return (
         <Paper elevation={0} variant="outlined" sx={{ p: { xs: 2.5, sm: 4.5 }, maxWidth: 920, mx: "auto", my: { xs: 3, md: 6 }, borderRadius: 4 }}>
@@ -296,27 +279,13 @@ const CreateInterviewPage = () => {
                     <Divider sx={{ my: 2.5 }} />
 
                     <FormControl>
-                        <Typography component="h2" variant="h6" fontWeight={750}>
-                            Resume context
-                        </Typography>
+                        <Typography component="h2" variant="h6" fontWeight={750}>Resume context</Typography>
                         <Typography variant="body2" color="text.secondary" mb={1}>Optional: add the resume you’ll submit for experience-specific questions, or continue with role-only practice.</Typography>
 
-                        {/* Upload New Resume */}
                         <Box sx={{ my: 1 }}>
-                            <Button
-                                variant="outlined"
-                                component="label"
-                                disabled={uploading || !uploadConsent}
-                            >
-                                {uploading
-                                    ? "Uploading..."
-                                    : "Upload Resume (PDF)"}
-                                <input
-                                    type="file"
-                                    hidden
-                                    accept="application/pdf"
-                                    onChange={handleUpload}
-                                />
+                            <Button variant="outlined" component="label" disabled={uploading || !uploadConsent}>
+                                {uploading ? "Uploading..." : "Upload Resume (PDF)"}
+                                <input type="file" hidden accept="application/pdf" onChange={handleUpload} />
                             </Button>
                             <FormControlLabel
                                 sx={{ display: "flex", mt: 1, alignItems: "flex-start" }}
@@ -325,26 +294,17 @@ const CreateInterviewPage = () => {
                             />
                         </Box>
 
-                        {/* Or Choose Existing */}
                         {resumes.length > 0 && (
                             <TextField
                                 select
                                 label="Choose an existing resume"
                                 value={formData.resumeId}
-                                onChange={(e) =>
-                                    setFormData({
-                                        ...formData,
-                                        resumeId: e.target.value,
-                                    })
-                                }
+                                onChange={(e) => setFormData({ ...formData, resumeId: e.target.value })}
                             >
                                 <MenuItem value="">Continue without a resume</MenuItem>
                                 {resumes.map((r) => (
                                     <MenuItem key={r._id} value={r._id}>
-                                        {r.fileName || "Untitled Resume"} —{" "}
-                                        {new Date(
-                                            r.createdAt
-                                        ).toLocaleDateString()}
+                                        {r.fileName || "Untitled Resume"} — {new Date(r.createdAt).toLocaleDateString()}
                                     </MenuItem>
                                 ))}
                             </TextField>
@@ -365,28 +325,16 @@ const CreateInterviewPage = () => {
 
                     <Divider sx={{ my: 2 }} />
 
-                    {/* Suggest rounds */}
                     <Tooltip title={!isFormValid ? "Fill in the role and job description first" : "AI will suggest interview rounds based on your details"}>
                         <span>
-                            <Button
-                                variant="outlined"
-                                onClick={handleSuggestRounds}
-                                disabled={!isFormValid || loadingRounds}
-                                fullWidth
-                                size="large"
-                            >
-                                {loadingRounds ? (
-                                    <CircularProgress size={20} />
-                                ) : (
-                                    "Build my interview plan"
-                                )}
+                            <Button variant="outlined" onClick={handleSuggestRounds} disabled={!isFormValid || loadingRounds} fullWidth size="large">
+                                {loadingRounds ? <CircularProgress size={20} /> : "Build my interview plan"}
                             </Button>
                         </span>
                     </Tooltip>
                     </Stack>
                     </Box>
 
-                    {/* Show suggested rounds */}
                     {activeStep === 1 && <>
                     <Typography component="h2" variant="h6" fontWeight={750}>Choose the rounds you want to practice</Typography>
                     {grounding && (
@@ -411,7 +359,6 @@ const CreateInterviewPage = () => {
                 </Stack>
             </form>
 
-            {/* PDF preview dialog */}
             <Dialog
                 open={previewOpen}
                 onClose={() => setPreviewOpen(false)}
