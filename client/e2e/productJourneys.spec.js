@@ -75,6 +75,56 @@ test("login returns the user to the protected screen they requested", async ({ p
     await expect(page.getByRole("heading", { name: "Choose your Practice plan" })).toBeVisible();
 });
 
+test("protected Practice and Hire URLs use their product-specific sign-in pages", async ({ page }) => {
+    await mockSignedOut(page);
+
+    await page.goto("/practice/new");
+    await expect(page).toHaveURL(/\/practice\/login$/);
+    await expect(page.getByRole("heading", { name: "Sign in to Evalcue AI" })).toBeVisible();
+
+    await page.goto("/hire/assessments");
+    await expect(page).toHaveURL(/\/hire\/login$/);
+    await expect(page.getByRole("heading", { name: "Sign in to Evalcue AI" })).toBeVisible();
+});
+
+test("a signed-in hiring user can create their first organization", async ({ page }) => {
+    const user = { _id: "user-new", name: "New Recruiter", email: "new@example.com", role: "user", practicePlan: "free" };
+    let organizations = [];
+    let submittedName;
+    await page.route("**/api/auth/refresh", (route) => json(route, { token: "test-access-token" }));
+    await page.route("**/api/auth/profile", (route) => json(route, user));
+    await page.route("**/api/organizations", async (route) => {
+        if (route.request().method() === "POST") {
+            submittedName = (await route.request().postDataJSON()).name;
+            const organization = { _id: "org-new", name: submittedName, role: "owner", memberCount: 1 };
+            organizations = [organization];
+            return json(route, { organization }, 201);
+        }
+        return json(route, { organizations });
+    });
+    await page.route("**/api/billing/hiring/entitlements", (route) => json(route, {
+        product: "hiring",
+        organization: { _id: "org-new", name: "Newco Engineering" },
+        plan: "trial",
+        limits: { candidateInterviews: 5 },
+        used: { candidateInterviews: 0 },
+        planLimits: {},
+        prices: {},
+        billingAvailable: {},
+        canManageBilling: true,
+    }));
+    await page.route("**/api/assessments/overview**", (route) => json(route, { summary: {}, assessments: [], candidates: [], totalPages: 1 }));
+    await page.route("**/api/assessments?**", (route) => json(route, { items: [], totalPages: 1 }));
+
+    await page.goto("/hire/assessments");
+    await expect(page.getByRole("heading", { name: "Create or join a hiring organization" })).toBeVisible();
+    await page.getByLabel("Organization name").fill("Newco Engineering");
+    await page.getByRole("button", { name: "Create organization" }).click();
+
+    await expect.poll(() => submittedName).toBe("Newco Engineering");
+    await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+});
+
 test("Practice and Hire stay separate while profile keeps advanced settings collapsed", async ({ page }) => {
     await mockSignedIn(page);
     await page.route("**/api/assessments/overview**", (route) => json(route, { summary: {}, assessments: [], candidates: [], totalPages: 1 }));
@@ -148,6 +198,37 @@ test("practice sub-features remain reachable after navigation cleanup", async ({
 
     await page.goto("/practice/company-insights");
     await expect(page.getByRole("link", { name: "Saved insights" })).toHaveAttribute("href", "/practice/saved-experiences");
+});
+
+test("candidate can build a role-based interview plan and start it", async ({ page }) => {
+    await mockSignedIn(page, { _id: "candidate-1", name: "Demo Candidate", email: "candidate@example.com", role: "user", practicePlan: "free" });
+    let createdInterview;
+    await page.route("**/api/resumes**", (route) => json(route, []));
+    await page.route("**/api/rounds/suggest", async (route) => json(route, {
+        rounds: [{ roundName: "Technical depth", description: "Test practical backend judgment.", recommended: true, deliveryMode: "conversational", questionLimit: 4 }],
+        grounding: { status: "simulation", sourceCount: 0 },
+    }));
+    await page.route("**/api/interviews", async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        createdInterview = await route.request().postDataJSON();
+        return json(route, { _id: "interview-new", ...createdInterview }, 201);
+    });
+    await page.route("**/api/interviews/interview-new**", (route) => json(route, { _id: "interview-new", jobRole: "Backend Engineer", rounds: [] }));
+
+    await page.goto("/practice/new");
+    await expect(page.getByRole("heading", { name: "Build your interview plan" })).toBeVisible();
+    await page.getByRole("button", { name: "Backend" }).click();
+    await expect(page.getByLabel("Job role")).toHaveValue("Backend Engineer");
+    await page.getByRole("button", { name: "Build my interview plan" }).click();
+
+    await expect(page.getByRole("heading", { name: "Choose the rounds you want to practice" })).toBeVisible();
+    await expect(page.getByText("Technical depth")).toBeVisible();
+    await page.getByRole("button", { name: "Start interview" }).click();
+
+    await expect.poll(() => createdInterview?.jobRole).toBe("Backend Engineer");
+    expect(createdInterview.rounds).toHaveLength(1);
+    expect(createdInterview.rounds[0]).toMatchObject({ roundName: "Technical depth", deliveryMode: "conversational", questionLimit: 4 });
+    await expect(page).toHaveURL(/\/practice\/interviews\/interview-new$/);
 });
 
 test("recruiter can review and filter the cross-interview candidate pipeline", async ({ page }) => {

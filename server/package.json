@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run src/test/unit",
     "test:e2e": "vitest run src/test/e2e --reporter=verbose",
     "test:launch": "vitest run src/test/e2e/happyFlows.test.js src/test/e2e/progressAnalytics.test.js --reporter=verbose",
@@ -55,6 +56,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.10",
     "mongodb-memory-server": "^10.1.4",
     "nodemon": "^3.1.10",
     "supertest": "^7.0.0",

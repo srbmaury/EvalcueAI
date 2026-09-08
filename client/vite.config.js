@@ -82,14 +82,13 @@ export default defineConfig(({ mode }) => {
         },
         plugins: [react(), seoFilesPlugin(publicOrigin, indexableRoutes)],
         build: {
+            manifest: true,
             rollupOptions: {
                 output: {
                     manualChunks(id) {
-                        // Keep genuinely heavy, route-specific feature libraries isolated so
-                        // they are only requested when the corresponding interview feature loads.
-                        if (id.includes("monaco-editor") || id.includes("react-monaco-editor")) return "monaco";
-                        if (id.includes("@excalidraw/excalidraw")) return "excalidraw";
-                        if (id.includes("@mediapipe/tasks-vision")) return "vision";
+                        // Heavy interview libraries are already behind lazy routes/components.
+                        // Forcing them into named chunks can pull shared entry dependencies into
+                        // those chunks and make unrelated pages preload the heavy libraries.
                         if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) return "react";
 
                         // Do not force all MUI/Emotion modules into one global chunk. Rollup can

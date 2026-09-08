@@ -7,6 +7,7 @@ const webServerCommand = process.env.CI
 
 export default defineConfig({
     testDir: "./e2e",
+    testIgnore: "**/productionSmoke.spec.js",
     fullyParallel: true,
     forbidOnly: Boolean(process.env.CI),
     retries: process.env.CI ? 2 : 0,
