@@ -77,11 +77,9 @@ test("login returns the user to the protected screen they requested", async ({ p
 
 test("protected Practice and Hire URLs use their product-specific sign-in pages", async ({ page }) => {
     await mockSignedOut(page);
-
     await page.goto("/practice/new");
     await expect(page).toHaveURL(/\/practice\/login$/);
     await expect(page.getByRole("heading", { name: "Sign in to Evalcue AI" })).toBeVisible();
-
     await page.goto("/hire/assessments");
     await expect(page).toHaveURL(/\/hire\/login$/);
     await expect(page.getByRole("heading", { name: "Sign in to Evalcue AI" })).toBeVisible();
@@ -103,24 +101,15 @@ test("a signed-in hiring user can create their first organization", async ({ pag
         return json(route, { organizations });
     });
     await page.route("**/api/billing/hiring/entitlements", (route) => json(route, {
-        product: "hiring",
-        organization: { _id: "org-new", name: "Newco Engineering" },
-        plan: "trial",
-        limits: { candidateInterviews: 5 },
-        used: { candidateInterviews: 0 },
-        planLimits: {},
-        prices: {},
-        billingAvailable: {},
-        canManageBilling: true,
+        product: "hiring", organization: { _id: "org-new", name: "Newco Engineering" }, plan: "trial",
+        limits: { candidateInterviews: 5 }, used: { candidateInterviews: 0 }, planLimits: {}, prices: {}, billingAvailable: {}, canManageBilling: true,
     }));
     await page.route("**/api/assessments/overview**", (route) => json(route, { summary: {}, assessments: [], candidates: [], totalPages: 1 }));
     await page.route("**/api/assessments?**", (route) => json(route, { items: [], totalPages: 1 }));
-
     await page.goto("/hire/assessments");
     await expect(page.getByRole("heading", { name: "Create or join a hiring organization" })).toBeVisible();
     await page.getByLabel("Organization name").fill("Newco Engineering");
     await page.getByRole("button", { name: "Create organization" }).click();
-
     await expect.poll(() => submittedName).toBe("Newco Engineering");
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 });
@@ -129,7 +118,6 @@ test("Practice and Hire stay separate while profile keeps advanced settings coll
     await mockSignedIn(page);
     await page.route("**/api/assessments/overview**", (route) => json(route, { summary: {}, assessments: [], candidates: [], totalPages: 1 }));
     await page.route("**/api/assessments?**", (route) => json(route, { items: [], totalPages: 1 }));
-
     await page.goto("/practice/profile");
     await expect(page).toHaveURL(/\/practice\/profile$/);
     await expect(page.getByRole("heading", { name: "Profile & settings" })).toBeVisible();
@@ -139,7 +127,6 @@ test("Practice and Hire stay separate while profile keeps advanced settings coll
     await expect(page.getByLabel("Primary goal")).not.toBeVisible();
     await page.getByRole("button", { name: /Practice preferences/ }).click();
     await expect(page.getByLabel("Primary goal")).toBeVisible();
-
     if ((page.viewportSize()?.width || 0) >= 900) {
         await expect(page.getByRole("button", { name: "Resume review" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Progress" })).toBeVisible();
@@ -153,7 +140,6 @@ test("Practice and Hire stay separate while profile keeps advanced settings coll
     }
     await expect(page).toHaveURL(/\/hire\/assessments$/);
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-
     if ((page.viewportSize()?.width || 0) >= 900) {
         await page.getByRole("button", { name: "Candidates", exact: true }).click();
     } else {
@@ -164,7 +150,6 @@ test("Practice and Hire stay separate while profile keeps advanced settings coll
     await expect(page.getByRole("heading", { name: "Candidate pipeline" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Overview" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Assessments" })).toHaveCount(0);
-
     if ((page.viewportSize()?.width || 0) >= 900) {
         await page.getByRole("button", { name: "Assessments", exact: true }).click();
     } else {
@@ -174,7 +159,6 @@ test("Practice and Hire stay separate while profile keeps advanced settings coll
     await expect(page).toHaveURL(/\/hire\/assessments#assessment-list$/);
     await expect(page.getByRole("heading", { name: "Assessments" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Candidate pipeline" })).toHaveCount(0);
-
     if ((page.viewportSize()?.width || 0) >= 900) {
         await page.getByRole("button", { name: "New assessment" }).click();
     } else {
@@ -190,12 +174,10 @@ test("practice sub-features remain reachable after navigation cleanup", async ({
     await mockSignedIn(page);
     await page.route("**/api/resumes**", (route) => json(route, []));
     await page.route("**/api/experiences/saved**", (route) => json(route, { items: [], totalPages: 1 }));
-
     await page.goto("/practice/resume-review");
     await expect(page.getByRole("link", { name: "Resume library" })).toHaveAttribute("href", "/practice/resumes");
     await expect(page.getByRole("link", { name: "Past reviews" })).toHaveAttribute("href", "/practice/resume-reviews");
     await expect(page.getByRole("link", { name: "Find best match" })).toHaveAttribute("href", "/practice/resume-match");
-
     await page.goto("/practice/company-insights");
     await expect(page.getByRole("link", { name: "Saved insights" })).toHaveAttribute("href", "/practice/saved-experiences");
 });
@@ -214,17 +196,14 @@ test("candidate can build a role-based interview plan and start it", async ({ pa
         return json(route, { _id: "interview-new", ...createdInterview }, 201);
     });
     await page.route("**/api/interviews/interview-new**", (route) => json(route, { _id: "interview-new", jobRole: "Backend Engineer", rounds: [] }));
-
     await page.goto("/practice/new");
     await expect(page.getByRole("heading", { name: "Build your interview plan" })).toBeVisible();
     await page.getByRole("button", { name: "Backend" }).click();
     await expect(page.getByLabel("Job role")).toHaveValue("Backend Engineer");
     await page.getByRole("button", { name: "Build my interview plan" }).click();
-
     await expect(page.getByRole("heading", { name: "Choose the rounds you want to practice" })).toBeVisible();
     await expect(page.getByText("Technical depth")).toBeVisible();
-    await page.getByRole("button", { name: "Start interview" }).click();
-
+    await page.getByRole("button", { name: "Create interview" }).click();
     await expect.poll(() => createdInterview?.jobRole).toBe("Backend Engineer");
     expect(createdInterview.rounds).toHaveLength(1);
     expect(createdInterview.rounds[0]).toMatchObject({ roundName: "Technical depth", deliveryMode: "conversational", questionLimit: 4 });
@@ -240,7 +219,6 @@ test("recruiter can review and filter the cross-interview candidate pipeline", a
         totalPages: 1,
     }));
     await page.route("**/api/assessments?**", (route) => json(route, { items: [{ _id: "assessment-1", title: "Backend screen", status: "active", jobRole: "Backend Engineer", organizationName: "Acme", shareToken: "share-1", attemptCount: 2, submittedCount: 1 }], totalPages: 1 }));
-
     await page.goto("/hire/assessments");
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
     await expect(page.getByText("Asha Candidate")).toBeVisible();
@@ -261,29 +239,24 @@ test("recruiter can publish a hybrid assessment through the guided flow", async 
         published = await route.request().postDataJSON();
         return json(route, { _id: "assessment-hybrid", shareToken: "share-hybrid", ...published }, 201);
     });
-
     await page.goto("/hire/assessments?create=1");
     await expect(page.getByText("Step 1 of 4")).toBeVisible();
     await page.getByRole("textbox", { name: "Job role" }).fill("Senior Software Engineer");
     await page.getByLabel("Assessment name").fill("Hybrid engineering assessment");
     await page.getByLabel("Job description and success criteria").fill("Evaluate communication, production coding, system design, scalability, reliability, testing, and security judgment.");
     await page.getByRole("button", { name: "Continue" }).click();
-
     await expect(page.getByText("Step 2 of 4")).toBeVisible();
     await page.getByLabel("Maximum primary questions").first().fill("1");
     await page.getByRole("button", { name: "Add another round" }).click();
     await page.getByRole("button", { name: "Add another round" }).click();
-
     await page.getByLabel("Format").nth(1).click();
     await page.getByRole("option", { name: "Coding / written assessment" }).click();
     await page.getByLabel("Round name").nth(1).fill("Coding exercise");
     await page.getByLabel("Question count").first().fill("1");
-
     await page.getByLabel("Format").nth(2).click();
     await page.getByRole("option", { name: "System design" }).click();
     await page.getByLabel("Round name").nth(2).fill("System design");
     await page.getByRole("button", { name: "Continue" }).click();
-
     await expect(page.getByText("Step 3 of 4")).toBeVisible();
     await page.getByRole("button", { name: "Add question" }).nth(0).click();
     await page.getByRole("textbox", { name: "Question 1", exact: true }).nth(0).fill("Describe a production incident you led and what changed afterward.");
@@ -292,7 +265,6 @@ test("recruiter can publish a hybrid assessment through the guided flow", async 
     await page.getByRole("button", { name: "Add question" }).nth(2).click();
     await page.getByRole("textbox", { name: "Question 1", exact: true }).nth(2).fill("Design a resilient global notification service.");
     await page.getByRole("button", { name: "Continue" }).click();
-
     await expect(page.getByText("Step 4 of 4")).toBeVisible();
     await page.getByRole("button", { name: "Publish assessment" }).click();
     await expect.poll(() => published?.rounds?.map((round) => round.deliveryMode)).toEqual(["conversational", "online-assessment", "system-design"]);
@@ -308,12 +280,10 @@ test("reviewer can inspect Hiring but cannot create assessments", async ({ page 
         currentRole: "reviewer",
         members: [{ _id: "membership-1", role: "reviewer", joinedAt: "2026-09-03T00:00:00Z", user: { _id: "user-1", name: "Recruiter One", email: "recruiter@example.com" } }],
     }));
-
     await page.goto("/hire/assessments");
     await expect(page.getByRole("heading", { name: "Candidate pipeline" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Overview" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "New assessment" })).toHaveCount(0);
-
     if ((page.viewportSize()?.width || 0) >= 900) {
         await expect(page.getByRole("button", { name: "Team & billing" })).toHaveCount(0);
     } else {
@@ -337,7 +307,6 @@ test("candidate completes an assessment without seeing private feedback", async 
         return json(route, { attempt: { ...attempt, rounds: [{ ...attempt.rounds[0], questions: [{ ...attempt.rounds[0].questions[0], answer: body.answer }] }] } });
     });
     await page.route("**/api/assessments/public/share-1/attempts/attempt-1/submit", (route) => json(route, { received: true }));
-
     await page.goto("/assessment/share-1");
     await expect(page.getByRole("heading", { name: "Before you begin" })).toBeVisible();
     await expect(page.getByText(/score|private feedback/i)).toHaveCount(0);
@@ -350,7 +319,8 @@ test("candidate completes an assessment without seeing private feedback", async 
     await page.getByRole("button", { name: "I’m done" }).click();
     await expect(page.getByRole("heading", { name: "Thanks — that wraps up Technical." })).toBeVisible();
     await page.getByRole("button", { name: "Review and submit" }).click();
-    await expect(page.getByRole("heading", { name: "Interview complete" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ready to submit?" })).toBeVisible();
+    await expect(page.getByText(/won’t be able to change/i)).toBeVisible();
     await page.getByRole("button", { name: "Submit assessment" }).click();
     await expect(page.getByRole("heading", { name: "Assessment submitted" })).toBeVisible();
     await expect(page.getByText(/score|feedback/i)).toHaveCount(0);
@@ -362,13 +332,11 @@ test("recruiter coding assessment uses the full interview workspace", async ({ p
     const attempt = { _id: "attempt-code", rounds: [{ _id: "round-code", name: "Coding", description: "Implementation and communication", deliveryMode: "online-assessment", questions: [{ _id: "question-code", text: "Implement a function that removes duplicate IDs.", answer: "" }] }] };
     await page.route("**/api/assessments/public/share-code", (route) => json(route, assessment));
     await page.route("**/api/assessments/public/share-code/start", (route) => json(route, { attempt, attemptToken: "attempt-code-secret" }, 201));
-
     await page.goto("/assessment/share-code");
     await page.getByLabel("Full name").fill("Dev Candidate");
     await page.getByLabel("Email address").fill("dev@example.com");
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "Start assessment" }).click();
-
     await expect(page.getByRole("heading", { name: "Implement a function that removes duplicate IDs." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Speak question" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Start voice" })).toBeVisible();
@@ -395,13 +363,11 @@ test("candidate stays focused on the active round instead of seeing the full int
     await page.route("**/api/assessments/public/share-hybrid/start", (route) => json(route, {
         attempt: { _id: "attempt-hybrid", rounds }, attemptToken: "attempt-hybrid-secret",
     }, 201));
-
     await page.goto("/assessment/share-hybrid");
     await page.getByLabel("Full name").fill("Hybrid Candidate");
     await page.getByLabel("Email address").fill("hybrid@example.com");
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "Start assessment" }).click();
-
     await expect(page.getByRole("heading", { name: "Describe an incident you led." })).toBeVisible();
     await expect(page.getByText("Conversational", { exact: true })).toBeVisible();
     await expect(page.getByText("Coding exercise", { exact: true })).toHaveCount(0);
@@ -419,7 +385,6 @@ test("candidate stays on the question when saving fails", async ({ page }) => {
     await page.route("**/api/assessments/public/share-failure", (route) => json(route, assessment));
     await page.route("**/api/assessments/public/share-failure/start", (route) => json(route, { attempt, attemptToken: "attempt-failure-secret" }, 201));
     await page.route("**/api/assessments/public/share-failure/attempts/attempt-failure/answer", (route) => json(route, { message: "Temporary save failure" }, 503));
-
     await page.goto("/assessment/share-failure");
     await page.getByLabel("Full name").fill("Resilient Candidate");
     await page.getByLabel("Email address").fill("resilient@example.com");
@@ -448,7 +413,6 @@ test("supporting authenticated screens render without overflow", async ({ page }
     await page.route("**/api/admin/overview**", (route) => json(route, { users: 0, activeSubscriptions: 0, openFeedback: 0, assessments: 0 }));
     await page.route("**/api/admin/feedback**", (route) => json(route, { items: [], totalPages: 1 }));
     await page.route("**/api/admin/audit**", (route) => json(route, { items: [], totalPages: 1 }));
-
     const screens = [
         ["/practice/profile", "Profile & settings"],
         ["/practice/progress", "Your progress"],
