@@ -278,11 +278,31 @@ const InterviewPage = () => {
         };
     }, [interview?.rounds, selectedRound?._id]);
 
+    const nextRound = useMemo(() => {
+        if (!selectedRound || roundMeta.index < 0) return null;
+        return interview?.rounds?.[roundMeta.index + 1]?.round || null;
+    }, [interview?.rounds, roundMeta.index, selectedRound]);
+
     const modeLabel = isSystemDesign
         ? "System design"
         : selectedRound?.deliveryMode === "conversational"
             ? "Conversation"
             : "Online assessment";
+
+    const completedRoundActions = selectedRound?.status === "completed" ? (
+        <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 3 }}>
+            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1.5} alignItems={{ sm: "center" }}>
+                <Box>
+                    <Typography fontWeight={850}>Round complete</Typography>
+                    <Typography variant="body2" color="text.secondary">Review this debrief, then choose when to move to the next interview stage.</Typography>
+                </Box>
+                <Stack direction={{ xs: "column", sm: "row" }} gap={1}>
+                    <Button variant="outlined" onClick={() => setShowRoundsOverview(true)}>Back to rounds</Button>
+                    {nextRound && <Button variant="contained" onClick={() => enterRound(nextRound)}>Continue to {nextRound.name}</Button>}
+                </Stack>
+            </Stack>
+        </Paper>
+    ) : null;
 
     if (!interview) {
         return (
@@ -413,7 +433,7 @@ const InterviewPage = () => {
                                                 <LinearProgress variant={convFeedbackProgress ? "determinate" : "indeterminate"} value={convFeedbackProgress || 0} />
                                             </Stack>
                                         </Paper>
-                                    ) : <FeedbackPanel round={selectedRound} />
+                                    ) : <Stack spacing={2}><FeedbackPanel round={selectedRound} />{completedRoundActions}</Stack>
                                 ) : isSystemDesign ? (
                                     <SystemDesignDiscussionPanel
                                         problem={convViewState.current?.text || ""}
@@ -481,7 +501,7 @@ const InterviewPage = () => {
                                                 <LinearProgress variant={oaFeedbackProgress ? "determinate" : "indeterminate"} value={oaFeedbackProgress || 0} />
                                             </Stack>
                                         </Paper>
-                                    ) : <FeedbackPanel round={selectedRound} />
+                                    ) : <Stack spacing={2}><FeedbackPanel round={selectedRound} />{completedRoundActions}</Stack>
                                 ) : (
                                     <>
                                         <OAForm
