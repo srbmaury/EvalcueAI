@@ -3,15 +3,17 @@ import { lazy, Suspense, useState } from "react";
 import { Box, CircularProgress } from "@mui/material";
 
 import Header from "./components/Header";
-import ProductHeader from "./components/ProductHeader";
-import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
-import AdminRoute from "./components/AdminRoute";
 import GuestOnlyRoute from "./components/GuestOnlyRoute";
-import HiringOrganizationGate from "./components/HiringOrganizationGate";
 import SearchIndexPolicy from "./components/SearchIndexPolicy";
 import CanonicalProductRedirect from "./components/CanonicalProductRedirect";
 import DeploymentSurfaceGuard from "./components/DeploymentSurfaceGuard";
+
+const ProductHeader = lazy(() => import("./components/ProductHeader"));
+const ProtectedRoute = lazy(() => import("./components/ProtectedRoute"));
+const AdminRoute = lazy(() => import("./components/AdminRoute"));
+const HiringOrganizationGate = lazy(() => import("./components/HiringOrganizationGate"));
+const PracticeLimitDialog = lazy(() => import("./components/PracticeLimitDialog"));
 
 const CreateInterviewPage = lazy(() => import("./pages/CreateInterviewPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -66,8 +68,12 @@ const HiringRoute = ({ children }) => (
 
 const ProductAwareHeader = () => {
     const location = useLocation();
-    if (location.pathname === "/practice" || location.pathname.startsWith("/practice/")) return <ProductHeader surface="practice" />;
-    if (location.pathname === "/hire" || location.pathname.startsWith("/hire/")) return <ProductHeader surface="hiring" />;
+    if (location.pathname === "/practice" || location.pathname.startsWith("/practice/")) {
+        return <Suspense fallback={null}><ProductHeader surface="practice" /></Suspense>;
+    }
+    if (location.pathname === "/hire" || location.pathname.startsWith("/hire/")) {
+        return <Suspense fallback={null}><ProductHeader surface="hiring" /></Suspense>;
+    }
     return <Header />;
 };
 
@@ -156,6 +162,7 @@ function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes></Suspense></ErrorBoundary>
             </main>
+            <Suspense fallback={null}><PracticeLimitDialog /></Suspense>
         </div>
         </DeploymentSurfaceGuard>
     );
