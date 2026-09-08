@@ -105,7 +105,7 @@ describe("candidate assessment interview UX", () => {
         expect(screen.getByRole("button", { name: "I’m done" })).toBeTruthy();
     });
 
-    it("keeps future live rounds locked until the current round completes", async () => {
+    it("keeps future rounds out of the active interview workspace", async () => {
         get.mockResolvedValue({ data: {
             title: "Sequential screen", jobRole: "Engineer", durationMinutes: 30, followUpsEnabled: false,
             capabilities: { transcription: false, codeExecution: false },
@@ -121,8 +121,9 @@ describe("candidate assessment interview UX", () => {
         renderCandidate();
         await begin();
         expect(await screen.findByRole("heading", { name: "Explain a production incident." })).toBeTruthy();
-        const systemDesignRound = screen.getByRole("button", { name: /System Design/ });
-        expect(systemDesignRound.disabled).toBe(true);
+        expect(screen.getByText("Technical", { exact: true })).toBeTruthy();
+        expect(screen.queryByText("System Design", { exact: true })).toBeNull();
+        expect(screen.queryByText("Interview plan", { exact: true })).toBeNull();
     });
 
     it("stays on the same primary question while the interviewer asks another follow-up", async () => {

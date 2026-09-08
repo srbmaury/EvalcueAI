@@ -135,6 +135,7 @@ export const useSystemDesignDiscussion = ({
                     text: data.interjection,
                     kind: data.kind || "challenge",
                     at: new Date().toISOString(),
+                    candidateTranscript: currentTranscript,
                 };
                 setInterjections((current) => [...current, item].slice(-12));
                 await onInterjectionRef.current?.(item);

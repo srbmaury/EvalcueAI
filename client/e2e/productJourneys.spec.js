@@ -289,7 +289,6 @@ test("recruiter coding assessment uses the full interview workspace", async ({ p
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "Start assessment" }).click();
 
-    await expect(page.getByText("Coding / written")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Implement a function that removes duplicate IDs." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Speak question" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Start voice" })).toBeVisible();
@@ -301,7 +300,7 @@ test("recruiter coding assessment uses the full interview workspace", async ({ p
     await expect(page.getByRole("textbox", { name: "Editor content" })).toHaveCount(0);
 });
 
-test("candidate sees the hybrid interview plan while future live rounds stay locked", async ({ page }) => {
+test("candidate stays focused on the active round instead of seeing the full interview plan", async ({ page }) => {
     await mockSignedOut(page);
     const rounds = [
         { _id: "round-talk", name: "Conversational", description: "Communication", deliveryMode: "conversational", questions: [{ _id: "question-talk", text: "Describe an incident you led.", answer: "" }] },
@@ -324,10 +323,10 @@ test("candidate sees the hybrid interview plan while future live rounds stay loc
     await page.getByRole("button", { name: "Start assessment" }).click();
 
     await expect(page.getByRole("heading", { name: "Describe an incident you led." })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Conversational/ })).toBeEnabled();
-    await expect(page.getByRole("button", { name: /Coding exercise/ })).toBeDisabled();
-    await expect(page.getByRole("button", { name: /System design/ })).toBeDisabled();
-    await expect(page.getByText(/Live rounds advance sequentially/)).toBeVisible();
+    await expect(page.getByText("Conversational", { exact: true })).toBeVisible();
+    await expect(page.getByText("Coding exercise", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("System design", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Interview plan", { exact: true })).toHaveCount(0);
 });
 
 test("candidate stays on the question when saving fails", async ({ page }) => {
