@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
-
-export const PRACTICE_LIMIT_EVENT = "evalcue:practice-limit";
+import { PRACTICE_LIMIT_EVENT } from "../utils/appEvents";
 
 export default function PracticeLimitDialog() {
     const [limit, setLimit] = useState(null);
