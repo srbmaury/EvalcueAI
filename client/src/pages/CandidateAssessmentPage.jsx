@@ -375,6 +375,7 @@ export default function CandidateAssessmentPage() {
             return;
         }
         setRoundTransition(null);
+        setSubmitConfirmOpen(true);
         window.setTimeout(() => document.getElementById("assessment-submit")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
     };
 
@@ -493,7 +494,7 @@ export default function CandidateAssessmentPage() {
                             </Box>
                             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                                 <Chip size="small" color={online ? "success" : "error"} variant="outlined" label={online ? "Connected" : "Offline · local recovery active"} />
-                                <Chip size="small" color={timerUrgent ? "warning" : "default"} label={timeReached ? "Target time reached" : `Target finish · ${formatTime(remainingSeconds)}`} />
+                                <Chip size="small" color={timerUrgent ? "warning" : "default"} label={timeReached ? "Target time reached" : `Target finish · ${formatTime(remainingSeconds)} remaining`} />
                             </Stack>
                         </Stack>
                     </Paper>
