@@ -1,26 +1,27 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    Alert, Box, Button, Chip, CircularProgress, Divider, Paper, Skeleton,
-    Stack, TextField, Typography,
+    Alert, Box, Button, CircularProgress, Paper, Skeleton, Stack, TextField, Typography,
 } from "@mui/material";
 import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
-import RecordVoiceOverRoundedIcon from "@mui/icons-material/RecordVoiceOverRounded";
 import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
-import VolumeUpRoundedIcon from "@mui/icons-material/VolumeUpRounded";
 import { useSystemDesignDiscussion } from "../hooks/useSystemDesignDiscussion";
 import { countDiscussionWords, MIN_END_DISCUSSION_WORDS } from "../utils/systemDesignDiscussion";
 
 const SystemDesignCanvas = lazy(() => import("./SystemDesignCanvas"));
 
-const KIND_LABELS = {
-    clarify: "Clarification",
-    challenge: "Challenge",
-    constraint: "New constraint",
-    scale: "Scale change",
-    failure: "Failure scenario",
-    tradeoff: "Trade-off",
-    security: "Security",
-    observability: "Observability",
+const clean = (value = "") => value.toString().replace(/\s+/g, " ").trim();
+
+const deltaAfter = (fullText, previousText) => {
+    const full = clean(fullText);
+    const previous = clean(previousText);
+    if (!full || full === previous) return "";
+    if (!previous) return full;
+    if (full.startsWith(previous)) return full.slice(previous.length).trim();
+
+    let common = 0;
+    const limit = Math.min(full.length, previous.length);
+    while (common < limit && full[common] === previous[common]) common += 1;
+    return full.slice(common).trim();
 };
 
 export default function SystemDesignDiscussionPanel({
@@ -29,6 +30,7 @@ export default function SystemDesignDiscussionPanel({
     onTranscriptChange,
     diagramData,
     onDiagramChange,
+    discussionTurns = [],
     target,
     checkpointEndpoint,
     checkpointHeaders,
@@ -49,24 +51,20 @@ export default function SystemDesignDiscussionPanel({
     speakNow,
     onEnd,
     ending = false,
-    savedLabel,
     cameraSlot = null,
 }) {
     const [aiSpeaking, setAiSpeaking] = useState(false);
-    const [latestInterviewerPrompt, setLatestInterviewerPrompt] = useState("");
-    const [showTranscriptEditor, setShowTranscriptEditor] = useState(false);
     const spokenProblemRef = useRef("");
     const mountedRef = useRef(true);
-    const threadEndRef = useRef(null);
+    const chatEndRef = useRef(null);
     const isListening = listening && listeningTarget === target;
     const discussionWords = countDiscussionWords(transcript || "");
     const canEndDiscussion = discussionWords >= MIN_END_DISCUSSION_WORDS;
 
     useEffect(() => () => { mountedRef.current = false; stopHandsFree?.(); }, [stopHandsFree]);
 
-    const speakInterviewer = useCallback(async (text, { remember = true } = {}) => {
+    const speakInterviewer = useCallback(async (text) => {
         if (!text) return;
-        if (remember) setLatestInterviewerPrompt(text);
         await pauseHandsFree?.();
         if (supportsTTS) {
             setAiSpeaking(true);
@@ -95,18 +93,13 @@ export default function SystemDesignDiscussionPanel({
     });
 
     useEffect(() => {
-        threadEndRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
-    }, [interjections.length]);
-
-    useEffect(() => {
         if (!problem || spokenProblemRef.current === problem) return;
         spokenProblemRef.current = problem;
-        setLatestInterviewerPrompt("");
         let cancelled = false;
         (async () => {
             if (supportsSTT) await startHandsFree?.(target);
             if (cancelled) return;
-            if (supportsTTS) await speakInterviewer(problem, { remember: false });
+            if (supportsTTS) await speakInterviewer(problem);
             else if (supportsSTT) await resumeHandsFree?.(target);
         })();
         return () => { cancelled = true; };
@@ -117,14 +110,44 @@ export default function SystemDesignDiscussionPanel({
         resumeHandsFree?.(target);
     }, [aiSpeaking, ending, handsFreePaused, micSessionActive, problem, resumeHandsFree, supportsSTT, target]);
 
-    const status = useMemo(() => {
-        if (ending) return { label: "Wrapping up…", color: "info" };
-        if (aiSpeaking) return { label: "Interviewer speaking", color: "primary" };
-        if (isListening) return { label: "Listening", color: "success" };
-        if (micSessionActive) return { label: "Mic ready", color: "success" };
-        if (micPermission === "denied") return { label: "Mic blocked", color: "warning" };
-        return { label: "Connecting mic…", color: "default" };
-    }, [aiSpeaking, ending, isListening, micPermission, micSessionActive]);
+    const persistedTurns = useMemo(() => (Array.isArray(discussionTurns) ? discussionTurns : [])
+        .filter((turn) => ["candidate", "interviewer"].includes(turn?.speaker) && clean(turn?.text))
+        .map((turn) => ({ ...turn, text: clean(turn.text) })), [discussionTurns]);
+
+    const chatTurns = useMemo(() => {
+        const turns = [];
+        if (clean(problem)) turns.push({ id: "opening-problem", speaker: "interviewer", text: clean(problem) });
+        persistedTurns.forEach((turn, index) => turns.push({ id: `persisted-${index}-${turn.at || ""}`, ...turn }));
+
+        const persistedInterviewerText = new Set(
+            persistedTurns.filter((turn) => turn.speaker === "interviewer").map((turn) => clean(turn.text)),
+        );
+        let candidateCursor = persistedTurns
+            .filter((turn) => turn.speaker === "candidate")
+            .map((turn) => clean(turn.text))
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+
+        interjections.forEach((item) => {
+            const candidateDelta = deltaAfter(item.candidateTranscript || "", candidateCursor);
+            if (candidateDelta) {
+                turns.push({ id: `${item.id}-candidate`, speaker: "candidate", text: candidateDelta });
+                candidateCursor = clean(item.candidateTranscript);
+            }
+            if (!persistedInterviewerText.has(clean(item.text))) {
+                turns.push({ id: item.id, speaker: "interviewer", text: clean(item.text), at: item.at });
+            }
+        });
+
+        const liveCandidateDelta = deltaAfter(transcript || "", candidateCursor);
+        if (liveCandidateDelta) turns.push({ id: "candidate-live", speaker: "candidate", text: liveCandidateDelta, live: true });
+        return turns;
+    }, [discussionTurns, interjections, persistedTurns, problem, transcript]);
+
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+    }, [chatTurns.length, interimText]);
 
     const endDiscussion = async () => {
         await pauseHandsFree?.();
@@ -134,176 +157,117 @@ export default function SystemDesignDiscussionPanel({
     };
 
     return (
-        <Stack spacing={2}>
-            <Paper
-                elevation={0}
-                sx={{
-                    position: "relative",
-                    overflow: "hidden",
-                    borderRadius: 3,
-                    border: "1px solid rgba(148,163,184,.24)",
-                    background: "linear-gradient(145deg, #07111f 0%, #0f1f34 62%, #0b1727 100%)",
-                    color: "white",
-                    px: { xs: 2, md: 3 },
-                    py: { xs: 2.25, md: 2.75 },
-                }}
-            >
-                <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={2} alignItems={{ md: "center" }}>
-                    <Box sx={{ minWidth: 0, maxWidth: 900 }}>
-                        <Stack direction="row" spacing={1} alignItems="center" mb={1} flexWrap="wrap" useFlexGap>
-                            <RecordVoiceOverRoundedIcon sx={{ color: "#93c5fd" }} />
-                            <Typography variant="overline" sx={{ color: "rgba(255,255,255,.68)", fontWeight: 850, letterSpacing: .8 }}>
-                                Live system design discussion
-                            </Typography>
-                            <Chip size="small" color={status.color} label={status.label} />
-                        </Stack>
-                        <Typography variant="caption" sx={{ color: "#93c5fd", fontWeight: 850, letterSpacing: .5 }}>
-                            ORIGINAL PROBLEM
-                        </Typography>
-                        <Typography sx={{ fontSize: { xs: "1.05rem", md: "1.3rem" }, lineHeight: 1.55, fontWeight: 700 }}>
-                            {problem}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: "rgba(255,255,255,.62)", mt: 1 }}>
-                            Talk through your thinking while you draw. If you pause for 15 seconds, the interviewer will step in naturally.
-                        </Typography>
-                    </Box>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-                        {supportsTTS && problem && (
-                            <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={<VolumeUpRoundedIcon />}
-                                onClick={() => speakInterviewer(problem, { remember: false })}
-                                sx={{ color: "white", borderColor: "rgba(255,255,255,.28)", "&:hover": { borderColor: "rgba(255,255,255,.55)" } }}
-                            >
-                                Replay problem
-                            </Button>
-                        )}
-                        {!micSessionActive && supportsSTT && (
-                            <Button size="small" variant="contained" onClick={() => startHandsFree?.(target)}>
-                                Enable microphone
-                            </Button>
-                        )}
-                    </Stack>
-                </Stack>
-                {cameraSlot && <Box sx={{ position: "absolute", right: 12, bottom: 12 }}>{cameraSlot}</Box>}
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1fr) 300px" }, gap: 2, alignItems: "start" }}>
+            <Paper variant="outlined" sx={{ p: { xs: 1, md: 1.25 }, borderRadius: 3, minWidth: 0, position: "relative" }}>
+                <Suspense fallback={<Skeleton variant="rounded" height={660} />}>
+                    <SystemDesignCanvas
+                        value={diagramData || ""}
+                        onChange={onDiagramChange}
+                        label="Architecture whiteboard"
+                    />
+                </Suspense>
+                {cameraSlot && <Box sx={{ position: "absolute", right: 18, bottom: 18, zIndex: 4 }}>{cameraSlot}</Box>}
             </Paper>
 
-            {latestInterviewerPrompt && (
-                <Paper variant="outlined" sx={{ px: 2, py: 1.5, borderRadius: 2.5, borderColor: "primary.main", bgcolor: "action.hover" }}>
-                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1} alignItems={{ sm: "center" }}>
-                        <Box>
-                            <Typography variant="caption" color="primary.main" fontWeight={850}>INTERVIEWER</Typography>
-                            <Typography fontWeight={750}>{latestInterviewerPrompt}</Typography>
+            <Paper
+                variant="outlined"
+                sx={{
+                    borderRadius: 3,
+                    overflow: "hidden",
+                    position: { lg: "sticky" },
+                    top: { lg: 92 },
+                    minHeight: { lg: 660 },
+                    maxHeight: { lg: "calc(100vh - 110px)" },
+                    display: "flex",
+                    flexDirection: "column",
+                }}
+            >
+                <Box sx={{ px: 1.5, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                        <Typography fontWeight={850}>Conversation</Typography>
+                        <Box
+                            aria-label={aiSpeaking ? "Interviewer speaking" : isListening ? "Listening" : "Microphone idle"}
+                            sx={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: "50%",
+                                display: "grid",
+                                placeItems: "center",
+                                bgcolor: isListening ? "success.light" : "action.hover",
+                            }}
+                        >
+                            <GraphicEqRoundedIcon color={isListening ? "success" : aiSpeaking ? "primary" : "disabled"} sx={{ transform: `scale(${1 + Math.min(.2, micLevel * .3)})` }} />
                         </Box>
-                        {supportsTTS && (
-                            <Button size="small" onClick={() => speakInterviewer(latestInterviewerPrompt)} startIcon={<VolumeUpRoundedIcon />}>
-                                Replay
-                            </Button>
-                        )}
                     </Stack>
-                </Paper>
-            )}
+                </Box>
 
-            {micPermission === "denied" && (
-                <Alert severity="warning">
-                    Microphone access is blocked. Allow microphone permission in your browser to get the intended live interview experience; you can type a transcript as a fallback.
-                </Alert>
-            )}
-
-            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1fr) 320px" }, gap: 2, alignItems: "start" }}>
-                <Paper variant="outlined" sx={{ p: { xs: 1.25, md: 1.75 }, borderRadius: 3, minWidth: 0 }}>
-                    <Suspense fallback={<Skeleton variant="rounded" height={620} />}>
-                        <SystemDesignCanvas
-                            value={diagramData || ""}
-                            onChange={onDiagramChange}
-                            label="Architecture whiteboard"
-                        />
-                    </Suspense>
-                </Paper>
-
-                <Stack spacing={1.5} sx={{ position: { lg: "sticky" }, top: { lg: 92 } }}>
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
-                            <Box>
-                                <Typography fontWeight={850}>Conversation</Typography>
-                                <Typography variant="caption" color="text.secondary">No push-to-talk. Keep explaining naturally.</Typography>
+                <Stack spacing={1.25} sx={{ p: 1.5, overflowY: "auto", flex: 1 }}>
+                    {chatTurns.map((turn) => {
+                        const candidate = turn.speaker === "candidate";
+                        return (
+                            <Box key={turn.id} sx={{ display: "flex", justifyContent: candidate ? "flex-end" : "flex-start" }}>
+                                <Box
+                                    sx={{
+                                        maxWidth: "92%",
+                                        px: 1.4,
+                                        py: 1.05,
+                                        borderRadius: 2.25,
+                                        bgcolor: candidate ? "primary.main" : "action.hover",
+                                        color: candidate ? "primary.contrastText" : "text.primary",
+                                        borderTopRightRadius: candidate ? .75 : 2.25,
+                                        borderTopLeftRadius: candidate ? 2.25 : .75,
+                                    }}
+                                >
+                                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{turn.text}</Typography>
+                                </Box>
                             </Box>
-                            <Box sx={{ width: 42, height: 42, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: isListening ? "success.light" : "action.hover" }}>
-                                <GraphicEqRoundedIcon color={isListening ? "success" : "disabled"} sx={{ transform: `scale(${1 + Math.min(.25, micLevel * .35)})` }} />
+                        );
+                    })}
+                    {interimText && isListening && (
+                        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                            <Box sx={{ maxWidth: "92%", px: 1.4, py: 1.05, borderRadius: 2.25, bgcolor: "primary.main", color: "primary.contrastText", opacity: .68 }}>
+                                <Typography variant="body2" fontStyle="italic">{interimText}</Typography>
                             </Box>
-                        </Stack>
-                        {interimText && isListening && (
-                            <Typography variant="body2" color="text.secondary" fontStyle="italic" mt={1.25}>
-                                “{interimText}”
-                            </Typography>
-                        )}
-                        <Divider sx={{ my: 1.5 }} />
-                        <Typography variant="caption" color="text.secondary" fontWeight={800}>LIVE TRANSCRIPT</Typography>
-                        <Box sx={{ mt: .75, maxHeight: 210, overflow: "auto" }}>
-                            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                                {transcript?.trim() || "Your explanation will appear here as you speak."}
-                            </Typography>
                         </Box>
-                        <Button size="small" sx={{ mt: 1 }} onClick={() => setShowTranscriptEditor((value) => !value)}>
-                            {showTranscriptEditor ? "Hide transcript editor" : "Correct transcript"}
-                        </Button>
-                        {showTranscriptEditor && (
+                    )}
+                    <Box ref={chatEndRef} />
+                </Stack>
+
+                <Box sx={{ p: 1.25, borderTop: "1px solid", borderColor: "divider" }}>
+                    {micPermission === "denied" && (
+                        <Stack spacing={1} mb={1}>
+                            <Alert severity="warning" sx={{ py: 0 }}>Microphone blocked. You can type instead.</Alert>
                             <TextField
                                 fullWidth
                                 multiline
-                                minRows={4}
+                                minRows={3}
                                 value={transcript || ""}
                                 onChange={(event) => onTranscriptChange?.(event.target.value)}
-                                sx={{ mt: 1 }}
-                                label="Transcript"
+                                placeholder="Type your response…"
                             />
-                        )}
-                        {savedLabel && <Typography variant="caption" color="text.secondary" display="block" mt={1}>{savedLabel}</Typography>}
-                    </Paper>
-
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-                        <Typography fontWeight={850}>Interviewer thread</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                            Questions, constraints and challenges from the live interviewer appear here.
-                        </Typography>
-                        <Stack spacing={1.25} mt={1.5} sx={{ maxHeight: 300, overflow: "auto" }}>
-                            {interjections.length === 0 ? (
-                                <Typography variant="body2" color="text.secondary">Start discussing your design. The interviewer will participate and will step in after 15 seconds of silence.</Typography>
-                            ) : interjections.map((item) => (
-                                <Box key={item.id} sx={{ pl: 1.25, borderLeft: "3px solid", borderColor: "primary.main" }}>
-                                    <Typography variant="caption" color="primary.main" fontWeight={800}>{KIND_LABELS[item.kind] || "Interviewer"}</Typography>
-                                    <Typography variant="body2" fontWeight={650}>{item.text}</Typography>
-                                </Box>
-                            ))}
-                            <Box ref={threadEndRef} />
                         </Stack>
-                    </Paper>
-                </Stack>
-            </Box>
-
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-                <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} gap={1.5}>
-                    <Box>
-                        <Typography fontWeight={800}>Finished with the design?</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            {canEndDiscussion
-                                ? "You can end the discussion whenever you feel you have covered the design and its key trade-offs."
-                                : `End discussion unlocks after you have explained a little more (${discussionWords}/${MIN_END_DISCUSSION_WORDS} words). This only prevents accidental early endings.`}
+                    )}
+                    <Stack direction="row" gap={1} justifyContent="flex-end" flexWrap="wrap">
+                        {!micSessionActive && supportsSTT && micPermission !== "denied" && (
+                            <Button size="small" variant="outlined" onClick={() => startHandsFree?.(target)}>Enable microphone</Button>
+                        )}
+                        <Button
+                            size="small"
+                            variant="contained"
+                            startIcon={ending ? <CircularProgress size={16} color="inherit" /> : <StopCircleRoundedIcon />}
+                            disabled={ending || !canEndDiscussion}
+                            onClick={endDiscussion}
+                        >
+                            {ending ? "Ending…" : "End discussion"}
+                        </Button>
+                    </Stack>
+                    {!canEndDiscussion && (
+                        <Typography variant="caption" color="text.secondary" display="block" mt={.75} textAlign="right">
+                            {discussionWords}/{MIN_END_DISCUSSION_WORDS} words before ending
                         </Typography>
-                    </Box>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={ending ? <CircularProgress size={17} color="inherit" /> : <StopCircleRoundedIcon />}
-                        disabled={ending || !canEndDiscussion}
-                        onClick={endDiscussion}
-                        sx={{ minWidth: 180 }}
-                    >
-                        {ending ? "Ending discussion…" : "End discussion"}
-                    </Button>
-                </Stack>
+                    )}
+                </Box>
             </Paper>
-        </Stack>
+        </Box>
     );
 }
