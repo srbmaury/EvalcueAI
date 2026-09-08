@@ -17,11 +17,7 @@ const deltaAfter = (fullText, previousText) => {
     if (!full || full === previous) return "";
     if (!previous) return full;
     if (full.startsWith(previous)) return full.slice(previous.length).trim();
-
-    let common = 0;
-    const limit = Math.min(full.length, previous.length);
-    while (common < limit && full[common] === previous[common]) common += 1;
-    return full.slice(common).trim();
+    return full;
 };
 
 export default function SystemDesignDiscussionPanel({
@@ -143,7 +139,7 @@ export default function SystemDesignDiscussionPanel({
         const liveCandidateDelta = deltaAfter(transcript || "", candidateCursor);
         if (liveCandidateDelta) turns.push({ id: "candidate-live", speaker: "candidate", text: liveCandidateDelta, live: true });
         return turns;
-    }, [discussionTurns, interjections, persistedTurns, problem, transcript]);
+    }, [interjections, persistedTurns, problem, transcript]);
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
