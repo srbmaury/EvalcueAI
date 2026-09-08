@@ -99,7 +99,7 @@ test("mock interview asks for mic and camera before revealing the first question
 
     await page.goto("/practice/interviews/interview-voice");
 
-    await expect(page.getByRole("heading", { name: /Before we start/i })).toBeVisible();
+    await expect(page.getByText("Before we start", { exact: true })).toBeVisible();
     await expect(page.getByText(/turn on your microphone and camera/i)).toBeVisible();
     await expect(page.getByRole("button", { name: "Turn on mic" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Turn on camera" })).toBeVisible();
