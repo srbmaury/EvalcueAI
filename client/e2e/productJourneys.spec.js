@@ -94,13 +94,12 @@ test("Practice and Hire stay separate while profile keeps advanced settings coll
         await expect(page.getByRole("button", { name: "Resume review" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Progress" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Company insights" })).toBeVisible();
-        await page.getByRole("button", { name: "Account menu" }).click();
-        await page.getByRole("menuitem", { name: "Open Evalcue AI Hire" }).click();
+        await page.getByRole("button", { name: "Hire", exact: true }).click();
     } else {
         await page.getByRole("button", { name: "Open navigation" }).click();
         await expect(page.getByRole("menuitem", { name: "Resume review" })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "Company insights" })).toBeVisible();
-        await page.getByRole("menuitem", { name: "Open Evalcue AI Hire" }).click();
+        await page.getByRole("menuitem", { name: "Hire", exact: true }).click();
     }
     await expect(page).toHaveURL(/\/hire\/assessments$/);
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
