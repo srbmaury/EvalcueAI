@@ -102,11 +102,13 @@ export const useConversational = ({
         return { ...convState, done: selectedRound.status === "completed" || convState.done };
     }, [convState, selectedRound]);
 
-    const settleFeedbackJob = useCallback((jobId) => {
-        if (!jobId) return;
-        // Feedback is generated quietly. Showing its progress during later rounds
-        // would reveal evaluation mechanics and coach the candidate mid-interview.
-        pollJobStatus("bulk-feedback", jobId, () => {}).catch((error) => console.debug("background feedback pending", error?.message || error));
+    const settleFeedbackJob = useCallback((jobId, onProgress) => {
+        if (!jobId) return Promise.resolve("skipped");
+        return pollJobStatus("bulk-feedback", jobId, onProgress || (() => {}), 60000)
+            .catch((error) => {
+                console.debug("background feedback pending", error?.message || error);
+                return "timeout";
+            });
     }, []);
 
     const handleSubmitAnswer = useCallback(async (answer) => {
@@ -164,14 +166,15 @@ export const useConversational = ({
     }, [pendingFollowUp, selectedRound, interviewId, refreshInterviewAndRound, settleFeedbackJob, showToast, selectRound]);
 
     const handleClarify = useCallback(async (message) => {
-        if (!selectedRound || !isConversational) return;
+        if (!selectedRound || !isConversational) return "";
         try {
             const { data } = await api.post(`/questions/${selectedRound._id}/clarify`, { message });
-            const response = (data?.answer || "").toString();
-            if (response) showToast("info", response, true);
+            return (data?.answer || "").toString();
         } catch (error) {
             console.error("clarify error", error);
-            showToast("error", error?.response?.data?.message || "Failed to clarify.");
+            const errorMessage = error?.response?.data?.message || "Failed to clarify.";
+            showToast("error", errorMessage);
+            return "";
         }
     }, [selectedRound, isConversational, showToast]);
 
@@ -179,6 +182,7 @@ export const useConversational = ({
         if (!selectedRound) return;
         try {
             setConvRoundSubmitting(true);
+            setConvFeedbackProgress(8);
             let latest;
             try {
                 const { data } = await api.get(`/interviews/${interviewId}`);
@@ -186,18 +190,25 @@ export const useConversational = ({
                 setInterview(data);
             } catch { /* continue with local round */ }
             const roundForFeedback = latest?.rounds?.find((entry) => entry.round?._id === selectedRound._id)?.round || selectedRound;
+            let feedbackJobId = null;
             try {
                 const answered = (roundForFeedback.questions || [])
                     .map((item, index) => ({ index, questionId: item.question?._id, answer: composeFeedbackAnswer(item) }))
                     .filter((item) => item.questionId && item.answer);
                 if (answered.length > 0) {
                     const { data: job } = await api.post(`/jobs/bulk-feedback`, { roundId: selectedRound._id, items: answered, attach: true });
-                    if (job?.jobId) settleFeedbackJob(job.jobId);
+                    if (job?.jobId) feedbackJobId = job.jobId;
                 }
             } catch (error) {
                 console.debug("conversational feedback deferred", error?.message || error);
             }
             await api.post(`/questions/${selectedRound._id}/complete`);
+            if (feedbackJobId) {
+                const result = await settleFeedbackJob(feedbackJobId, setConvFeedbackProgress);
+                if (result !== "completed") {
+                    showToast("warning", "Round saved. Feedback is still being prepared; reopen this round in a moment if it is not visible yet.", true);
+                }
+            }
             const { data } = await api.get(`/interviews/${interviewId}`);
             setInterview(data);
             clearDraftsForRound(selectedRound);
