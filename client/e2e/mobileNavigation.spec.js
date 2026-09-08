@@ -31,8 +31,8 @@ test("mobile navigation exposes product destinations once without duplicate bill
 
     await page.goto("/hire");
     await openNavigation(page);
-    await expect(page.getByRole("menuitem", { name: "Practice" })).toHaveCount(1);
-    await expect(page.getByRole("menuitem", { name: "Hire" })).toHaveCount(1);
+    await expect(page.getByRole("menuitem", { name: "Practice", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("menuitem", { name: "Hire", exact: true })).toHaveCount(1);
     await expect(page.getByRole("menuitem", { name: "Team & billing" })).toHaveCount(1);
     await expect(page.getByRole("menuitem", { name: /Open Evalcue AI Practice/i })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Account menu" })).toHaveCount(0);
@@ -40,8 +40,8 @@ test("mobile navigation exposes product destinations once without duplicate bill
 
     await page.goto("/practice");
     await openNavigation(page);
-    await expect(page.getByRole("menuitem", { name: "Practice" })).toHaveCount(1);
-    await expect(page.getByRole("menuitem", { name: "Hire" })).toHaveCount(1);
+    await expect(page.getByRole("menuitem", { name: "Practice", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("menuitem", { name: "Hire", exact: true })).toHaveCount(1);
     await expect(page.getByRole("menuitem", { name: "Profile" })).toHaveCount(1);
     await expect(page.getByRole("menuitem", { name: /Open Evalcue AI Hire/i })).toHaveCount(0);
     await expect(page.getByText(/practice plans & billing/i)).toHaveCount(0);
@@ -50,8 +50,8 @@ test("mobile navigation exposes product destinations once without duplicate bill
 
     await page.goto("/privacy");
     await openNavigation(page);
-    await expect(page.getByRole("menuitem", { name: "Practice" })).toHaveCount(1);
-    await expect(page.getByRole("menuitem", { name: "Hire" })).toHaveCount(1);
+    await expect(page.getByRole("menuitem", { name: "Practice", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("menuitem", { name: "Hire", exact: true })).toHaveCount(1);
     await expect(page.getByRole("menuitem", { name: "Profile & settings" })).toHaveCount(1);
     await expect(page.getByText(/billing/i)).toHaveCount(0);
     await expect(page.getByText(/workspace/i)).toHaveCount(0);
