@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useContext, useEffect, useMemo, useState } from "react";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import {
     AddRounded,
@@ -12,7 +12,6 @@ import {
     RateReviewOutlined,
     SchoolOutlined,
     SettingsOutlined,
-    SwapHorizRounded,
     WorkOutlineRounded,
 } from "@mui/icons-material";
 import {
@@ -36,11 +35,12 @@ import { AuthContext } from "../context/AuthContext";
 import { OrganizationContext } from "../context/OrganizationContext";
 import { useThemeMode } from "../context/ThemeContext";
 import { useNotifications } from "../context/NotificationContext";
-import ProductFeedbackDialog from "./ProductFeedbackDialog";
 import { hiringHomeForRole, hiringPermissionsFor } from "../utils/hiringPermissions";
 import { productHomePath, productLoginPath, productRegisterPath } from "../utils/productRoutes";
 import { configuredSurface, deploymentRedirectUrl } from "../utils/deploymentSurface";
 import { setWorkspacePreference } from "../utils/workspacePreference";
+
+const ProductFeedbackDialog = lazy(() => import("./ProductFeedbackDialog"));
 
 const CONFIG = {
     practice: {
@@ -49,7 +49,6 @@ const CONFIG = {
         icon: SchoolOutlined,
         publicHome: "/practice",
         appHome: "/practice/dashboard",
-        crossLabel: "Open Evalcue AI Hire",
     },
     hiring: {
         workspace: "hiring",
@@ -57,7 +56,6 @@ const CONFIG = {
         icon: WorkOutlineRounded,
         publicHome: "/hire",
         appHome: "/hire/assessments",
-        crossLabel: "Open Evalcue AI Practice",
     },
 };
 
@@ -180,8 +178,6 @@ export default function ProductHeader({ surface = "practice" }) {
         navigate(targetPath);
     };
 
-    const openOtherProduct = () => openProduct(surface === "hiring" ? "practice" : "hiring");
-
     const selectHiringOrganization = (organization) => {
         if (!organization?._id) return;
         selectOrganization(organization._id);
@@ -219,7 +215,7 @@ export default function ProductHeader({ surface = "practice" }) {
                 startIcon={<SchoolOutlined fontSize="small" />}
                 onClick={() => openProduct("practice")}
                 aria-current={surface === "practice" ? "page" : undefined}
-                title={deployedSurface && surface !== "practice" ? "Return to the Evalcue AI home before entering Practice" : "Open Evalcue AI Practice"}
+                title="Open Evalcue AI Practice"
                 sx={productSwitchButtonSx(surface === "practice")}
             >
                 Practice
@@ -229,7 +225,7 @@ export default function ProductHeader({ surface = "practice" }) {
                 startIcon={<WorkOutlineRounded fontSize="small" />}
                 onClick={() => openProduct("hiring")}
                 aria-current={surface === "hiring" ? "page" : undefined}
-                title={deployedSurface && surface !== "hiring" ? "Return to the Evalcue AI home before entering Hire" : "Open Evalcue AI Hire"}
+                title="Open Evalcue AI Hire"
                 sx={productSwitchButtonSx(surface === "hiring")}
             >
                 Hire
@@ -284,7 +280,6 @@ export default function ProductHeader({ surface = "practice" }) {
                                 <Menu anchorEl={profileAnchor} open={Boolean(profileAnchor?.isConnected)} onClose={() => setProfileAnchor(null)} PaperProps={{ sx: { minWidth: 250 } }}>
                                     <Box px={2} py={1.25}><Typography fontWeight={850}>{user?.name || "Account"}</Typography><Typography variant="caption" color="text.secondary">{user?.email}</Typography></Box><Divider />
                                     {surface === "practice" && <MenuItem component={RouterLink} to="/practice/profile"><PersonOutlineRounded sx={{ mr: 1.25 }} />Profile</MenuItem>}
-                                    <MenuItem onClick={openOtherProduct}><SwapHorizRounded sx={{ mr: 1.25 }} />{config.crossLabel}</MenuItem>
                                     <MenuItem onClick={() => { setProfileAnchor(null); setFeedbackOpen(true); }}><RateReviewOutlined sx={{ mr: 1.25 }} />Send feedback</MenuItem>
                                     {user?.role === "admin" && <MenuItem component={RouterLink} to="/admin"><SettingsOutlined sx={{ mr: 1.25 }} />Admin</MenuItem>}
                                     <Divider />
@@ -302,7 +297,6 @@ export default function ProductHeader({ surface = "practice" }) {
                                     {(surface === "practice" || permissions.canManageAssessments) && <MenuItem onClick={openPrimaryAction}><AddRounded sx={{ mr: 1.25 }} />{surface === "hiring" ? "New assessment" : "New practice"}</MenuItem>}
                                     <Divider />
                                     {surface === "practice" && <MenuItem component={RouterLink} to="/practice/profile" onClick={() => setMobileAnchor(null)}><PersonOutlineRounded sx={{ mr: 1.25 }} />Profile</MenuItem>}
-                                    <MenuItem onClick={() => { setMobileAnchor(null); openOtherProduct(); }}><SwapHorizRounded sx={{ mr: 1.25 }} />{config.crossLabel}</MenuItem>
                                     <MenuItem onClick={() => { setMobileAnchor(null); setFeedbackOpen(true); }}><RateReviewOutlined sx={{ mr: 1.25 }} />Send feedback</MenuItem>
                                     {user?.role === "admin" && <MenuItem component={RouterLink} to="/admin/overview" onClick={() => setMobileAnchor(null)}><SettingsOutlined sx={{ mr: 1.25 }} />Admin</MenuItem>}
                                     <MenuItem onClick={handleLogout}><LogoutRounded sx={{ mr: 1.25 }} />Sign out</MenuItem>
@@ -315,7 +309,7 @@ export default function ProductHeader({ surface = "practice" }) {
                     </Toolbar>
                 </Container>
             </AppBar>
-            <ProductFeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+            {feedbackOpen && <Suspense fallback={null}><ProductFeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} /></Suspense>}
         </>
     );
 }
