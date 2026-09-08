@@ -75,14 +75,6 @@ export const useConversational = ({
         return { updated, interview: data, index };
     }, [interviewId, selectedRound?._id, selectRound, setInterview, syncConvStateFromRound]);
 
-    const advancePastCompletedRound = useCallback((snapshot) => {
-        if (!snapshot?.interview || snapshot.index < 0) return false;
-        const nextRound = snapshot.interview.rounds?.[snapshot.index + 1]?.round;
-        if (!nextRound) return false;
-        selectRound(nextRound);
-        return true;
-    }, [selectRound]);
-
     useEffect(() => {
         if (!selectedRound || !isConversational) return;
         syncConvStateFromRound(selectedRound);
@@ -131,7 +123,8 @@ export const useConversational = ({
             const snapshot = await refreshInterviewAndRound();
             if (data?.done) {
                 trackEvent("round_completed");
-                if (advancePastCompletedRound(snapshot)) showToast("success", `Round complete. Next: ${snapshot.interview.rounds[snapshot.index + 1].round.name}.`);
+                if (snapshot.updated) selectRound(snapshot.updated);
+                showToast("success", "Round complete. Review your debrief, then use Rounds when you’re ready to continue.");
             }
         } catch (error) {
             console.error("answer submit error", error);
@@ -139,7 +132,7 @@ export const useConversational = ({
         } finally {
             setConvSubmitting(false);
         }
-    }, [selectedRound, isConversational, pendingFollowUp, convState.index, interviewId, refreshInterviewAndRound, settleFeedbackJob, showToast, advancePastCompletedRound]);
+    }, [selectedRound, isConversational, pendingFollowUp, convState.index, interviewId, refreshInterviewAndRound, settleFeedbackJob, showToast, selectRound]);
 
     const handleFollowUpDone = useCallback(async (followUpAnswer = "") => {
         if (!pendingFollowUp || !selectedRound) return;
@@ -159,7 +152,8 @@ export const useConversational = ({
             const snapshot = await refreshInterviewAndRound();
             if (data?.done) {
                 trackEvent("round_completed");
-                if (advancePastCompletedRound(snapshot)) showToast("success", `Round complete. Next: ${snapshot.interview.rounds[snapshot.index + 1].round.name}.`);
+                if (snapshot.updated) selectRound(snapshot.updated);
+                showToast("success", "Round complete. Review your debrief, then use Rounds when you’re ready to continue.");
             }
         } catch (error) {
             console.error("follow-up submit error", error);
@@ -167,7 +161,7 @@ export const useConversational = ({
         } finally {
             setConvSubmitting(false);
         }
-    }, [pendingFollowUp, selectedRound, interviewId, refreshInterviewAndRound, settleFeedbackJob, showToast, advancePastCompletedRound]);
+    }, [pendingFollowUp, selectedRound, interviewId, refreshInterviewAndRound, settleFeedbackJob, showToast, selectRound]);
 
     const handleClarify = useCallback(async (message) => {
         if (!selectedRound || !isConversational) return;
@@ -208,10 +202,9 @@ export const useConversational = ({
             setInterview(data);
             clearDraftsForRound(selectedRound);
             const index = (data.rounds || []).findIndex((entry) => entry.round._id === selectedRound._id);
-            const nextRound = index >= 0 ? data.rounds[index + 1]?.round : null;
             const updatedSelf = index >= 0 ? data.rounds[index]?.round : null;
-            selectRound(nextRound || updatedSelf || null);
-            showToast("success", nextRound ? `Round complete. Next: ${nextRound.name}.` : "Interview complete. Open any completed round to review your debrief.");
+            selectRound(updatedSelf || null);
+            showToast("success", "Round complete. Review your debrief, then use Rounds when you’re ready to continue.");
         } catch (error) {
             console.error("complete round error", error);
             showToast("error", error?.response?.data?.message || "Failed to complete round.");
