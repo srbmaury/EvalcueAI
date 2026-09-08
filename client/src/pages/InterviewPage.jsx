@@ -9,11 +9,10 @@ import { useResumePdf } from "../hooks/useResumePdf";
 import api from "../api/axios";
 
 import {
-    Alert, Box, Button, Chip, CircularProgress, Divider, Drawer, IconButton,
-    LinearProgress, Link, Paper, Stack, Typography, Dialog, DialogTitle,
+    Alert, Box, Button, Chip, CircularProgress,
+    LinearProgress, Paper, Stack, Typography, Dialog, DialogTitle,
     DialogContent, DialogActions,
 } from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import HelpPopover from "../components/HelpPopover";
 
@@ -21,7 +20,7 @@ import ConversationalPanel from "../components/ConversationalPanel";
 import SystemDesignDiscussionPanel from "../components/SystemDesignDiscussionPanel";
 import FeedbackPanel from "../components/FeedbackPanel";
 import OAForm from "../components/OAForm";
-import RoundList from "../components/RoundList";
+import InterviewRoundsOverview from "../components/InterviewRoundsOverview";
 import { composeAnswerParts } from "../utils/answerParts";
 import { storage, storageKeys } from "../utils/interviewStorage";
 
@@ -43,7 +42,7 @@ const InterviewPage = () => {
         }
     }, []);
 
-    const [roundsOpen, setRoundsOpen] = useState(false);
+    const [showRoundsOverview, setShowRoundsOverview] = useState(() => !storage.get(storageKeys.selRound(interviewId)));
     const [resumeOpen, setResumeOpen] = useState(false);
     const [systemDesignDiagram, setSystemDesignDiagram] = useState("");
     const [systemDesignEnding, setSystemDesignEnding] = useState(false);
@@ -57,6 +56,11 @@ const InterviewPage = () => {
         allRoundsCompleted,
         clearDraftsForRound, handleSkipRound,
     } = useInterviewSession(interviewId, showToast);
+
+    const enterRound = useCallback((round) => {
+        selectRound(round);
+        setShowRoundsOverview(false);
+    }, [selectRound]);
 
     const isConversational = useMemo(
         () => selectedRound?.deliveryMode === "conversational",
@@ -307,28 +311,33 @@ const InterviewPage = () => {
                         }}
                     >
                         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={1.5} alignItems={{ md: "center" }}>
-                            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
-                                <IconButton
-                                    onClick={() => setRoundsOpen(true)}
-                                    aria-label="open rounds"
-                                    sx={{ display: { md: "none" } }}
-                                >
-                                    <MenuIcon />
-                                </IconButton>
-                                <Box sx={{ minWidth: 0 }}>
-                                    <Stack direction="row" spacing={.75} alignItems="center" flexWrap="wrap" useFlexGap>
-                                        <Typography fontWeight={850} noWrap>{selectedRound?.name || "Interview"}</Typography>
-                                        {selectedRound && <Chip size="small" label={modeLabel} color="primary" variant="outlined" />}
-                                        {selectedRound?.status === "completed" && <Chip size="small" icon={<CheckCircleRoundedIcon />} label="Completed" color="success" />}
-                                    </Stack>
-                                    <Typography variant="caption" color="text.secondary">
-                                        {roundMeta.total ? `Round ${roundMeta.index + 1} of ${roundMeta.total}` : "Interview"}
-                                        {selectedRound?.description ? ` · ${selectedRound.description}` : ""}
+                            <Box sx={{ minWidth: 0 }}>
+                                <Stack direction="row" spacing={.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                                    <Typography fontWeight={850} noWrap>
+                                        {showRoundsOverview ? "Interview rounds" : selectedRound?.name || "Interview"}
                                     </Typography>
-                                </Box>
-                            </Stack>
+                                    {!showRoundsOverview && selectedRound && <Chip size="small" label={modeLabel} color="primary" variant="outlined" />}
+                                    {!showRoundsOverview && selectedRound?.status === "completed" && <Chip size="small" icon={<CheckCircleRoundedIcon />} label="Completed" color="success" />}
+                                </Stack>
+                                <Typography variant="caption" color="text.secondary">
+                                    {showRoundsOverview
+                                        ? `${roundMeta.completed} of ${roundMeta.total} rounds completed`
+                                        : `${roundMeta.total ? `Round ${roundMeta.index + 1} of ${roundMeta.total}` : "Interview"}${selectedRound?.description ? ` · ${selectedRound.description}` : ""}`}
+                                </Typography>
+                            </Box>
 
                             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                {showRoundsOverview ? (
+                                    selectedRound && (
+                                        <Button size="small" variant="contained" onClick={() => setShowRoundsOverview(false)}>
+                                            Return to round
+                                        </Button>
+                                    )
+                                ) : (
+                                    <Button size="small" variant="outlined" onClick={() => setShowRoundsOverview(true)}>
+                                        Rounds
+                                    </Button>
+                                )}
                                 {allRoundsCompleted && Number.isFinite(Number(interview?.overallScore)) && (
                                     <Chip color="primary" label={`Overall score ${interview.overallScore}/10`} />
                                 )}
@@ -362,59 +371,20 @@ const InterviewPage = () => {
                         </Alert>
                     )}
 
-                    <Box sx={{ display: "flex", gap: { md: 2.5, lg: 3 }, alignItems: "flex-start" }}>
-                        <Box
-                            component="aside"
-                            sx={{
-                                width: 220,
-                                flexShrink: 0,
-                                display: { xs: "none", md: "block" },
-                                position: "sticky",
-                                top: 92,
-                            }}
-                        >
-                            <RoundList interview={interview} selectedRoundId={selectedRound?._id} onSelect={selectRound} />
-
-                            <Box component="details" sx={{ mt: 1.5, px: .5 }}>
-                                <Typography
-                                    component="summary"
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ cursor: "pointer", userSelect: "none" }}
-                                >
-                                    Why these questions?
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" display="block" mt={.75}>
-                                    {interview?.grounding?.status === "grounded"
-                                        ? `Built from your JD, resume, and ${interview.grounding.sources?.length || 0} public interview source${interview.grounding.sources?.length === 1 ? "" : "s"}.`
-                                        : "Built from your JD, role, and resume because limited public company-specific evidence was available."}
-                                </Typography>
-                                {(interview?.grounding?.sources || []).slice(0, 3).map((source) => (
-                                    <Link key={source.url} href={source.url} target="_blank" rel="noopener noreferrer" display="block" variant="caption" mt={.5}>
-                                        {source.title}
-                                    </Link>
-                                ))}
-                            </Box>
-                        </Box>
-
-                        <Drawer anchor="left" open={roundsOpen} onClose={() => setRoundsOpen(false)} sx={{ display: { md: "none" } }}>
-                            <Box sx={{ width: "min(320px, 100vw)", p: 2 }} role="presentation">
-                                <Typography variant="h6" fontWeight={850}>Interview rounds</Typography>
-                                <Typography variant="body2" color="text.secondary" mb={1.5}>Move between unlocked rounds.</Typography>
-                                <Divider sx={{ mb: 2 }} />
-                                <RoundList
-                                    interview={interview}
-                                    selectedRoundId={selectedRound?._id}
-                                    onSelect={(round) => { selectRound(round); setRoundsOpen(false); }}
-                                    showOnMobile
-                                />
-                            </Box>
-                        </Drawer>
-
-                        <Box component="main" sx={{ flex: 1, minWidth: 0, maxWidth: isSystemDesign ? 1380 : 1220, mx: "auto" }}>
+                    {showRoundsOverview ? (
+                        <InterviewRoundsOverview
+                            interview={interview}
+                            selectedRoundId={selectedRound?._id}
+                            onSelect={enterRound}
+                        />
+                    ) : (
+                        <Box component="main" sx={{ minWidth: 0, maxWidth: isSystemDesign ? 1380 : 1220, mx: "auto" }}>
                             {!selectedRound ? (
                                 <Paper variant="outlined" sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
-                                    <Typography fontWeight={800}>Choose an interview round to begin.</Typography>
+                                    <Stack spacing={1.5} alignItems="center">
+                                        <Typography fontWeight={800}>Choose an interview round to begin.</Typography>
+                                        <Button variant="contained" onClick={() => setShowRoundsOverview(true)}>View rounds</Button>
+                                    </Stack>
                                 </Paper>
                             ) : loadingRound ? (
                                 <Paper variant="outlined" sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 3 }}>
@@ -542,7 +512,7 @@ const InterviewPage = () => {
                                 )
                             )}
                         </Box>
-                    </Box>
+                    )}
                 </Box>
             </Box>
 
