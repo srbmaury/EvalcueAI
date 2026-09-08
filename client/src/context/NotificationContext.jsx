@@ -4,7 +4,9 @@ import { AuthContext } from "./AuthContext";
 
 const STORAGE_PREFIX = "evalcue:notifications";
 const VALID_SEVERITIES = new Set(["info", "success", "warning", "error"]);
-const normalizeHistory = (value) => Array.isArray(value) ? value.filter((item) => item?.message).map((item) => ({ ...item, read: Boolean(item.read) })).slice(0, 30) : [];
+const HISTORY_LIMIT = 20;
+const DEDUPE_WINDOW_MS = 60_000;
+const normalizeHistory = (value) => Array.isArray(value) ? value.filter((item) => item?.message).map((item) => ({ ...item, read: Boolean(item.read) })).slice(0, HISTORY_LIMIT) : [];
 const storageKeyFor = (userId) => `${STORAGE_PREFIX}:${userId || "guest"}`;
 const readHistory = (key) => { try { return normalizeHistory(JSON.parse(window.sessionStorage?.getItem(key) || "[]")); } catch { return []; } };
 const writeHistory = (key, items) => { try { window.sessionStorage?.setItem(key, JSON.stringify(items)); } catch { /* Continue without history persistence. */ } };
@@ -29,16 +31,29 @@ export function NotificationProvider({ children }) {
         });
     }, [storageKey]);
 
-    const notify = useCallback((message, severity = "info") => {
+    const notify = useCallback((message, severity = "info", options = {}) => {
         const cleanMessage = String(message || "").trim();
         if (!cleanMessage) return;
         const safeSeverity = VALID_SEVERITIES.has(severity) ? severity : "info";
         const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, message: cleanMessage, severity: safeSeverity, at: new Date().toISOString(), read: false };
         setNotification(item);
+
+        // Most calls to notify() are immediate action feedback (save/upload/create)
+        // and should not become unread bell items. Keep only failures by default;
+        // callers can opt meaningful events into history with { persist: true }.
+        const persist = options?.persist ?? safeSeverity === "error";
+        if (!persist) return;
+
         updateHistory((current) => {
-            const previous = current[0];
-            const duplicate = previous && previous.message === cleanMessage && previous.severity === safeSeverity && Date.now() - new Date(previous.at).getTime() < 2000;
-            return duplicate ? [{ ...previous, at: item.at, read: false }, ...current.slice(1)] : [item, ...current];
+            const now = Date.now();
+            const duplicateIndex = current.findIndex((entry) => (
+                entry.message === cleanMessage
+                && entry.severity === safeSeverity
+                && now - new Date(entry.at).getTime() < DEDUPE_WINDOW_MS
+            ));
+            if (duplicateIndex < 0) return [item, ...current];
+            const duplicate = current[duplicateIndex];
+            return [{ ...duplicate, at: item.at, read: false }, ...current.filter((_, index) => index !== duplicateIndex)];
         });
     }, [updateHistory]);
 
