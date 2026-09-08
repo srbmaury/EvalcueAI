@@ -9,10 +9,13 @@
     "dev": "vite",
     "prebuild": "npm run prepare:vision-assets",
     "build": "vite build",
+    "check:entry-bundle": "node scripts/check-entry-bundle.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:production": "playwright test --config=playwright.production.config.js",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -37,6 +40,7 @@
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.1",
     "@vitejs/plugin-react-swc": "^4.0.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "@vitest/ui": "^4.1.10",
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",

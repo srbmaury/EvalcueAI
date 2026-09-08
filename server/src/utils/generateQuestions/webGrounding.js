@@ -15,7 +15,7 @@ const extractQuestionsFromText = (text) => {
               /^(what|how|why|explain|describe|design|implement|compare|when|where|which)\b/i.test(
                   s
               )
-            ? s + (s.endsWith("?") ? "" : "?")
+            ? `${s.replace(/[.!]+$/, "")}?`
             : null;
         if (cand) out.push(cand.slice(0, 200));
         if (out.length >= 40) break;

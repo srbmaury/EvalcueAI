@@ -34,6 +34,7 @@ temp/
 
 # Logs
 logs/
+coverage/
 *.log
 *.log.*
 npm-debug.log*
@@ -44,6 +45,7 @@ pnpm-debug.log*
 # Environment files (keep examples tracked)
 .env
 .env.*
+!client/.env.e2e.example
 !.env.example
 .env.local
 .env.development.local
