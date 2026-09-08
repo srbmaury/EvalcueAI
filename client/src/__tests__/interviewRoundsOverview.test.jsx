@@ -55,6 +55,6 @@ describe("InterviewRoundsOverview", () => {
         fireEvent.click(screen.getByRole("button", { name: /System Design/ }));
         expect(onSelect).toHaveBeenCalledWith(interview.rounds[1].round);
 
-        expect(screen.getByRole("button", { name: /Behavioral/ })).toBeDisabled();
+        expect(screen.getByRole("button", { name: /Behavioral/ }).disabled).toBe(true);
     });
 });
