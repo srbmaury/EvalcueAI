@@ -9,14 +9,13 @@ import { configuredSurface } from "../utils/deploymentSurface";
 export default function GuestOnlyRoute({ children }) {
     const { user, loading } = useContext(AuthContext);
     const location = useLocation();
+    const isLandingHome = configuredSurface() === "landing" && location.pathname === "/";
+
+    // The common landing page is public and must not wait for a potentially
+    // sleeping API to complete the background auth refresh before first paint.
+    if (isLandingHome) return children;
 
     if (loading) return <Box sx={{ minHeight: "60vh", display: "grid", placeItems: "center" }}><CircularProgress /></Box>;
-
-    // The common landing deployment must remain reachable even for signed-in
-    // users because it is the only bridge between Practice and Hire domains.
-    if (user && configuredSurface() === "landing" && location.pathname === "/") {
-        return children;
-    }
 
     const requested = location.state?.from;
     const requestedDestination = requested?.pathname
