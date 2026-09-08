@@ -34,6 +34,7 @@ import {
 } from "@mui/icons-material";
 import { useResumes } from "../hooks/useResumes";
 import { useNotify } from "../context/NotificationContext";
+import { resumeFileError } from "../utils/resumeFileValidation";
 
 const PAGE_SIZE = 6;
 
@@ -95,14 +96,9 @@ const ResumesPage = () => {
     const handleFileChange = async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
-        const maxBytes = Number(import.meta.env.VITE_MAX_RESUME_BYTES || 5 * 1024 * 1024);
-        if (file.type !== "application/pdf") {
-            notify("Please choose a PDF file.", "error");
-            event.target.value = "";
-            return;
-        }
-        if (file.size > maxBytes) {
-            notify(`The file must be ${Math.floor(maxBytes / 1024 / 1024)} MB or smaller.`, "error");
+        const validationError = resumeFileError(file);
+        if (validationError) {
+            notify(validationError, "error");
             event.target.value = "";
             return;
         }
@@ -178,7 +174,7 @@ const ResumesPage = () => {
                     <Button variant="contained" startIcon={uploading ? <CircularProgress size={18} color="inherit" /> : <AddIcon />} disabled={!uploadConsent || uploading} onClick={() => fileInputRef.current?.click()}>
                         {uploading ? "Uploading…" : "Upload PDF"}
                     </Button>
-                    <Button component={RouterLink} to="/resume-match" variant="outlined">Find best resume for a job</Button>
+                    <Button component={RouterLink} to="/practice/resume-match" variant="outlined">Find best resume for a job</Button>
                 </Stack>
             </Stack>
 

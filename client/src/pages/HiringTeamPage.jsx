@@ -4,6 +4,7 @@ import { Alert, Box, Button, Chip, Container, Divider, FormControl, InputLabel, 
 import api from "../api/axios";
 import { OrganizationContext } from "../context/OrganizationContext";
 import { assignableHiringRolesFor, canManageHiringMember, HIRING_ROLE_LABELS, hiringHomeForRole, hiringPermissionsFor } from "../utils/hiringPermissions";
+import ConfirmActionDialog from "../components/ConfirmActionDialog";
 
 export default function HiringTeamPage() {
     const { activeOrganization, currentRole, organizations, loading: organizationLoading, selectOrganization, createOrganization, refreshOrganizations } = useContext(OrganizationContext);
@@ -19,6 +20,8 @@ export default function HiringTeamPage() {
     const [billing, setBilling] = useState(null);
     const [billingLoading, setBillingLoading] = useState(false);
     const [billingActionLoading, setBillingActionLoading] = useState(false);
+    const [teamActionLoading, setTeamActionLoading] = useState(false);
+    const [confirmTarget, setConfirmTarget] = useState(null);
     const { canManageOrganization } = hiringPermissionsFor(currentRole);
     const assignableRoles = useMemo(() => assignableHiringRolesFor(currentRole), [currentRole]);
 
@@ -88,34 +91,46 @@ export default function HiringTeamPage() {
     };
 
     const changeRole = async (membershipId, nextRole) => {
+        setTeamActionLoading(true);
         setError("");
         try {
             await api.patch(`/organizations/${activeOrganization._id}/members/${membershipId}`, { role: nextRole });
+            setConfirmTarget(null);
             await loadMembers();
         } catch (err) {
             setError(err?.response?.data?.message || "Could not update role");
+        } finally {
+            setTeamActionLoading(false);
         }
     };
 
     const transferOwnership = async (membershipId) => {
+        setTeamActionLoading(true);
         setError("");
         try {
             await api.post(`/organizations/${activeOrganization._id}/transfer-ownership`, { membershipId });
+            setConfirmTarget(null);
             await refreshOrganizations();
             await loadMembers();
         } catch (err) {
             setError(err?.response?.data?.message || "Could not transfer ownership");
+        } finally {
+            setTeamActionLoading(false);
         }
     };
 
     const removeMember = async (membershipId) => {
+        setTeamActionLoading(true);
         setError("");
         try {
             await api.delete(`/organizations/${activeOrganization._id}/members/${membershipId}`);
+            setConfirmTarget(null);
             await loadMembers();
             await refreshOrganizations();
         } catch (err) {
             setError(err?.response?.data?.message || "Could not remove member");
+        } finally {
+            setTeamActionLoading(false);
         }
     };
 
@@ -154,6 +169,42 @@ export default function HiringTeamPage() {
             setError(err?.response?.data?.message || "Could not create organization");
         }
     };
+
+    const confirmation = useMemo(() => {
+        if (!confirmTarget) return null;
+        const memberName = confirmTarget.membership?.user?.name || confirmTarget.membership?.user?.email || "this member";
+        if (confirmTarget.kind === "role") {
+            return {
+                title: "Change organization role?",
+                body: `${memberName} will become ${HIRING_ROLE_LABELS[confirmTarget.nextRole] || confirmTarget.nextRole} in ${activeOrganization?.name}.`,
+                warning: "Role changes affect assessment access, candidate data visibility, and organization controls.",
+                confirmLabel: "Change role",
+                confirmColor: "primary",
+                onConfirm: () => changeRole(confirmTarget.membership._id, confirmTarget.nextRole),
+            };
+        }
+        if (confirmTarget.kind === "owner") {
+            return {
+                title: "Make this member organization owner?",
+                body: `${memberName} will receive ownership-level control of billing, team access, and assessments for ${activeOrganization?.name}.`,
+                warning: "Only transfer ownership when this person should control the organization.",
+                confirmLabel: "Make owner",
+                confirmColor: "warning",
+                onConfirm: () => transferOwnership(confirmTarget.membership._id),
+            };
+        }
+        if (confirmTarget.kind === "remove") {
+            return {
+                title: "Remove team member?",
+                body: `${memberName} will lose access to ${activeOrganization?.name}'s assessments, candidate pipeline, reports, and billing information.`,
+                warning: "This does not delete their personal Evalcue AI account.",
+                confirmLabel: "Remove member",
+                confirmColor: "error",
+                onConfirm: () => removeMember(confirmTarget.membership._id),
+            };
+        }
+        return null;
+    }, [activeOrganization?.name, confirmTarget]);
 
     if (organizationLoading) return <Container maxWidth="lg" sx={{ py: 6 }}><LinearProgress /></Container>;
     if (!activeOrganization) return null;
@@ -216,13 +267,13 @@ export default function HiringTeamPage() {
                                     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                                         {canManageThisMember ? (
                                             <FormControl size="small" sx={{ minWidth: 160 }}>
-                                                <Select value={membership.role} onChange={(event) => changeRole(membership._id, event.target.value)} aria-label={`Role for ${membership.user?.email}`}>
+                                                <Select value={membership.role} onChange={(event) => setConfirmTarget({ kind: "role", membership, nextRole: event.target.value })} aria-label={`Role for ${membership.user?.email}`}>
                                                     {assignableRoles.map((item) => <MenuItem key={item} value={item}>{HIRING_ROLE_LABELS[item]}</MenuItem>)}
                                                 </Select>
                                             </FormControl>
                                         ) : <Chip size="small" label={HIRING_ROLE_LABELS[membership.role] || membership.role} />}
-                                        {currentRole === "owner" && !isOwner && <Button size="small" onClick={() => transferOwnership(membership._id)}>Make owner</Button>}
-                                        {canManageThisMember && <Button color="error" size="small" onClick={() => removeMember(membership._id)}>Remove</Button>}
+                                        {currentRole === "owner" && !isOwner && <Button size="small" onClick={() => setConfirmTarget({ kind: "owner", membership })}>Make owner</Button>}
+                                        {canManageThisMember && <Button color="error" size="small" onClick={() => setConfirmTarget({ kind: "remove", membership })}>Remove</Button>}
                                     </Stack>
                                 </Stack>
                             );
@@ -283,6 +334,17 @@ export default function HiringTeamPage() {
                     </Stack>
                 </Paper>
             </Stack>
+            <ConfirmActionDialog
+                open={Boolean(confirmation)}
+                title={confirmation?.title}
+                body={confirmation?.body}
+                warning={confirmation?.warning}
+                confirmLabel={confirmation?.confirmLabel}
+                confirmColor={confirmation?.confirmColor}
+                confirming={teamActionLoading}
+                onCancel={() => setConfirmTarget(null)}
+                onConfirm={confirmation?.onConfirm}
+            />
         </Container>
     );
 }

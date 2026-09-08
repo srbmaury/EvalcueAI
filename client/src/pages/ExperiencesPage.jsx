@@ -3,6 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { Alert, Box, Button, Card, CardContent, CircularProgress, Container, Paper, Stack, TextField, Typography } from "@mui/material";
 import api from "../api/axios";
 import { BookmarkAddOutlined, BookmarkRounded } from "@mui/icons-material";
+import { useNotify } from "../context/NotificationContext";
 
 const ExperiencesPage = () => {
     const [expCompany, setExpCompany] = useState("");
@@ -12,6 +13,8 @@ const ExperiencesPage = () => {
     const [searched, setSearched] = useState(false);
     const [error, setError] = useState("");
     const [savedUrls, setSavedUrls] = useState(new Set());
+    const [savingUrl, setSavingUrl] = useState("");
+    const notify = useNotify();
 
     useEffect(() => {
         api.get("/experiences/saved", { params: { page: 1, limit: 50 } })
@@ -20,8 +23,17 @@ const ExperiencesPage = () => {
     }, []);
 
     const saveResult = async (item) => {
-        const { data } = await api.post("/experiences/saved", { ...item, company: expCompany.trim(), role: expRole.trim() });
-        if (data?.url) setSavedUrls((current) => new Set([...current, data.url]));
+        if (!item?.url || savedUrls.has(item.url)) return;
+        setSavingUrl(item.url);
+        try {
+            const { data } = await api.post("/experiences/saved", { ...item, company: expCompany.trim(), role: expRole.trim() });
+            if (data?.url) setSavedUrls((current) => new Set([...current, data.url]));
+            notify("Insight saved.", "success");
+        } catch (saveError) {
+            notify(saveError?.response?.data?.message || "Could not save this insight.", "error");
+        } finally {
+            setSavingUrl("");
+        }
     };
 
     const fetchExperiences = async () => {
@@ -73,9 +85,9 @@ const ExperiencesPage = () => {
                                         <Button
                                             size="small"
                                             startIcon={savedUrls.has(item.url) ? <BookmarkRounded /> : <BookmarkAddOutlined />}
-                                            disabled={savedUrls.has(item.url)}
+                                            disabled={savedUrls.has(item.url) || savingUrl === item.url}
                                             onClick={() => saveResult(item)}
-                                        >{savedUrls.has(item.url) ? "Saved" : "Save"}</Button>
+                                        >{savedUrls.has(item.url) ? "Saved" : savingUrl === item.url ? "Saving…" : "Save"}</Button>
                                     </Stack>
                                 </CardContent>
                             </Card>

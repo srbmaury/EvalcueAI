@@ -1,16 +1,28 @@
-import { useContext, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { useContext, useMemo, useState } from "react";
+import { Link as RouterLink, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { Box, Card, CardContent, Link, Stack, Typography, TextField, Button, Alert } from "@mui/material";
 import Captcha from "../components/Captcha";
+import { getWorkspacePreference } from "../utils/workspacePreference";
+import { productLoginPath, workspaceForSurface, surfaceForPath } from "../utils/productRoutes";
 
 const ForgotPasswordPage = () => {
     const { forgotPassword } = useContext(AuthContext);
+    const location = useLocation();
     const [email, setEmail] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [captchaToken, setCaptchaToken] = useState("");
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
+
+    const workspace = useMemo(() => {
+        const params = new URLSearchParams(location.search);
+        const requested = params.get("workspace");
+        if (["practice", "hiring"].includes(requested)) return requested;
+        return workspaceForSurface(surfaceForPath(location.state?.from?.pathname || "")) || getWorkspacePreference() || "practice";
+    }, [location.search, location.state]);
+    const loginPath = productLoginPath(workspace);
+    const productName = workspace === "hiring" ? "Evalcue AI Hire" : "Evalcue AI Practice";
 
     const onSubmit = async (e) => {
         e.preventDefault();
@@ -18,7 +30,7 @@ const ForgotPasswordPage = () => {
         setMessage("");
         setError("");
         try {
-            const r = await forgotPassword(email, captchaToken);
+            const r = await forgotPassword(email, captchaToken, workspace);
             setMessage(r?.message || "If the email exists, a reset link has been sent.");
         } catch (e) {
             setError(e?.response?.data?.message || "We couldn’t request a reset link. Try again.");
@@ -35,7 +47,7 @@ const ForgotPasswordPage = () => {
                         Forgot your password?
                     </Typography>
                     <Typography color="text.secondary" sx={{ mb: 3 }}>
-                        Enter your registered email. We’ll send you a reset link if the account exists and is verified.
+                        Enter your registered email for {productName}. We’ll send you a reset link if the account exists and is verified.
                     </Typography>
                     <form onSubmit={onSubmit}>
                         <Stack spacing={2}>
@@ -53,8 +65,8 @@ const ForgotPasswordPage = () => {
                             {message && <Alert severity="info">{message}</Alert>}
                             {error && <Alert severity="error">{error}</Alert>}
                             <Typography align="center" variant="body2">
-                                <Link component={RouterLink} to="/login" underline="hover">
-                                    Back to login
+                                <Link component={RouterLink} to={loginPath} underline="hover">
+                                    Back to {workspace === "hiring" ? "Hire" : "Practice"} sign in
                                 </Link>
                             </Typography>
                         </Stack>

@@ -4,6 +4,8 @@ import { AuthContext } from "../context/AuthContext";
 import { Box, Card, CardContent, Stack, Typography, TextField, Button, Alert, InputAdornment, IconButton } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import Captcha from "../components/Captcha";
+import { getWorkspacePreference } from "../utils/workspacePreference";
+import { productLoginPath } from "../utils/productRoutes";
 
 const useQuery = () => new URLSearchParams(useLocation().search);
 
@@ -13,6 +15,10 @@ const ResetPasswordPage = () => {
     const query = useQuery();
     const token = query.get("token") || "";
     const email = query.get("email") || "";
+    const workspaceParam = query.get("workspace") || "";
+    const workspace = ["practice", "hiring"].includes(workspaceParam) ? workspaceParam : getWorkspacePreference() || "practice";
+    const loginPath = productLoginPath(workspace);
+    const forgotPath = `/forgot-password?workspace=${workspace}`;
 
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -48,9 +54,9 @@ const ResetPasswordPage = () => {
         setMessage("");
         setError("");
         try {
-            const r = await resetPassword({ token, email, newPassword, captchaToken });
+            const r = await resetPassword({ token, email, newPassword, captchaToken, workspace });
             setMessage(r?.message || "Password updated");
-            setTimeout(() => navigate("/login"), 1200);
+            setTimeout(() => navigate(loginPath), 1200);
         } catch (e) {
             setError(e?.response?.data?.message || "We couldn’t reset your password. Request a new link and try again.");
         } finally {
@@ -68,14 +74,14 @@ const ResetPasswordPage = () => {
                     {!hasValidLink ? (
                         <Stack spacing={2}>
                             <Alert severity="error">Invalid or incomplete password reset link.</Alert>
-                            <Button variant="contained" onClick={() => navigate("/forgot-password")}>
+                            <Button variant="contained" onClick={() => navigate(forgotPath)}>
                                 Request a new reset link
                             </Button>
                         </Stack>
                     ) : (
                     <>
                         <Typography color="text.secondary" sx={{ mb: 3 }}>
-                            Set a new password for {email}.
+                            Set a new password for {email}. You’ll return to {workspace === "hiring" ? "Hire" : "Practice"} sign in after this succeeds.
                         </Typography>
                         <form onSubmit={onSubmit}>
                         <Stack spacing={2}>

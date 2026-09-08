@@ -16,6 +16,7 @@ import {
     Typography,
 } from "@mui/material";
 import api from "../api/axios";
+import ConfirmActionDialog from "../components/ConfirmActionDialog";
 
 const planLabel = (plan) => ({
     none: "No access",
@@ -40,6 +41,7 @@ export default function AdminCommercialAccessPage() {
     const [candidateInterviews, setCandidateInterviews] = useState(10);
     const [validDays, setValidDays] = useState(30);
     const [note, setNote] = useState("");
+    const [confirmTarget, setConfirmTarget] = useState(null);
 
     const load = useCallback(async () => {
         try {
@@ -76,6 +78,7 @@ export default function AdminCommercialAccessPage() {
         try {
             await api.patch(`/admin/users/${user._id}/role`, { role });
             setMessage(`${user.email} is now ${role === "admin" ? "an administrator" : "a standard user"}.`);
+            setConfirmTarget(null);
             await load();
         } catch (requestError) {
             setError(requestError?.response?.data?.message || "Could not change the user's role.");
@@ -94,8 +97,7 @@ export default function AdminCommercialAccessPage() {
         setError("");
     };
 
-    const grantAccess = async (event) => {
-        event.preventDefault();
+    const grantAccess = async () => {
         if (!grantOrgId) return;
         setSaving(`org:${grantOrgId}`);
         setError("");
@@ -109,12 +111,19 @@ export default function AdminCommercialAccessPage() {
             });
             setMessage(data?.message || "Hiring access granted.");
             setGrantOrgId("");
+            setConfirmTarget(null);
             await load();
         } catch (requestError) {
             setError(requestError?.response?.data?.message || "Could not grant Hiring access.");
         } finally {
             setSaving("");
         }
+    };
+
+    const requestGrantAccess = (event) => {
+        event.preventDefault();
+        if (!selectedOrganization) return;
+        setConfirmTarget({ kind: "grant", organization: selectedOrganization, grantType, candidateInterviews, validDays });
     };
 
     const revokeGrant = async (organization) => {
@@ -124,6 +133,7 @@ export default function AdminCommercialAccessPage() {
         try {
             await api.delete(`/admin/organizations/${organization._id}/hiring-grant`);
             setMessage(`Grant revoked for ${organization.name}.`);
+            setConfirmTarget(null);
             await load();
         } catch (requestError) {
             setError(requestError?.response?.data?.message || "Could not revoke Hiring access.");
@@ -131,6 +141,47 @@ export default function AdminCommercialAccessPage() {
             setSaving("");
         }
     };
+
+    const confirmation = useMemo(() => {
+        if (!confirmTarget) return null;
+        if (confirmTarget.kind === "role") {
+            const promoting = confirmTarget.role === "admin";
+            return {
+                title: promoting ? "Make user an administrator?" : "Demote administrator?",
+                body: promoting
+                    ? `${confirmTarget.user.email} will be able to access platform operations, commercial grants, audit logs, calibration tools, and admin-only user controls.`
+                    : `${confirmTarget.user.email} will lose platform administrator access but will keep their normal product account access.`,
+                warning: promoting ? "Only grant this to trusted platform operators." : "Make sure another administrator can still manage the platform.",
+                confirmLabel: promoting ? "Make admin" : "Demote user",
+                confirmColor: promoting ? "primary" : "warning",
+                confirming: saving === `user:${confirmTarget.user._id}`,
+                onConfirm: () => setRole(confirmTarget.user, confirmTarget.role),
+            };
+        }
+        if (confirmTarget.kind === "grant") {
+            return {
+                title: "Grant Hiring access?",
+                body: `${confirmTarget.organization.name} will receive ${confirmTarget.candidateInterviews} candidate interviews for ${confirmTarget.validDays} days as a ${planLabel(confirmTarget.grantType)} grant.`,
+                warning: "This founder-controlled access bypasses normal checkout, so keep the internal note clear.",
+                confirmLabel: "Grant access",
+                confirmColor: "primary",
+                confirming: saving === `org:${grantOrgId}`,
+                onConfirm: grantAccess,
+            };
+        }
+        if (confirmTarget.kind === "revoke") {
+            return {
+                title: "Revoke Hiring access?",
+                body: `${confirmTarget.organization.name} will lose its manual Hiring grant. Existing paid subscriptions are not changed.`,
+                warning: "This may prevent the organization from creating or continuing candidate assessments once available capacity is exhausted.",
+                confirmLabel: "Revoke access",
+                confirmColor: "error",
+                confirming: saving === `org:${confirmTarget.organization._id}`,
+                onConfirm: () => revokeGrant(confirmTarget.organization),
+            };
+        }
+        return null;
+    }, [confirmTarget, grantOrgId, saving]);
 
     return (
         <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -180,7 +231,7 @@ export default function AdminCommercialAccessPage() {
                                         variant={user.role === "admin" ? "outlined" : "contained"}
                                         color={user.role === "admin" ? "warning" : "primary"}
                                         disabled={saving === `user:${user._id}`}
-                                        onClick={() => setRole(user, user.role === "admin" ? "user" : "admin")}
+                                        onClick={() => setConfirmTarget({ kind: "role", user, role: user.role === "admin" ? "user" : "admin" })}
                                     >
                                         {user.role === "admin" ? "Demote" : "Make admin"}
                                     </Button>
@@ -215,7 +266,7 @@ export default function AdminCommercialAccessPage() {
                                 <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
                                     {!organization.subscriptionPlan && <Button size="small" variant="contained" onClick={() => openGrant(organization, { type: "design_partner", candidateInterviews: 10, validDays: 30, note: "Design partner" })}>Grant 10 free</Button>}
                                     {!organization.subscriptionPlan && <Button size="small" variant="outlined" onClick={() => openGrant(organization)}>Custom grant</Button>}
-                                    {organization.grant && <Button size="small" color="error" disabled={saving === `org:${organization._id}`} onClick={() => revokeGrant(organization)}>Revoke</Button>}
+                                    {organization.grant && <Button size="small" color="error" disabled={saving === `org:${organization._id}`} onClick={() => setConfirmTarget({ kind: "revoke", organization })}>Revoke</Button>}
                                 </Stack>
                             </Stack>
                         </CardContent>
@@ -224,7 +275,7 @@ export default function AdminCommercialAccessPage() {
             </Stack>
 
             {selectedOrganization && (
-                <Card variant="outlined" sx={{ mt: 3 }} component="form" onSubmit={grantAccess}>
+                <Card variant="outlined" sx={{ mt: 3 }} component="form" onSubmit={requestGrantAccess}>
                     <CardContent>
                         <Typography variant="h6" fontWeight={850}>Grant Hiring access — {selectedOrganization.name}</Typography>
                         <Grid container spacing={2} mt={.5}>
@@ -239,12 +290,24 @@ export default function AdminCommercialAccessPage() {
                             <Grid size={{ xs: 12, md: 5 }}><TextField fullWidth label="Internal note" value={note} onChange={(event) => setNote(event.target.value)} /></Grid>
                         </Grid>
                         <Stack direction="row" spacing={1} mt={2}>
-                            <Button type="submit" variant="contained" disabled={saving === `org:${grantOrgId}`}>Grant access</Button>
+                            <Button type="submit" variant="contained" disabled={saving === `org:${grantOrgId}`}>Review grant</Button>
                             <Button onClick={() => setGrantOrgId("")}>Cancel</Button>
                         </Stack>
                     </CardContent>
                 </Card>
             )}
+
+            <ConfirmActionDialog
+                open={Boolean(confirmation)}
+                title={confirmation?.title}
+                body={confirmation?.body}
+                warning={confirmation?.warning}
+                confirmLabel={confirmation?.confirmLabel}
+                confirmColor={confirmation?.confirmColor}
+                confirming={confirmation?.confirming}
+                onCancel={() => setConfirmTarget(null)}
+                onConfirm={confirmation?.onConfirm}
+            />
         </Container>
     );
 }
