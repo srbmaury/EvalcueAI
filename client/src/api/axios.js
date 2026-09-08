@@ -1,5 +1,5 @@
 import axios from "axios";
-import { PRACTICE_LIMIT_EVENT } from "../utils/appEvents";
+import { markPracticeLimitHandled, PRACTICE_LIMIT_EVENT } from "../utils/appEvents";
 
 export const resolveApiBaseUrl = (envUrl, hostname) => {
     const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
@@ -80,6 +80,7 @@ api.interceptors.response.use(
         const originalConfig = error?.config;
 
         if (responseData?.code === "PRACTICE_LIMIT_REACHED") {
+            markPracticeLimitHandled();
             try {
                 window.dispatchEvent(new CustomEvent(PRACTICE_LIMIT_EVENT, { detail: responseData }));
             } catch { /* non-browser / test environments */ }
