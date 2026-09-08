@@ -31,5 +31,5 @@ test("resume matcher opens the detailed review through canonical Practice routes
     await expect(page.getByText("Selected resume")).toBeVisible();
     await expect(page.getByText("Backend Resume.pdf")).toBeVisible();
     await expect(page.getByLabel("Target role")).toHaveValue("Backend Engineer");
-    await expect(page.getByLabel("Job description")).toContainText("PostgreSQL");
+    await expect(page.getByLabel("Job description")).toHaveValue(/PostgreSQL/);
 });
