@@ -40,12 +40,32 @@ describe("SystemDesignDiscussionPanel", () => {
         expect(countDiscussionWords("   ")).toBe(0);
     });
 
+    it("renders only the design board and speaker conversation", () => {
+        render(
+            <SystemDesignDiscussionPanel
+                {...baseProps}
+                transcript="I would start with the write path."
+                discussionTurns={[
+                    { speaker: "candidate", text: "I would clarify scale first." },
+                    { speaker: "interviewer", text: "Assume one billion redirects per day." },
+                ]}
+            />,
+        );
+
+        expect(screen.getByTestId("system-design-canvas")).toBeTruthy();
+        expect(screen.getByText("Design a URL shortening service like Bitly.")).toBeTruthy();
+        expect(screen.getByText("I would clarify scale first.")).toBeTruthy();
+        expect(screen.getByText("Assume one billion redirects per day.")).toBeTruthy();
+        expect(screen.queryByText("Interviewer thread")).toBeNull();
+        expect(screen.queryByText("Live system design discussion")).toBeNull();
+    });
+
     it("keeps End discussion disabled until the candidate has explained at least 30 words", () => {
         const shortTranscript = "I would start by clarifying requirements and then identify the main APIs, storage needs, traffic assumptions, and the critical read and write paths.";
         const { rerender } = render(<SystemDesignDiscussionPanel {...baseProps} transcript={shortTranscript} />);
 
         expect(screen.getByRole("button", { name: "End discussion" }).disabled).toBe(true);
-        expect(screen.getByText(/End discussion unlocks/)).toBeTruthy();
+        expect(screen.getByText(/words before ending/)).toBeTruthy();
 
         const longTranscript = Array.from({ length: 30 }, (_, index) => `word${index + 1}`).join(" ");
         rerender(<SystemDesignDiscussionPanel {...baseProps} transcript={longTranscript} />);
