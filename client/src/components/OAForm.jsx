@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
     Box,
     Button,
@@ -40,16 +40,30 @@ const OAForm = ({
     outlinedInputSx,
 }) => {
     const [activeIndex, setActiveIndex] = useState(0);
+    const [localDrafts, setLocalDrafts] = useState({});
     const total = questions?.length || 0;
     const safeIndex = Math.min(activeIndex, Math.max(total - 1, 0));
     const activeQuestion = questions?.[safeIndex];
+    const questionSetKey = useMemo(() => (questions || []).map((item, index) => item?.question?._id || item?._id || `${index}:${item?.question?.text || ""}`).join("|"), [questions]);
+
+    useEffect(() => {
+        setLocalDrafts({});
+        setActiveIndex(0);
+    }, [questionSetKey]);
+
+    const effectiveAnswers = useMemo(() => Array.from({ length: total }, (_, index) => (
+        Object.prototype.hasOwnProperty.call(localDrafts, index)
+            ? String(localDrafts[index] ?? "")
+            : String(answers?.[index] ?? "")
+    )), [answers, localDrafts, total]);
+
     const answeredCount = useMemo(
         () => (questions || []).reduce((count, _question, index) => {
-            const written = String(answers?.[index] || "").trim();
+            const written = effectiveAnswers[index]?.trim() || "";
             const spoken = String(spokenAnswers?.[index] || "").trim();
             return count + (written || spoken ? 1 : 0);
         }, 0),
-        [answers, questions, spokenAnswers],
+        [effectiveAnswers, questions, spokenAnswers],
     );
     const progress = total ? ((safeIndex + 1) / total) * 100 : 0;
     const remaining = Math.max(total - answeredCount, 0);
@@ -64,6 +78,10 @@ const OAForm = ({
 
     const goPrevious = () => setActiveIndex((current) => Math.max(0, current - 1));
     const goNext = () => setActiveIndex((current) => Math.min(total - 1, current + 1));
+    const handleDraftChange = (index, value) => {
+        setLocalDrafts((current) => ({ ...current, [index]: value }));
+        onChange(index, value);
+    };
 
     return (
         <Stack spacing={2} mt={2}>
@@ -94,7 +112,7 @@ const OAForm = ({
                                 <Typography variant="caption" color="text.secondary" fontWeight={800}>PROBLEM NAVIGATION</Typography>
                                 <Box sx={{ display: "flex", gap: .75, flexWrap: "wrap", mt: 1 }} aria-label="Question navigation">
                                     {questions.map((_question, index) => {
-                                        const answered = Boolean(String(answers?.[index] || "").trim() || String(spokenAnswers?.[index] || "").trim());
+                                        const answered = Boolean(effectiveAnswers[index]?.trim() || String(spokenAnswers?.[index] || "").trim());
                                         return <Button key={index} size="small" variant={index === safeIndex ? "contained" : "outlined"} color={answered && index !== safeIndex ? "success" : "primary"} onClick={() => setActiveIndex(index)} disabled={submitting} aria-label={`Go to question ${index + 1}${answered ? ", answered" : ""}`} sx={{ minWidth: 40, borderRadius: 2 }}>{index + 1}</Button>;
                                     })}
                                 </Box>
@@ -106,7 +124,7 @@ const OAForm = ({
                         <Typography variant="caption" color="text.secondary" fontWeight={800}>WORKSPACE</Typography>
                         <Box sx={{ mt: 1 }}>
                             <Suspense fallback={<Skeleton variant="rectangular" height={430} sx={{ borderRadius: 2 }} />}>
-                                <CodeEditorField value={answers?.[safeIndex] || ""} onChange={(value) => onChange(safeIndex, value)} onModeChange={(enabled) => onCodingModeChange(safeIndex, enabled)} draftKey={`${codeDraftPrefix}:${safeIndex}`} suggestCode={/\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(activeQuestion?.question?.text || "")} minRows={16} outlinedInputSx={outlinedInputSx} />
+                                <CodeEditorField value={effectiveAnswers[safeIndex] || ""} onChange={(value) => handleDraftChange(safeIndex, value)} onModeChange={(enabled) => onCodingModeChange(safeIndex, enabled)} draftKey={`${codeDraftPrefix}:${safeIndex}`} suggestCode={/\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(activeQuestion?.question?.text || "")} minRows={16} outlinedInputSx={outlinedInputSx} />
                             </Suspense>
                         </Box>
                         {codingEnabled?.[safeIndex] && <TextField label="Explain your approach" value={spokenAnswers?.[safeIndex] || ""} onChange={(event) => onSpokenChange(safeIndex, event.target.value)} multiline minRows={3} fullWidth sx={{ mt: 2 }} helperText="Optional: reasoning, complexity, assumptions, or trade-offs." />}
