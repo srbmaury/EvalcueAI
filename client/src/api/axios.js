@@ -1,4 +1,5 @@
 import axios from "axios";
+import { PRACTICE_LIMIT_EVENT } from "../components/PracticeLimitDialog";
 
 export const resolveApiBaseUrl = (envUrl, hostname) => {
     const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
@@ -73,12 +74,20 @@ export const silentRefresh = async () => {
     return refreshPromise;
 };
 
-// On 401: try silent refresh once, then redirect to login
+// On 401: try silent refresh once, then redirect to login.
+// Product entitlement failures are surfaced consistently through one global UI.
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const status = error?.response?.status;
+        const responseData = error?.response?.data;
         const originalConfig = error?.config;
+
+        if (responseData?.code === "PRACTICE_LIMIT_REACHED") {
+            try {
+                window.dispatchEvent(new CustomEvent(PRACTICE_LIMIT_EVENT, { detail: responseData }));
+            } catch { /* non-browser / test environments */ }
+        }
 
         if (status === 401 && originalConfig && !originalConfig.__retried && !originalConfig.skipAuthRedirect) {
             originalConfig.__retried = true;
