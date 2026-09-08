@@ -279,7 +279,7 @@ describe("Launch-critical full product journey E2E", () => {
         const exportResponse = await agent.get("/api/auth/export").set(auth).expect(200);
         expect(exportResponse.headers["content-disposition"]).toContain("evalcue-export");
         expect(exportResponse.body).toMatchObject({ profile: { email: "t@example.com" } });
-        expect(exportResponse.body.productEvents).toHaveLength(1);
+        expect(exportResponse.body.productEvents).toHaveLength(3);
         process.env.ACCOUNT_DATA_EXPORT_ENABLED = "false";
         await agent.get("/api/auth/export").set(auth).expect(503);
         process.env.ACCOUNT_DATA_EXPORT_ENABLED = "true";
