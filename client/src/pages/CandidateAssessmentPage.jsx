@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import {
     Alert, Box, Button, Checkbox, Chip, CircularProgress, Container,
-    FormControlLabel, Link, Paper, Stack, TextField, Typography,
+    Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Link, Paper, Stack, TextField, Typography,
 } from "@mui/material";
 import { CheckCircleOutlineRounded, ErrorOutlineRounded } from "@mui/icons-material";
 import api from "../api/axios";
@@ -13,27 +13,16 @@ import VoiceControls from "../components/VoiceControls";
 import WebcamPreview from "../components/WebcamPreview";
 import { useVoiceInput } from "../hooks/useVoiceInput";
 import { useNotify } from "../context/NotificationContext";
+import {
+    completedQuestionCount,
+    firstIncompleteQuestionIndex,
+    pendingFollowUpFor,
+    roundComplete,
+} from "../utils/candidateAssessmentProgress";
 
 const readSavedAttempt = (key) => { try { return JSON.parse(window.localStorage?.getItem(key) || "null"); } catch { return null; } };
 const writeSavedAttempt = (key, value) => { try { window.localStorage?.setItem(key, JSON.stringify(value)); } catch { /* local recovery is best effort */ } };
 const removeSavedAttempt = (key) => { try { window.localStorage?.removeItem(key); } catch { /* no-op */ } };
-
-const pendingFollowUpFor = (round, question) => {
-    if (!question || round?.deliveryMode === "system-design") return null;
-    if (Number(question.followUpNumber || 0) > 0 && question.followUpQuestion) {
-        return { question: question.followUpQuestion, number: Number(question.followUpNumber || 1) };
-    }
-    if (question.followUpQuestion && !question.followUpAnswer) return { question: question.followUpQuestion, number: 1 };
-    return null;
-};
-
-const roundComplete = (round) => {
-    if (!round) return false;
-    if (round.deliveryMode === "system-design") return Boolean(round.questions?.[0]?.answer?.trim());
-    if (round.adaptive && !round.adaptiveComplete) return false;
-    const questions = round.questions || [];
-    return questions.length > 0 && questions.every((question) => Boolean(question.answer?.trim()) && !pendingFollowUpFor(round, question));
-};
 
 const formatTime = (seconds) => {
     const safe = Math.max(0, Math.floor(seconds));
@@ -57,6 +46,7 @@ export default function CandidateAssessmentPage() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
     const [consent, setConsent] = useState(false);
     const [integrityConsent, setIntegrityConsent] = useState(false);
     const [cameraReady, setCameraReady] = useState(false);
@@ -362,10 +352,20 @@ export default function CandidateAssessmentPage() {
         if (activeQuestionIndex + 1 < (round?.questions?.length || 0)) {
             setActiveQuestionIndex(activeQuestionIndex + 1);
             setRoundTransition(null);
-        } else {
-            finishRoundSoftly(nextAttempt, activeRoundIndex);
+            return;
         }
-    }, [activeQuestionIndex, activeRoundIndex, attempt, finishRoundSoftly]);
+        if (round?.deliveryMode === "online-assessment") {
+            const incompleteIndex = firstIncompleteQuestionIndex(round);
+            if (incompleteIndex >= 0) {
+                const completed = completedQuestionCount(round);
+                setActiveQuestionIndex(incompleteIndex);
+                setRoundTransition(null);
+                notify(`Problem ${incompleteIndex + 1} still needs a saved response. ${completed} of ${round.questions.length} problems are complete.`, "warning");
+                return;
+            }
+        }
+        finishRoundSoftly(nextAttempt, activeRoundIndex);
+    }, [activeQuestionIndex, activeRoundIndex, attempt, finishRoundSoftly, notify]);
 
     const continueAfterRound = () => {
         if (roundTransition?.nextRoundIndex != null) {
@@ -421,6 +421,7 @@ export default function CandidateAssessmentPage() {
 
     const submit = async () => {
         stopHandsFree();
+        setSubmitConfirmOpen(false);
         setBusy(true);
         try {
             await api.post(`${candidateToolBase}/submit`, {}, { headers: candidateToolHeaders, skipAuthRedirect: true });
@@ -447,6 +448,7 @@ export default function CandidateAssessmentPage() {
     const plannedUnits = assessment.rounds.reduce((sum, round) => sum + (round.deliveryMode === "system-design" ? 1 : round.questionCount), 0);
 
     return (
+        <>
         <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
             {!attempt ? (
                 <>
@@ -491,13 +493,13 @@ export default function CandidateAssessmentPage() {
                             </Box>
                             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                                 <Chip size="small" color={online ? "success" : "error"} variant="outlined" label={online ? "Connected" : "Offline · local recovery active"} />
-                                <Chip size="small" color={timerUrgent ? "warning" : "default"} label={timeReached ? "Expected time reached" : `${formatTime(remainingSeconds)} remaining`} />
+                                <Chip size="small" color={timerUrgent ? "warning" : "default"} label={timeReached ? "Target time reached" : `Target finish · ${formatTime(remainingSeconds)}`} />
                             </Stack>
                         </Stack>
                     </Paper>
 
                     {assessment.integrity?.requireFullscreen && !fullscreenActive && <Alert severity="warning" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={enterFullscreen}>Enter fullscreen</Button>}>Fullscreen is required for this assessment.</Alert>}
-                    {timeReached && <Alert severity="warning" sx={{ mb: 2 }}>The expected interview time has been reached. Finish the current response and submit when ready.</Alert>}
+                    {timeReached && <Alert severity="warning" sx={{ mb: 2 }}>The suggested interview time has been reached. Finish the current response and submit when ready; your attempt is not automatically ended.</Alert>}
                     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
                     <Box sx={{ minWidth: 0 }}>
@@ -581,7 +583,7 @@ export default function CandidateAssessmentPage() {
                             <Paper variant="outlined" sx={{ overflow: "hidden", borderRadius: 3 }}>
                                 <Box sx={{ px: 2.5, py: 1.5, bgcolor: "action.hover", borderBottom: "1px solid", borderColor: "divider" }}>
                                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1} alignItems={{ sm: "center" }}>
-                                        <Box><Typography variant="overline" color="primary.main" fontWeight={850}>Online assessment · Problem {activeQuestionIndex + 1} of {activeRound.questions.length}</Typography><Typography variant="body2" color="text.secondary">Move freely between problems. Your draft is recovered locally until you save it.</Typography></Box>
+                                        <Box><Typography variant="overline" color="primary.main" fontWeight={850}>Online assessment · Problem {activeQuestionIndex + 1} of {activeRound.questions.length}</Typography><Typography variant="body2" color="text.secondary">Move freely between problems. The round only finishes after every problem has a saved response.</Typography></Box>
                                         <Chip size="small" color={dirty[answerKey(activeRoundIndex, activeQuestionIndex)] ? "warning" : activeQuestion.answer ? "success" : "default"} label={dirty[answerKey(activeRoundIndex, activeQuestionIndex)] ? "Unsaved draft" : activeQuestion.answer ? "Saved" : "Not answered"} />
                                     </Stack>
                                 </Box>
@@ -605,7 +607,7 @@ export default function CandidateAssessmentPage() {
                                 <Box sx={{ px: 2.5, py: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
                                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1}>
                                         <Stack direction="row" spacing={1}><Button disabled={activeQuestionIndex === 0 || busy} onClick={() => setActiveQuestionIndex((index) => Math.max(0, index - 1))}>Previous</Button>{activeQuestionIndex < activeRound.questions.length - 1 && <Button variant="outlined" disabled={busy} onClick={() => setActiveQuestionIndex((index) => Math.min(activeRound.questions.length - 1, index + 1))}>Next problem</Button>}</Stack>
-                                        <Button variant="contained" disabled={busy || !activeQuestion.answer?.trim() || Boolean(activePendingFollowUp)} onClick={async () => { const nextAttempt = await saveAnswer(activeRoundIndex, activeQuestionIndex, false, spokenNotes[answerTarget] ?? activeQuestion.spokenExplanation); if (!nextAttempt) return; const nextRound = nextAttempt.rounds[activeRoundIndex]; const nextQuestion = nextRound.questions[activeQuestionIndex]; if (!pendingFollowUpFor(nextRound, nextQuestion)) goToNextQuestion(nextAttempt); }}>{busy ? "Saving…" : activeQuestionIndex === activeRound.questions.length - 1 ? "Save and finish round" : "Save and continue"}</Button>
+                                        <Button variant="contained" disabled={busy || !activeQuestion.answer?.trim() || Boolean(activePendingFollowUp)} onClick={async () => { const nextAttempt = await saveAnswer(activeRoundIndex, activeQuestionIndex, false, spokenNotes[answerTarget] ?? activeQuestion.spokenExplanation); if (!nextAttempt) return; const nextRound = nextAttempt.rounds[activeRoundIndex]; const nextQuestion = nextRound.questions[activeQuestionIndex]; if (!pendingFollowUpFor(nextRound, nextQuestion)) goToNextQuestion(nextAttempt); }}>{busy ? "Saving…" : activeQuestionIndex === activeRound.questions.length - 1 ? "Save and review round" : "Save and continue"}</Button>
                                     </Stack>
                                 </Box>
                             </Paper>
@@ -618,13 +620,28 @@ export default function CandidateAssessmentPage() {
                         {allRoundsComplete && !roundTransition && (
                             <Paper id="assessment-submit" variant="outlined" sx={{ mt: 2, p: { xs: 2.5, md: 3 }, borderRadius: 3 }}>
                                 <Typography component="h2" variant="h5" fontWeight={850}>Interview complete</Typography>
-                                <Typography color="text.secondary" mt={.5}>All rounds are complete. Your answers are saved; detailed evaluation is generated only after submission.</Typography>
-                                <Button variant="contained" sx={{ mt: 2 }} disabled={busy} onClick={submit}>{busy ? "Submitting…" : "Submit assessment"}</Button>
+                                <Typography color="text.secondary" mt={.5}>All {attempt.rounds.length} rounds are complete and your responses are saved. Detailed evaluation is generated only after submission.</Typography>
+                                <Button variant="contained" sx={{ mt: 2 }} disabled={busy} onClick={() => setSubmitConfirmOpen(true)}>Review and submit</Button>
                             </Paper>
                         )}
                     </Box>
                 </>
             )}
         </Container>
+
+        <Dialog open={submitConfirmOpen} onClose={() => !busy && setSubmitConfirmOpen(false)} aria-labelledby="candidate-submit-title" maxWidth="sm" fullWidth>
+            <DialogTitle id="candidate-submit-title">Ready to submit?</DialogTitle>
+            <DialogContent>
+                <Stack spacing={1.5}>
+                    <Typography>{attempt?.rounds?.length || 0} of {attempt?.rounds?.length || 0} rounds completed.</Typography>
+                    <Alert severity="info">Your responses are saved. After submission, you won’t be able to change them.</Alert>
+                </Stack>
+            </DialogContent>
+            <DialogActions>
+                <Button disabled={busy} onClick={() => setSubmitConfirmOpen(false)}>Keep reviewing</Button>
+                <Button variant="contained" disabled={busy} onClick={submit}>{busy ? "Submitting…" : "Submit assessment"}</Button>
+            </DialogActions>
+        </Dialog>
+        </>
     );
 }
