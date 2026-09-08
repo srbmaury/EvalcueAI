@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { lazy, Suspense, useContext, useEffect, useState } from "react";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import {
     DarkMode,
@@ -30,7 +30,8 @@ import {
 import { AuthContext } from "../context/AuthContext";
 import { useThemeMode } from "../context/ThemeContext";
 import { useNotifications } from "../context/NotificationContext";
-import ProductFeedbackDialog from "./ProductFeedbackDialog";
+
+const ProductFeedbackDialog = lazy(() => import("./ProductFeedbackDialog"));
 
 const Brand = ({ to = "/" }) => (
     <Typography
@@ -184,7 +185,7 @@ export default function Header() {
                     </Toolbar>
                 </Container>
             </AppBar>
-            <ProductFeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+            {feedbackOpen && <Suspense fallback={null}><ProductFeedbackDialog open onClose={() => setFeedbackOpen(false)} /></Suspense>}
         </>
     );
 }
