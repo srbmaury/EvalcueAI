@@ -261,6 +261,9 @@ describe("Launch-critical full product journey E2E", () => {
         if (updatedPlan.body.token) auth.Authorization = `Bearer ${updatedPlan.body.token}`;
         await agent.post("/api/events").set(auth).set("origin", origin).set("referer", `${origin}/`).send({ event: "dashboard_viewed", path: "/dashboard" }).expect(202);
         expect(await ProductEvent.countDocuments({ user: me._id, event: "dashboard_viewed" })).toBe(1);
+        await agent.post("/api/events").set(auth).set("origin", origin).set("referer", `${origin}/`).send({ event: "seo_resource_practice_started", path: "/practice/resources/system-design-interview-questions" }).expect(202);
+        await agent.post("/api/events").set(auth).set("origin", origin).set("referer", `${origin}/`).send({ event: "seo_resource_assessment_created", path: "/hire/resources/technical-assessment-template" }).expect(202);
+        expect(await ProductEvent.countDocuments({ user: me._id, event: { $in: ["seo_resource_practice_started", "seo_resource_assessment_created"] } })).toBe(2);
         await agent.post("/api/events").set(auth).set("origin", origin).set("referer", `${origin}/`).send({ event: "not_allowed" }).expect(400);
         await agent.post("/api/auth/reminders/test").set(auth).set("origin", origin).set("referer", `${origin}/`).expect(200);
         const previousReminderDelivery = process.env.REMINDER_DELIVERY_ENABLED;
