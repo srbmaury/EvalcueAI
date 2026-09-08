@@ -1,5 +1,5 @@
-import { useContext, useMemo, useState } from "react";
-import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
     AddRounded,
     AutoAwesomeRounded,
@@ -94,17 +94,124 @@ const starterPresets = {
     },
 };
 
+const draftKeyFor = (organizationId, editId) => `hiring-assessment-builder:${organizationId || "unknown"}:${editId || "new"}`;
+const readLocalDraft = (key) => {
+    try { return JSON.parse(window.localStorage?.getItem(key) || "null"); }
+    catch { return null; }
+};
+const writeLocalDraft = (key, value) => {
+    try { window.localStorage?.setItem(key, JSON.stringify(value)); }
+    catch { /* local recovery is best effort */ }
+};
+const clearLocalDraft = (key) => {
+    try { window.localStorage?.removeItem(key); }
+    catch { /* no-op */ }
+};
+const toLocalDateTime = (value) => value ? new Date(value).toISOString().slice(0, 16) : "";
+const normalizeLoadedRound = (round) => ({
+    ...emptyRound(round.deliveryMode || "conversational"),
+    ...round,
+    adaptive: round.deliveryMode === "conversational" ? round.adaptive !== false : false,
+    questionCount: round.deliveryMode === "system-design" ? 1 : Number(round.questionCount) || round.questions?.length || 3,
+    aiPrompt: "",
+    questions: (round.questions || []).map((question) => ({ ...question, text: question.text || "", required: Boolean(question.required) })),
+});
+
 export default function AssessmentBuilderPage() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const editId = searchParams.get("edit") || "";
+    const isEditing = Boolean(editId);
     const notify = useNotify();
     const { activeOrganization, currentRole, loading } = useContext(OrganizationContext);
     const permissions = hiringPermissionsFor(currentRole);
     const [activeStep, setActiveStep] = useState(0);
     const [form, setForm] = useState(initialForm);
     const [saving, setSaving] = useState(false);
+    const [loadingBuilder, setLoadingBuilder] = useState(isEditing);
     const [error, setError] = useState("");
     const [generatingRound, setGeneratingRound] = useState(null);
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [hydrated, setHydrated] = useState(false);
+    const [draftSavedAt, setDraftSavedAt] = useState(null);
+    const [existingInvitationCount, setExistingInvitationCount] = useState(0);
+    const hydrationKeyRef = useRef("");
+
+    const draftKey = useMemo(() => draftKeyFor(activeOrganization?._id, editId), [activeOrganization?._id, editId]);
+
+    useEffect(() => {
+        if (!activeOrganization?._id) return;
+        const hydrationKey = `${activeOrganization._id}:${editId || "new"}`;
+        if (hydrationKeyRef.current === hydrationKey) return;
+        hydrationKeyRef.current = hydrationKey;
+        let active = true;
+
+        const hydrate = async () => {
+            setLoadingBuilder(isEditing);
+            setHydrated(false);
+            setError("");
+            try {
+                if (isEditing) {
+                    const { data } = await api.get(`/assessments/${editId}`);
+                    if (!active) return;
+                    const assessment = data?.assessment;
+                    if (!assessment || assessment.status !== "draft" || data?.attempts?.length) {
+                        notify("Only unused drafts can be edited. Create a new version instead.", "warning");
+                        navigate(`/hire/assessments/${editId}`, { replace: true });
+                        return;
+                    }
+                    setExistingInvitationCount((assessment.invitations || []).filter((item) => item.status !== "revoked").length);
+                    const serverForm = {
+                        ...initialForm,
+                        ...assessment,
+                        opensAt: toLocalDateTime(assessment.opensAt),
+                        expiresAt: toLocalDateTime(assessment.expiresAt),
+                        inviteEmails: "",
+                        rounds: (assessment.rounds || []).map(normalizeLoadedRound),
+                    };
+                    const local = readLocalDraft(draftKey);
+                    const localIsNewer = local?.savedAt && new Date(local.savedAt).getTime() > new Date(assessment.updatedAt || 0).getTime();
+                    setForm(localIsNewer && local?.form ? local.form : serverForm);
+                    setActiveStep(localIsNewer ? Math.max(0, Math.min(3, Number(local.activeStep) || 0)) : 0);
+                    if (localIsNewer) {
+                        setDraftSavedAt(local.savedAt);
+                        notify("Recovered unsaved draft changes from this device.", "info");
+                    }
+                } else {
+                    const local = readLocalDraft(draftKey);
+                    if (local?.form) {
+                        setForm({ ...initialForm, ...local.form });
+                        setActiveStep(Math.max(0, Math.min(3, Number(local.activeStep) || 0)));
+                        setDraftSavedAt(local.savedAt || null);
+                    } else {
+                        setForm(initialForm);
+                        setActiveStep(0);
+                        setDraftSavedAt(null);
+                    }
+                }
+            } catch (err) {
+                if (!active) return;
+                setError(err?.response?.data?.message || "The assessment draft could not be loaded.");
+            } finally {
+                if (active) {
+                    setLoadingBuilder(false);
+                    setHydrated(true);
+                }
+            }
+        };
+        hydrate();
+        return () => { active = false; };
+    }, [activeOrganization?._id, draftKey, editId, isEditing, navigate, notify]);
+
+    useEffect(() => {
+        if (!hydrated || !activeOrganization?._id) return;
+        const timer = window.setTimeout(() => {
+            const savedAt = new Date().toISOString();
+            writeLocalDraft(draftKey, { form, activeStep, savedAt });
+            setDraftSavedAt(savedAt);
+        }, 300);
+        return () => window.clearTimeout(timer);
+    }, [activeOrganization?._id, activeStep, draftKey, form, hydrated]);
 
     const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
     const updateRound = (index, patch) => setForm((current) => ({
@@ -194,7 +301,7 @@ export default function AssessmentBuilderPage() {
                 .filter((question) => question.text),
         }));
         if (rounds.some((round) => !round.questions.length)) {
-            setError("Add at least one question to every interview round.");
+            setError("Add at least one question to every interview round before saving to the workspace. Your in-progress builder is already recovered automatically on this device.");
             setActiveStep(2);
             return;
         }
@@ -203,7 +310,7 @@ export default function AssessmentBuilderPage() {
             return;
         }
         const candidates = form.inviteEmails.split(/[\n,;]+/).map((email) => email.trim()).filter(Boolean).map((email) => ({ email }));
-        if ((publishNow || schedule) && form.inviteOnly && !candidates.length) {
+        if ((publishNow || schedule) && form.inviteOnly && !candidates.length && existingInvitationCount === 0) {
             setError("Add at least one candidate email for an invite-only assessment.");
             return;
         }
@@ -217,16 +324,29 @@ export default function AssessmentBuilderPage() {
                 opensAt: form.opensAt ? new Date(form.opensAt).toISOString() : null,
                 expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
                 rounds,
-                status,
             };
             delete payload.inviteEmails;
-            const { data: created } = await api.post("/assessments", payload);
-            if ((publishNow || schedule) && candidates.length) {
-                await api.post(`/assessments/${created._id}/invitations`, { candidates });
+
+            let savedAssessment;
+            if (isEditing) {
+                const { data: updated } = await api.patch(`/assessments/${editId}`, payload);
+                savedAssessment = updated;
+                if (status !== "draft") {
+                    const { data: transitioned } = await api.patch(`/assessments/${editId}`, { status });
+                    savedAssessment = transitioned;
+                }
+            } else {
+                const { data: created } = await api.post("/assessments", { ...payload, status });
+                savedAssessment = created;
             }
+
+            if ((publishNow || schedule) && candidates.length) {
+                await api.post(`/assessments/${savedAssessment._id}/invitations`, { candidates });
+            }
+            clearLocalDraft(draftKey);
             trackEvent(publishNow ? "assessment_published" : schedule ? "assessment_scheduled" : "assessment_draft_saved");
-            notify(publishNow ? "Assessment published." : schedule ? "Assessment scheduled." : "Draft saved.", "success");
-            navigate(`/hire/assessments/${created._id}`);
+            notify(publishNow ? "Assessment published." : schedule ? "Assessment scheduled." : isEditing ? "Draft updated." : "Draft saved.", "success");
+            navigate(`/hire/assessments/${savedAssessment._id}`);
         } catch (err) {
             setError(err?.response?.data?.message || "The assessment couldn’t be saved. Check the details and try again.");
         } finally {
@@ -234,7 +354,24 @@ export default function AssessmentBuilderPage() {
         }
     };
 
-    if (loading) return <Stack minHeight="50vh" alignItems="center" justifyContent="center"><CircularProgress /></Stack>;
+    const discardLocalChanges = () => {
+        clearLocalDraft(draftKey);
+        if (isEditing) {
+            hydrationKeyRef.current = "";
+            setHydrated(false);
+            setForm(initialForm);
+            setActiveStep(0);
+            setDraftSavedAt(null);
+            setLoadingBuilder(true);
+            window.setTimeout(() => navigate(`/hire/assessments?create=1&edit=${editId}`, { replace: true }), 0);
+            return;
+        }
+        setForm(initialForm);
+        setActiveStep(0);
+        setDraftSavedAt(null);
+    };
+
+    if (loading || loadingBuilder) return <Stack minHeight="50vh" alignItems="center" justifyContent="center"><CircularProgress /></Stack>;
     if (!activeOrganization) return <Navigate to="/hire/team" replace />;
     if (!permissions.canManageAssessments) return <Navigate to="/hire/assessments" replace />;
 
@@ -243,10 +380,13 @@ export default function AssessmentBuilderPage() {
             <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={2} mb={3}>
                 <Box>
                     <Button component={RouterLink} to="/hire/assessments#assessment-list" startIcon={<KeyboardArrowLeftRounded />} color="inherit" sx={{ mb: 1 }}>Back to assessments</Button>
-                    <Typography component="h1" variant="h3" sx={{ fontSize: { xs: "2.2rem", sm: "2.8rem" } }} fontWeight={850}>Create an assessment</Typography>
-                    <Typography color="text.secondary" mt={1}>Make one decision at a time. You can review everything before candidates see it.</Typography>
+                    <Typography component="h1" variant="h3" sx={{ fontSize: { xs: "2.2rem", sm: "2.8rem" } }} fontWeight={850}>{isEditing ? "Edit assessment draft" : "Create an assessment"}</Typography>
+                    <Typography color="text.secondary" mt={1}>{isEditing ? "Use the same guided flow as creation. Changes stay private until you publish." : "Make one decision at a time. You can review everything before candidates see it."}</Typography>
                 </Box>
-                <Chip label={`Creating for ${activeOrganization.name}`} variant="outlined" sx={{ alignSelf: { md: "flex-start" } }} />
+                <Stack spacing={1} alignItems={{ md: "flex-end" }}>
+                    <Chip label={`${isEditing ? "Editing" : "Creating"} for ${activeOrganization.name}`} variant="outlined" />
+                    {draftSavedAt && <Typography variant="caption" color="text.secondary">Recovered locally · saved {new Date(draftSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Typography>}
+                </Stack>
             </Stack>
 
             <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, mb: 3, overflowX: "auto" }}>
@@ -299,20 +439,23 @@ export default function AssessmentBuilderPage() {
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}><TextField fullWidth type="email" label="Support email" value={form.contactEmail} onChange={(event) => setField("contactEmail", event.target.value)} /><TextField fullWidth type="number" label="Estimated duration (minutes)" value={form.durationMinutes} onChange={(event) => setField("durationMinutes", Number(event.target.value) || 30)} inputProps={{ min: 5, max: 240 }} /></Stack>
                             <FormControlLabel control={<Checkbox checked={form.followUpsEnabled} onChange={(event) => setField("followUpsEnabled", event.target.checked)} />} label="Allow contextual AI follow-up questions" />
                             <FormControlLabel control={<Checkbox checked={form.inviteOnly} onChange={(event) => setField("inviteOnly", event.target.checked)} />} label="Only invited candidates can access this assessment" />
-                            {form.inviteOnly && <TextField multiline minRows={3} label="Candidate emails" placeholder="candidate@example.com" helperText="One per line, or separate with commas." value={form.inviteEmails} onChange={(event) => setField("inviteEmails", event.target.value)} />}
+                            {form.inviteOnly && <TextField multiline minRows={3} label="Candidate emails" placeholder="candidate@example.com" helperText={existingInvitationCount ? `${existingInvitationCount} existing invitation${existingInvitationCount === 1 ? "" : "s"} will remain. Add only new candidates here.` : "One per line, or separate with commas."} value={form.inviteEmails} onChange={(event) => setField("inviteEmails", event.target.value)} />}
                             <Button variant="text" sx={{ alignSelf: "flex-start" }} onClick={() => setShowAdvanced((current) => !current)}>{showAdvanced ? "Hide advanced launch settings" : "Show scheduling and integrity settings"}</Button>
                             <Collapse in={showAdvanced}><Paper variant="outlined" sx={{ p: 2 }}><Stack spacing={2}>
                                 <Stack direction={{ xs: "column", sm: "row" }} spacing={2}><TextField fullWidth type="datetime-local" label="Opens at" value={form.opensAt} onChange={(event) => setField("opensAt", event.target.value)} InputLabelProps={{ shrink: true }} /><TextField fullWidth type="datetime-local" label="Submission deadline" value={form.expiresAt} onChange={(event) => setField("expiresAt", event.target.value)} InputLabelProps={{ shrink: true }} /></Stack>
                                 <FormControlLabel control={<Checkbox checked={form.integrity.enabled} onChange={(event) => setField("integrity", { ...form.integrity, enabled: event.target.checked })} />} label="Enable integrity monitoring" />
                                 {form.integrity.enabled && <Stack pl={2}><FormControlLabel control={<Checkbox checked={form.integrity.requireFullscreen} onChange={(event) => setField("integrity", { ...form.integrity, requireFullscreen: event.target.checked })} />} label="Require fullscreen" /><FormControlLabel control={<Checkbox checked={form.integrity.requireCamera} onChange={(event) => setField("integrity", { ...form.integrity, requireCamera: event.target.checked })} />} label="Require camera" /></Stack>}
                             </Stack></Paper></Collapse>
-                            <Alert severity="info">Saving a draft keeps the assessment private. Publish only after you’re happy with the candidate experience.</Alert>
+                            <Alert severity="info">Your in-progress builder is recovered automatically on this device. Saving a draft stores the reviewed assessment in the hiring workspace; publishing enables candidate access.</Alert>
                         </Stack>}
 
                         <Divider sx={{ my: 3 }} />
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
-                            <Button disabled={activeStep === 0 || saving} startIcon={<KeyboardArrowLeftRounded />} onClick={() => { setError(""); setActiveStep((step) => Math.max(0, step - 1)); }}>Back</Button>
-                            {activeStep < steps.length - 1 ? <Button variant="contained" disabled={!stepValid} endIcon={<KeyboardArrowRightRounded />} onClick={() => { setError(""); setActiveStep((step) => Math.min(steps.length - 1, step + 1)); }}>Continue</Button> : <Stack direction="row" gap={1} flexWrap="wrap" justifyContent="flex-end"><Button variant="outlined" disabled={saving} onClick={() => save("draft")}>Save draft</Button>{form.opensAt && <Button variant="outlined" disabled={saving} onClick={() => save("schedule")}>Schedule</Button>}<Button variant="contained" disabled={saving} onClick={() => save("publish")}>{saving ? <CircularProgress size={20} color="inherit" /> : "Publish assessment"}</Button></Stack>}
+                        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} gap={1}>
+                            <Stack direction="row" gap={1}>
+                                <Button disabled={activeStep === 0 || saving} startIcon={<KeyboardArrowLeftRounded />} onClick={() => { setError(""); setActiveStep((step) => Math.max(0, step - 1)); }}>Back</Button>
+                                <Button color="inherit" disabled={saving} onClick={discardLocalChanges}>Discard local changes</Button>
+                            </Stack>
+                            {activeStep < steps.length - 1 ? <Button variant="contained" disabled={!stepValid} endIcon={<KeyboardArrowRightRounded />} onClick={() => { setError(""); setActiveStep((step) => Math.min(steps.length - 1, step + 1)); }}>Continue</Button> : <Stack direction="row" gap={1} flexWrap="wrap" justifyContent="flex-end"><Button variant="outlined" disabled={saving} onClick={() => save("draft")}>{isEditing ? "Save draft changes" : "Save draft"}</Button>{form.opensAt && <Button variant="outlined" disabled={saving} onClick={() => save("schedule")}>Schedule</Button>}<Button variant="contained" disabled={saving} onClick={() => save("publish")}>{saving ? <CircularProgress size={20} color="inherit" /> : "Publish assessment"}</Button></Stack>}
                         </Stack>
                     </Paper>
                 </Grid>
@@ -325,7 +468,7 @@ export default function AssessmentBuilderPage() {
                         <Divider sx={{ my: 2 }} />
                         <Stack spacing={1.5}>{form.rounds.map((round, index) => <Box key={index}><Typography fontWeight={750}>{index + 1}. {round.name}</Typography><Typography variant="caption" color="text.secondary">{experienceNames[round.deliveryMode]} · {round.questions.filter((question) => question.text?.trim()).length} reviewed question{round.questions.filter((question) => question.text?.trim()).length === 1 ? "" : "s"}</Typography></Box>)}</Stack>
                         <Divider sx={{ my: 2 }} />
-                        <Stack direction="row" gap={1} flexWrap="wrap"><Chip size="small" label={`${form.durationMinutes || 30} min`} /><Chip size="small" label={form.inviteOnly ? "Invite only" : "Shareable link"} /><Chip size="small" label={form.followUpsEnabled ? "AI follow-ups on" : "Fixed follow-ups"} /></Stack>
+                        <Stack direction="row" gap={1} flexWrap="wrap"><Chip size="small" label={`${form.durationMinutes || 30} min`} /><Chip size="small" label={form.inviteOnly ? "Invite only" : "Shareable link"} /><Chip size="small" label={form.followUpsEnabled ? "AI follow-ups on" : "AI follow-ups off"} /></Stack>
                     </Paper>
                 </Grid>
             </Grid>
