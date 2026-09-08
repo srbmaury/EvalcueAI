@@ -1,23 +1,13 @@
-import { useEffect, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
-import { PRACTICE_LIMIT_EVENT } from "../utils/appEvents";
 
-export default function PracticeLimitDialog() {
-    const [limit, setLimit] = useState(null);
-
-    useEffect(() => {
-        const onLimit = (event) => setLimit(event?.detail || {});
-        window.addEventListener(PRACTICE_LIMIT_EVENT, onLimit);
-        return () => window.removeEventListener(PRACTICE_LIMIT_EVENT, onLimit);
-    }, []);
-
+export default function PracticeLimitDialog({ limit, onClose }) {
     if (!limit) return null;
 
     const metricLabel = limit.metric === "resumeReviews" ? "resume reviews" : "practice interviews";
 
     return (
-        <Dialog open onClose={() => setLimit(null)} maxWidth="sm" fullWidth aria-labelledby="practice-limit-title">
+        <Dialog open onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="practice-limit-title">
             <DialogTitle id="practice-limit-title">You’ve reached this month’s free allowance</DialogTitle>
             <DialogContent>
                 <Stack spacing={1.5}>
@@ -28,8 +18,8 @@ export default function PracticeLimitDialog() {
                 </Stack>
             </DialogContent>
             <DialogActions>
-                <Button onClick={() => setLimit(null)}>Not now</Button>
-                <Button component={RouterLink} to="/practice/pricing" variant="contained" onClick={() => setLimit(null)}>
+                <Button onClick={onClose}>Not now</Button>
+                <Button component={RouterLink} to="/practice/pricing" variant="contained" onClick={onClose}>
                     View Practice plans
                 </Button>
             </DialogActions>
