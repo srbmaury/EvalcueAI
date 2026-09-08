@@ -135,11 +135,10 @@ export const useOAForm = ({
             const { data } = await api.get(`/interviews/${interviewId}`);
             setInterview(data);
             const index = data.rounds.findIndex((r) => r.round._id === selectedRound._id);
-            const nextRound = index >= 0 ? data.rounds[index + 1]?.round : null;
             const updated = index >= 0 ? data.rounds[index]?.round : null;
-            selectRound(nextRound || updated || null);
+            selectRound(updated || null);
             clearDraftsForRound(selectedRound);
-            showToast("success", nextRound ? `Round complete. Next: ${nextRound.name}.` : "Interview complete. Your debrief is ready when feedback finishes.");
+            showToast("success", "Round complete. Review your debrief, then use Rounds when you’re ready to continue.");
             trackEvent("round_completed");
         } catch (e) {
             console.error("OA submit error", e);

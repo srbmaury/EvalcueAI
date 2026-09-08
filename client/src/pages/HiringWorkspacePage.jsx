@@ -4,6 +4,6 @@ import AssessmentsPage from "./AssessmentsPage";
 
 export default function HiringWorkspacePage() {
     const [searchParams] = useSearchParams();
-    const isCreating = searchParams.get("create") === "1" && !searchParams.get("edit");
-    return isCreating ? <AssessmentBuilderPage /> : <AssessmentsPage />;
+    const isBuilding = searchParams.get("create") === "1" || Boolean(searchParams.get("edit"));
+    return isBuilding ? <AssessmentBuilderPage /> : <AssessmentsPage />;
 }

@@ -89,7 +89,7 @@ describe("candidate assessment interview UX", () => {
         delete document.documentElement.requestFullscreen;
     });
 
-    it("hides adaptive-engine mechanics and shows a real interview timer", async () => {
+    it("hides adaptive-engine mechanics and shows a target interview timer", async () => {
         get.mockResolvedValue({ data: {
             title: "Adaptive backend screen", jobRole: "Backend Engineer", durationMinutes: 30, followUpsEnabled: false,
             capabilities: { transcription: false, codeExecution: false },
@@ -99,7 +99,7 @@ describe("candidate assessment interview UX", () => {
         renderCandidate();
         await begin();
         expect(await screen.findByRole("heading", { name: "Tell me about a backend system you owned." })).toBeTruthy();
-        expect(screen.getByText(/remaining/)).toBeTruthy();
+        expect(screen.getByText(/Target finish/)).toBeTruthy();
         expect(screen.queryByText("Adaptive")).toBeNull();
         expect(screen.queryByText(/up to 5 primary questions/i)).toBeNull();
         expect(screen.getByRole("button", { name: "I’m done" })).toBeTruthy();

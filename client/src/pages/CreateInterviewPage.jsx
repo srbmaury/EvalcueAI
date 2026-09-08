@@ -213,7 +213,7 @@ const CreateInterviewPage = () => {
             if (data && data._id) {
                 clearPracticeCreateDraft();
                 trackEvent("interview_created");
-                notify("Interview created.", "success");
+                notify("Interview created. Choose a round when you’re ready to begin.", "success");
                 navigate(`/practice/interviews/${data._id}`);
             } else {
                 notify("Interview could not be created.", "error");
@@ -232,7 +232,7 @@ const CreateInterviewPage = () => {
         <Paper elevation={0} variant="outlined" sx={{ p: { xs: 2.5, sm: 4.5 }, maxWidth: 920, mx: "auto", my: { xs: 3, md: 6 }, borderRadius: 4 }}>
             <Typography variant="overline" color="primary.main" fontWeight={850}>New practice session</Typography>
             <Typography component="h1" variant="h4" fontWeight={850} letterSpacing="-.03em" mt={.5}>Build your interview plan</Typography>
-            <Typography color="text.secondary" mt={1}>Tell us what you’re preparing for. You’ll review every suggested round before anything starts.</Typography>
+            <Typography color="text.secondary" mt={1}>Tell us what you’re preparing for. You’ll review every suggested round, then choose the round you want to start from the interview overview.</Typography>
             <Stepper activeStep={activeStep} sx={{ my: 4 }}>
                 <Step><StepLabel>Role and resume</StepLabel></Step>
                 <Step><StepLabel>Review interview plan</StepLabel></Step>
@@ -312,12 +312,14 @@ const CreateInterviewPage = () => {
                         {formData.resumeId && (() => {
                             const selectedResume = resumes.find((resume) => resume._id === formData.resumeId);
                             if (!selectedResume) return null;
-                            return <Stack direction="row" spacing={1} alignItems="center" mt={1}>
-                                <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>Selected: {selectedResume.fileName || "Untitled resume"}</Typography>
-                                <Tooltip title="Download"><IconButton size="small" component="a" href={selectedResume.fileUrl} download><DownloadIcon fontSize="small" /></IconButton></Tooltip>
-                                <Tooltip title="Preview"><IconButton size="small" onClick={() => handlePreviewResume(selectedResume)}><PictureAsPdfIcon fontSize="small" /></IconButton></Tooltip>
-                                <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => setDeleteConfirmId(selectedResume._id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
-                            </Stack>;
+                            return <Box component="details" sx={{ mt: 1.25 }}>
+                                <Typography component="summary" variant="caption" color="text.secondary" fontWeight={700} sx={{ cursor: "pointer" }}>Selected: {selectedResume.fileName || "Untitled resume"} · resume options</Typography>
+                                <Stack direction="row" spacing={1} alignItems="center" mt={1}>
+                                    <Button size="small" component="a" href={selectedResume.fileUrl} download startIcon={<DownloadIcon fontSize="small" />}>Download</Button>
+                                    <Button size="small" onClick={() => handlePreviewResume(selectedResume)} startIcon={<PictureAsPdfIcon fontSize="small" />}>Preview</Button>
+                                    <Tooltip title="Remove this saved resume from your account"><IconButton size="small" color="error" onClick={() => setDeleteConfirmId(selectedResume._id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                                </Stack>
+                            </Box>;
                         })()}
 
                         {!formData.resumeId && <FormHelperText>Questions will use the role and job description without personal resume context.</FormHelperText>}
@@ -353,7 +355,7 @@ const CreateInterviewPage = () => {
                     />
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
                         <Button variant="outlined" onClick={() => setActiveStep(0)}>Back</Button>
-                        <Button type="submit" variant="contained" disabled={!isFormValid || selectedRounds.length === 0} sx={{ flex: 1 }}>Start interview</Button>
+                        <Button type="submit" variant="contained" disabled={!isFormValid || selectedRounds.length === 0} sx={{ flex: 1 }}>Create interview</Button>
                     </Stack>
                     </>}
                 </Stack>
