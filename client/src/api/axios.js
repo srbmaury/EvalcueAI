@@ -1,5 +1,5 @@
 import axios from "axios";
-import { PRACTICE_LIMIT_EVENT } from "../components/PracticeLimitDialog";
+import { PRACTICE_LIMIT_EVENT } from "../utils/appEvents";
 
 export const resolveApiBaseUrl = (envUrl, hostname) => {
     const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
@@ -26,7 +26,6 @@ export const shouldAttachOrganization = (url = "") => {
         return false;
     }
 
-    // Axios requests are normally relative to /api, but normalize absolute /api URLs too.
     const path = pathname.replace(/^\/api(?=\/|$)/, "") || "/";
     const isAssessmentApi = path === "/assessments" || path.startsWith("/assessments/");
     const isCandidateApi = path === "/assessments/public" || path.startsWith("/assessments/public/");
@@ -47,7 +46,6 @@ export const setAccessToken = (token) => { accessToken = token || null; };
 export const clearAccessToken = () => { accessToken = null; };
 export const setOrganizationId = (id) => { organizationId = id || null; };
 
-// Authentication is global; organization context is attached only to organization-scoped Hiring APIs.
 api.interceptors.request.use((config) => {
     try {
         if (accessToken) config.headers["Authorization"] = `Bearer ${accessToken}`;
@@ -74,8 +72,6 @@ export const silentRefresh = async () => {
     return refreshPromise;
 };
 
-// On 401: try silent refresh once, then redirect to login.
-// Product entitlement failures are surfaced consistently through one global UI.
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
