@@ -85,9 +85,15 @@ export default defineConfig(({ mode }) => {
             rollupOptions: {
                 output: {
                     manualChunks(id) {
+                        // Keep genuinely heavy, route-specific feature libraries isolated so
+                        // they are only requested when the corresponding interview feature loads.
                         if (id.includes("monaco-editor") || id.includes("react-monaco-editor")) return "monaco";
-                        if (id.includes("@mui") || id.includes("@emotion")) return "mui";
+                        if (id.includes("@excalidraw/excalidraw")) return "excalidraw";
+                        if (id.includes("@mediapipe/tasks-vision")) return "vision";
                         if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) return "react";
+
+                        // Do not force all MUI/Emotion modules into one global chunk. Rollup can
+                        // now keep route-only components/icons with the routes that use them.
                     },
                 },
             },
