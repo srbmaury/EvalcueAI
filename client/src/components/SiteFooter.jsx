@@ -1,6 +1,6 @@
 import { Link as RouterLink } from "react-router-dom";
 import { Box, Container, Link, Stack, Typography } from "@mui/material";
-import { publicSupportEmail } from "../utils/publicContact";
+import { publicContactEmail, publicSalesEmail, publicSupportEmail } from "../utils/publicContact";
 
 export default function SiteFooter() {
     return (
@@ -14,7 +14,9 @@ export default function SiteFooter() {
                         <Link component={RouterLink} to="/docs" color="text.secondary">Docs</Link>
                         <Link component={RouterLink} to="/privacy" color="text.secondary">Privacy</Link>
                         <Link component={RouterLink} to="/terms" color="text.secondary">Terms</Link>
-                        {publicSupportEmail && <Link href={`mailto:${publicSupportEmail}`} color="text.secondary">Contact</Link>}
+                        <Link href={`mailto:${publicContactEmail}`} color="text.secondary">Contact</Link>
+                        <Link href={`mailto:${publicSupportEmail}`} color="text.secondary">Support</Link>
+                        <Link href={`mailto:${publicSalesEmail}`} color="text.secondary">Sales</Link>
                     </Stack>
                 </Stack>
             </Container>
