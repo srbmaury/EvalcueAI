@@ -357,13 +357,7 @@ export default function AssessmentBuilderPage() {
     const discardLocalChanges = () => {
         clearLocalDraft(draftKey);
         if (isEditing) {
-            hydrationKeyRef.current = "";
-            setHydrated(false);
-            setForm(initialForm);
-            setActiveStep(0);
-            setDraftSavedAt(null);
-            setLoadingBuilder(true);
-            window.setTimeout(() => navigate(`/hire/assessments?create=1&edit=${editId}`, { replace: true }), 0);
+            navigate(`/hire/assessments/${editId}`);
             return;
         }
         setForm(initialForm);
