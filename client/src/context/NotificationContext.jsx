@@ -1,6 +1,7 @@
 import { Alert, Snackbar } from "@mui/material";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { AuthContext } from "./AuthContext";
+import { practiceLimitHandledRecently } from "../utils/appEvents";
 
 const STORAGE_PREFIX = "evalcue:notifications";
 const VALID_SEVERITIES = new Set(["info", "success", "warning", "error"]);
@@ -35,6 +36,11 @@ export function NotificationProvider({ children }) {
         const cleanMessage = String(message || "").trim();
         if (!cleanMessage) return;
         const safeSeverity = VALID_SEVERITIES.has(severity) ? severity : "info";
+
+        // A quota response gets its own actionable dialog. Callers may still emit
+        // a generic catch-message immediately afterwards; suppress that duplicate.
+        if ((safeSeverity === "error" || safeSeverity === "warning") && practiceLimitHandledRecently()) return;
+
         const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, message: cleanMessage, severity: safeSeverity, at: new Date().toISOString(), read: false };
         setNotification(item);
 
