@@ -27,11 +27,10 @@ import { AuthContext } from "../context/AuthContext";
 import { OrganizationContext } from "../context/OrganizationContext";
 import { useNotify } from "../context/NotificationContext";
 import { resourcePageFor, resourcePathFor } from "../utils/productResourcePages";
-import { storage } from "../utils/interviewStorage";
+import { writePracticeCreateDraft } from "../utils/practiceCreateDraft";
+import { publicSupportEmail } from "../utils/publicContact";
 import { setWorkspacePreference } from "../utils/workspacePreference";
 import { trackEvent } from "../utils/analytics";
-
-const CREATE_DRAFT_KEY = "ia:create-interview";
 
 const selectedFromSearch = (config, search) => {
     const params = new URLSearchParams(search);
@@ -50,7 +49,7 @@ const hiringPayload = (config, example, role) => ({
     followUpsEnabled: true,
     inviteOnly: false,
     candidateInstructions: "Answer clearly, explain your reasoning, and state assumptions and trade-offs. Your responses will be reviewed by the hiring team.",
-    contactEmail: "",
+    contactEmail: publicSupportEmail,
     durationMinutes: example.rounds?.some((round) => round.deliveryMode === "system-design") ? 45 : 30,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     rounds: example.rounds || [],
@@ -109,7 +108,7 @@ export default function ProductResourcePage({ surface }) {
     };
 
     const startPractice = (example = selected, targetRole = role) => {
-        storage.set(CREATE_DRAFT_KEY, {
+        writePracticeCreateDraft({
             formData: {
                 company: "",
                 jobRole: targetRole,

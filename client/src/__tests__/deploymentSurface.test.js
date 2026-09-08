@@ -37,15 +37,15 @@ describe("deployment surfaces", () => {
         expect(surfaceHomePath("landing")).toBe("/");
     });
 
-    it("forces product-to-product navigation through the common site", () => {
+    it("navigates directly between deployment origins", () => {
         const env = {
             VITE_LANDING_ORIGIN: "https://evalcueai.com",
             VITE_PRACTICE_ORIGIN: "https://practice.evalcueai.com",
             VITE_HIRING_ORIGIN: "https://hiring.evalcueai.com",
         };
 
-        expect(deploymentRedirectUrl("practice", "hiring", "/hire", env)).toBe("https://evalcueai.com/");
-        expect(deploymentRedirectUrl("hiring", "practice", "/practice", env)).toBe("https://evalcueai.com/");
+        expect(deploymentRedirectUrl("practice", "hiring", "/hire", env)).toBe("https://hiring.evalcueai.com/hire");
+        expect(deploymentRedirectUrl("hiring", "practice", "/practice", env)).toBe("https://practice.evalcueai.com/practice");
         expect(deploymentRedirectUrl("landing", "practice", "/practice", env)).toBe("https://practice.evalcueai.com/practice");
         expect(deploymentRedirectUrl("practice", "landing", "/docs", env)).toBe("https://evalcueai.com/docs");
         expect(deploymentRedirectUrl("hiring", "landing", "/forgot-password", env)).toBe("https://evalcueai.com/forgot-password");

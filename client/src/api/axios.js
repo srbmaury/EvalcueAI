@@ -1,4 +1,5 @@
 import axios from "axios";
+import { markPracticeLimitHandled, PRACTICE_LIMIT_EVENT } from "../utils/appEvents";
 
 export const resolveApiBaseUrl = (envUrl, hostname) => {
     const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
@@ -25,7 +26,6 @@ export const shouldAttachOrganization = (url = "") => {
         return false;
     }
 
-    // Axios requests are normally relative to /api, but normalize absolute /api URLs too.
     const path = pathname.replace(/^\/api(?=\/|$)/, "") || "/";
     const isAssessmentApi = path === "/assessments" || path.startsWith("/assessments/");
     const isCandidateApi = path === "/assessments/public" || path.startsWith("/assessments/public/");
@@ -46,7 +46,6 @@ export const setAccessToken = (token) => { accessToken = token || null; };
 export const clearAccessToken = () => { accessToken = null; };
 export const setOrganizationId = (id) => { organizationId = id || null; };
 
-// Authentication is global; organization context is attached only to organization-scoped Hiring APIs.
 api.interceptors.request.use((config) => {
     try {
         if (accessToken) config.headers["Authorization"] = `Bearer ${accessToken}`;
@@ -73,12 +72,19 @@ export const silentRefresh = async () => {
     return refreshPromise;
 };
 
-// On 401: try silent refresh once, then redirect to login
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const status = error?.response?.status;
+        const responseData = error?.response?.data;
         const originalConfig = error?.config;
+
+        if (responseData?.code === "PRACTICE_LIMIT_REACHED") {
+            markPracticeLimitHandled();
+            try {
+                window.dispatchEvent(new CustomEvent(PRACTICE_LIMIT_EVENT, { detail: responseData }));
+            } catch { /* non-browser / test environments */ }
+        }
 
         if (status === 401 && originalConfig && !originalConfig.__retried && !originalConfig.skipAuthRedirect) {
             originalConfig.__retried = true;

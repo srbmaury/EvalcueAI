@@ -1,17 +1,20 @@
 import { Route, Routes, Navigate, useLocation } from "react-router-dom";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Box, CircularProgress } from "@mui/material";
 
 import Header from "./components/Header";
-import ProductHeader from "./components/ProductHeader";
-import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
-import AdminRoute from "./components/AdminRoute";
 import GuestOnlyRoute from "./components/GuestOnlyRoute";
-import HiringOrganizationGate from "./components/HiringOrganizationGate";
 import SearchIndexPolicy from "./components/SearchIndexPolicy";
 import CanonicalProductRedirect from "./components/CanonicalProductRedirect";
 import DeploymentSurfaceGuard from "./components/DeploymentSurfaceGuard";
+import { PRACTICE_LIMIT_EVENT } from "./utils/appEvents";
+
+const ProductHeader = lazy(() => import("./components/ProductHeader"));
+const ProtectedRoute = lazy(() => import("./components/ProtectedRoute"));
+const AdminRoute = lazy(() => import("./components/AdminRoute"));
+const HiringOrganizationGate = lazy(() => import("./components/HiringOrganizationGate"));
+const PracticeLimitDialog = lazy(() => import("./components/PracticeLimitDialog"));
 
 const CreateInterviewPage = lazy(() => import("./pages/CreateInterviewPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -66,15 +69,27 @@ const HiringRoute = ({ children }) => (
 
 const ProductAwareHeader = () => {
     const location = useLocation();
-    if (location.pathname === "/practice" || location.pathname.startsWith("/practice/")) return <ProductHeader surface="practice" />;
-    if (location.pathname === "/hire" || location.pathname.startsWith("/hire/")) return <ProductHeader surface="hiring" />;
+    if (location.pathname === "/practice" || location.pathname.startsWith("/practice/")) {
+        return <Suspense fallback={null}><ProductHeader surface="practice" /></Suspense>;
+    }
+    if (location.pathname === "/hire" || location.pathname.startsWith("/hire/")) {
+        return <Suspense fallback={null}><ProductHeader surface="hiring" /></Suspense>;
+    }
     return <Header />;
 };
 
 function App() {
     const [showSkip, setShowSkip] = useState(false);
+    const [practiceLimit, setPracticeLimit] = useState(null);
     const hiddenStyle = { position: "absolute", left: "-10000px", top: "auto", width: 1, height: 1, overflow: "hidden", zIndex: 10000 };
     const visibleStyle = { position: "absolute", left: 8, top: 8, background: "#fff", color: "#000", padding: "8px 12px", borderRadius: 4, boxShadow: "0 1px 4px rgba(0,0,0,0.2)", zIndex: 10000 };
+
+    useEffect(() => {
+        const onPracticeLimit = (event) => setPracticeLimit(event?.detail || {});
+        window.addEventListener(PRACTICE_LIMIT_EVENT, onPracticeLimit);
+        return () => window.removeEventListener(PRACTICE_LIMIT_EVENT, onPracticeLimit);
+    }, []);
+
     return (
         <DeploymentSurfaceGuard>
         <div className="min-h-screen">
@@ -156,6 +171,7 @@ function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes></Suspense></ErrorBoundary>
             </main>
+            {practiceLimit && <Suspense fallback={null}><PracticeLimitDialog limit={practiceLimit} onClose={() => setPracticeLimit(null)} /></Suspense>}
         </div>
         </DeploymentSurfaceGuard>
     );
