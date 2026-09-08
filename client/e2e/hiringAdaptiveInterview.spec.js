@@ -280,7 +280,8 @@ test("candidate completes all three chained AI follow-ups before a conversationa
     expect(currentQuestion.followUpNumber).toBe(0);
 
     await page.getByRole("button", { name: "Review and submit" }).click();
-    await expect(page.getByRole("heading", { name: "Interview complete" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ready to submit?" })).toBeVisible();
+    await expect(page.getByText(/won’t be able to change/i)).toBeVisible();
     await expect(page.getByRole("button", { name: "Submit assessment" })).toBeEnabled();
     await page.getByRole("button", { name: "Submit assessment" }).click();
     await expect(page.getByRole("heading", { name: "Assessment submitted" })).toBeVisible();
