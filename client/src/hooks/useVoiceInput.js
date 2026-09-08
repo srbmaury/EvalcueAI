@@ -2,6 +2,7 @@ import { useState, useCallback, useContext, useEffect, useRef } from "react";
 import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
 import { chooseInterviewerGender, interviewerPitchForGender, selectInterviewerVoice } from "../utils/interviewerVoice";
+import { sanitizeTranscriptSegment } from "../utils/transcriptSanitizer";
 
 const SpeechRecognitionCtor =
     typeof window !== "undefined"
@@ -11,6 +12,8 @@ const SpeechRecognitionCtor =
 const HANDS_FREE_SEGMENT_MS = 20000;
 
 export const composeLiveTranscript = (finalText, interimText) => `${finalText || ""} ${interimText || ""}`.trim();
+
+const safeTranscript = (value) => sanitizeTranscriptSegment(value);
 
 /**
  * Voice input supports two modes:
@@ -134,8 +137,15 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         liveRecRestartTimerRef.current = null;
     }, []);
 
+    const pushTranscript = useCallback((target, text) => {
+        const cleaned = safeTranscript(text);
+        if (!cleaned) return false;
+        onTranscriptRef.current?.(target, cleaned);
+        return true;
+    }, []);
+
     const commitLiveTranscript = useCallback((target = activeTargetRef.current) => {
-        const text = composeLiveTranscript(wsFinalsRef.current, wsInterimRef.current);
+        const text = safeTranscript(composeLiveTranscript(wsFinalsRef.current, wsInterimRef.current));
         if (!text) return false;
         liveTranscriptCommittedRef.current = true;
         wsFinalsRef.current = "";
@@ -171,10 +181,11 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
                     if (event.results[i].isFinal) finals += `${text} `;
                     else interim += text;
                 }
-                if (finals.trim()) {
-                    wsFinalsRef.current = `${wsFinalsRef.current} ${finals}`.trim();
+                const finalText = safeTranscript(finals.trim());
+                if (finalText) {
+                    wsFinalsRef.current = `${wsFinalsRef.current} ${finalText}`.trim();
                     liveTranscriptCommittedRef.current = true;
-                    onTranscriptRef.current?.(activeTargetRef.current || target, finals.trim());
+                    onTranscriptRef.current?.(activeTargetRef.current || target, finalText);
                     wsFinalsRef.current = "";
                 }
                 wsInterimRef.current = interim;
@@ -214,7 +225,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
                 skipAuthRedirect,
                 headers: { "Content-Type": "multipart/form-data", ...transcribeHeaders },
             });
-            const finalText = (resp?.data?.text || "").trim();
+            const finalText = safeTranscript(resp?.data?.text || "");
             if (finalText) onTranscriptRef.current?.(target, finalText);
             return finalText;
         } catch (error) {
@@ -243,8 +254,8 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
             const blob = new Blob(chunks, { type: "audio/webm" });
             const finalText = await transcribeBlob(blob, activeTargetRef.current || target, browserCommitted);
             if (!browserCommitted && !finalText) {
-                const fallbackText = composeLiveTranscript(wsFinalsRef.current, wsInterimRef.current);
-                if (fallbackText) onTranscriptRef.current?.(activeTargetRef.current || target, fallbackText);
+                const fallbackText = safeTranscript(composeLiveTranscript(wsFinalsRef.current, wsInterimRef.current));
+                if (fallbackText) pushTranscript(activeTargetRef.current || target, fallbackText);
             }
             if (reason === "rotate" && handsFreeRef.current && !handsFreePausedRef.current && sessionStreamRef.current) {
                 startRecorderSegment(sessionStreamRef.current, activeTargetRef.current || target, true);
@@ -268,7 +279,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
             }, HANDS_FREE_SEGMENT_MS);
         }
         return true;
-    }, [clearRotateTimer, stopMeter, transcribeBlob]);
+    }, [clearRotateTimer, pushTranscript, stopMeter, transcribeBlob]);
 
     const stopRecorder = useCallback((reason = "manual") => {
         clearRotateTimer();
