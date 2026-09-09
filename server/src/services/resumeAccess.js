@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 import cloudinary from "../config/cloudinaryConfig.js";
 
-const FILE_URL_TTL_SECONDS = Math.max(Number(process.env.RESUME_FILE_URL_TTL_SECONDS || 300), 60);
-const MAX_FILE_URL_TTL_SECONDS = Math.max(FILE_URL_TTL_SECONDS, 900);
+const FILE_URL_TTL_SECONDS = Math.max(Number(process.env.RESUME_FILE_URL_TTL_SECONDS || 3600), 60);
+const MAX_FILE_URL_TTL_SECONDS = Math.max(FILE_URL_TTL_SECONDS, 7200);
 
 const tokenSecret = () => process.env.RESUME_FILE_TOKEN_SECRET || process.env.JWT_SECRET || "";
 const signatureFor = (resumeId, userId, expires) => crypto

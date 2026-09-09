@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import api from "../api/axios";
 import { useResumes } from "../hooks/useResumes";
+import { useResumePdf } from "../hooks/useResumePdf";
 
 import {
     Box,
@@ -23,6 +24,7 @@ import {
     Stack,
     TextField,
     Typography,
+    CircularProgress,
 } from "@mui/material";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import DownloadIcon from "@mui/icons-material/Download";
@@ -32,7 +34,7 @@ import { resumeFileError } from "../utils/resumeFileValidation";
 
 export default function ResumeReviewPage() {
     const location = useLocation();
-    const { getResumes, uploadResume } = useResumes();
+    const { getResumes, uploadResume, downloadResume } = useResumes();
     const notify = useNotify();
     const [resumes, setResumes] = useState([]);
     const [resumeId, setResumeId] = useState(location.state?.resumeId || "");
@@ -42,7 +44,9 @@ export default function ResumeReviewPage() {
     const [jobDescription, setJobDescription] = useState(location.state?.jobDescription || "");
     const [review, setReview] = useState(null);
     const [previewOpen, setPreviewOpen] = useState(false);
-    const [previewUrl, setPreviewUrl] = useState("");
+    const [previewResume, setPreviewResume] = useState(null);
+    const previewPath = previewResume?._id ? `/resumes/${previewResume._id}/preview` : "";
+    const previewBlobUrl = useResumePdf({ resumeOpen: previewOpen, resumePreviewPath: previewPath, resumeFileType: previewResume?.fileType || "" });
     const [uploadConsent, setUploadConsent] = useState(false);
 
     useEffect(() => {
@@ -104,8 +108,16 @@ export default function ResumeReviewPage() {
             notify("Preview is available for PDF resumes only.", "warning");
             return;
         }
-        setPreviewUrl(`/api/resumes/${r._id}/preview`);
+        setPreviewResume(r);
         setPreviewOpen(true);
+    };
+
+    const handleDownloadResume = async (resume) => {
+        try {
+            await downloadResume(resume);
+        } catch (error) {
+            notify(error?.response?.data?.message || "The resume could not be downloaded.", "error");
+        }
     };
 
     return (
@@ -140,7 +152,7 @@ export default function ResumeReviewPage() {
                         </Box>
                         <Stack direction="row" spacing={1} flexWrap="wrap">
                             {selected.fileType === "application/pdf" && <Button size="small" variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={() => handlePreviewResume(selected)}>Preview</Button>}
-                            <Button size="small" variant="outlined" startIcon={<DownloadIcon />} component="a" href={selected.fileUrl} download>Download</Button>
+                            <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={() => handleDownloadResume(selected)}>Download</Button>
                         </Stack>
                     </Stack>
                 </Paper>}
@@ -240,15 +252,15 @@ export default function ResumeReviewPage() {
             >
                 <DialogTitle id="resume-preview-title">Preview</DialogTitle>
                 <DialogContent dividers sx={{ p: 0, height: "100%" }}>
-                    {previewUrl ? (
+                    {previewBlobUrl ? (
                         <iframe
-                            src={previewUrl}
+                            src={previewBlobUrl}
                             title="Resume Preview"
                             width="100%"
                             height="100%"
                             style={{ border: 0 }}
                         />
-                    ) : null}
+                    ) : <Stack height="100%" alignItems="center" justifyContent="center"><CircularProgress /></Stack>}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setPreviewOpen(false)}>Close</Button>

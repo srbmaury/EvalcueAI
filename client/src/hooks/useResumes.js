@@ -36,6 +36,23 @@ const updateResume = async (id, payload) => {
         return data;
 };
 
-const resumeApi = Object.freeze({ getResumes, uploadResume, deleteResume, updateResume });
+const downloadResume = async (resume) => {
+    if (!resume?._id) throw new Error("Resume is unavailable");
+    const { data } = await api.get(`/resumes/${resume._id}/preview`, { responseType: "blob" });
+    const blobUrl = URL.createObjectURL(data);
+    try {
+        const anchor = document.createElement("a");
+        anchor.href = blobUrl;
+        anchor.download = resume.fileName || "resume.pdf";
+        anchor.rel = "noopener";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+    } finally {
+        window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    }
+};
+
+const resumeApi = Object.freeze({ getResumes, uploadResume, deleteResume, updateResume, downloadResume });
 
 export const useResumes = () => resumeApi;

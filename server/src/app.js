@@ -46,7 +46,7 @@ const app = express();
 // Middleware
 app.set("trust proxy", 1); // required for secure cookies behind proxies
 app.use("/api/billing/webhook", express.raw({ type: "application/json", limit: "1mb" }), billingWebhookRoutes);
-app.use(express.json({ limit: "200kb" }));
+app.use(express.json({ limit: "700kb" }));
 app.use("/api/email-webhooks", emailWebhookRoutes);
 app.use(cookieParser());
 const isLocalhostOrigin = (origin) => {

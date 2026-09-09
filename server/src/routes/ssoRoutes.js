@@ -12,6 +12,7 @@ import { organizationContext, requireOrganizationRole } from "../middleware/orga
 import validate from "../middleware/validate.js";
 import { issueRefreshToken, signAccessToken } from "../utils/tokens.js";
 import { hiringClientOrigin } from "../config/clientOrigins.js";
+import { activeHiringSubscriptionPlan } from "../services/hiringEntitlements.js";
 import {
     createOidcLoginState,
     discoverOidcProvider,
@@ -50,7 +51,7 @@ export const refreshCookieOptions = () => ({
     path: "/api/auth",
 });
 const setRefreshCookie = (res, raw, expiresAt) => res.cookie("refreshToken", raw, { ...refreshCookieOptions(), expires: expiresAt });
-const ssoAvailableFor = (organization) => organization?.hiringPlan === "enterprise" || process.env.SSO_ALLOW_NON_ENTERPRISE === "true" || process.env.NODE_ENV !== "production";
+const ssoAvailableFor = (organization) => activeHiringSubscriptionPlan(organization) === "enterprise" || process.env.SSO_ALLOW_NON_ENTERPRISE === "true" || process.env.NODE_ENV !== "production";
 
 class SsoAccessError extends Error {}
 
