@@ -3,25 +3,39 @@ import ReminderDelivery from "../models/ReminderDelivery.js";
 import { sendMail } from "../utils/mailer.js";
 import metrics from "../metrics/index.js";
 import { practiceClientOrigin } from "../config/clientOrigins.js";
+import { buildWeeklyPracticePlan } from "./weeklyPracticePlan.js";
 
 const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const localParts = (date, timeZone) => Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone, weekday: "long", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 const retryDelayMs = (attempts) => Math.min(6 * 60 * 60 * 1000, 5 * 60 * 1000 * (2 ** Math.max(0, attempts - 1)));
 
+const sessionLink = (session) => {
+    const params = new URLSearchParams({
+        role: session.jobRole,
+        description: session.jobDescription,
+        session: String(session.number),
+    });
+    return `${practiceClientOrigin()}/practice/weekly-plan?${params.toString()}`;
+};
+
 const mailFor = (user) => {
-    const role = user.targetRole ? ` for ${user.targetRole}` : "";
+    const sessions = buildWeeklyPracticePlan(user);
+    const role = user.targetRole || "Software Engineer";
     const dashboard = `${practiceClientOrigin()}/practice/dashboard`;
+    const textSessions = sessions.map((session) => `${session.number}. ${session.title}\n   Focus: ${session.focus}\n   Start: ${sessionLink(session)}`).join("\n\n");
+    const htmlSessions = sessions.map((session) => `<div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:12px 0"><div style="font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase">Session ${session.number}</div><h3 style="margin:4px 0 8px">${escapeHtml(session.title)}</h3><p style="margin:0 0 12px;color:#4b5563">Focus: ${escapeHtml(session.focus)}</p><a href="${escapeHtml(sessionLink(session))}" style="display:inline-block;padding:9px 14px;border-radius:8px;background:#111827;color:#fff;text-decoration:none;font-weight:700">Start session ${session.number}</a></div>`).join("");
+
     return {
         to: user.email,
-        subject: "Your Evalcue AI practice reminder",
-        text: `Hi ${user.name},\n\nIt’s time for your interview practice${role}. A focused session today keeps your progress moving.\n\nOpen Evalcue AI: ${dashboard}\n\nChange or disable reminders from Profile & settings.`,
-        html: `<div style="font-family:Arial,sans-serif;line-height:1.6"><h2>Ready for a focused practice session?</h2><p>Hi ${escapeHtml(user.name)},</p><p>It’s time for your interview practice${escapeHtml(role)}. A focused session today keeps your progress moving.</p><p><a href="${escapeHtml(dashboard)}">Open Evalcue AI</a></p><p>You can change or disable reminders from Profile &amp; settings.</p></div>`,
+        subject: `Your Evalcue AI weekly practice plan — ${sessions.length} session${sessions.length === 1 ? "" : "s"}`,
+        text: `Hi ${user.name},\n\nYour ${role} practice plan is ready. We prepared ${sessions.length} focused session${sessions.length === 1 ? "" : "s"} for this week. Each link opens a separately crafted interview template that you can review before starting.\n\n${textSessions}\n\nDashboard: ${dashboard}\n\nChange your target role, weekly plan size, or delivery time from Profile.`,
+        html: `<div style="font-family:Arial,sans-serif;line-height:1.6;max-width:680px;margin:0 auto"><h2>Your weekly practice plan is ready</h2><p>Hi ${escapeHtml(user.name)},</p><p>We prepared <strong>${sessions.length} focused ${escapeHtml(role)} session${sessions.length === 1 ? "" : "s"}</strong> for this week. Each link opens a separately crafted interview template that you can review before starting.</p>${htmlSessions}<p style="margin-top:20px"><a href="${escapeHtml(dashboard)}">Open your Evalcue AI dashboard</a></p><p style="color:#6b7280;font-size:13px">Change your target role, weekly plan size, or delivery time from Profile.</p></div>`,
     };
 };
 
 const enqueueDue = async (now) => {
-    const users = await User.find({ reminderEnabled: true, isVerified: true }).select("name email targetRole reminderDay reminderTime reminderTimezone");
+    const users = await User.find({ reminderEnabled: true, isVerified: true }).select("name email targetRole preferredProgrammingLanguage practiceGoal weeklyPracticeTarget reminderDay reminderTime reminderTimezone");
     let enqueued = 0;
     for (const user of users) {
         try {
@@ -55,7 +69,7 @@ const deliverQueued = async (now) => {
             { nextAttemptAt: { $lte: now }, $or: [{ status: { $in: ["pending", "failed"] } }, { status: "processing", lockedAt: { $lte: staleLock } }] },
             { $set: { status: "processing", lockedAt: now }, $inc: { attempts: 1 } },
             { new: true, sort: { nextAttemptAt: 1 } },
-        ).populate("user", "name email targetRole reminderEnabled isVerified");
+        ).populate("user", "name email targetRole preferredProgrammingLanguage practiceGoal weeklyPracticeTarget reminderEnabled isVerified");
         if (!delivery) break;
         if (!delivery.user?.reminderEnabled || !delivery.user?.isVerified) {
             await ReminderDelivery.updateOne({ _id: delivery._id }, { $set: { status: "failed", lastError: "Reminder disabled or account unverified", nextAttemptAt: new Date("9999-12-31") }, $unset: { lockedAt: 1 } });
@@ -88,6 +102,6 @@ export async function deliverDuePracticeReminders(now = new Date()) {
 }
 
 export async function sendTestPracticeReminder(user) {
-    const info = await sendMail({ ...mailFor(user), subject: "Evalcue AI test reminder" });
+    const info = await sendMail({ ...mailFor(user), subject: "Evalcue AI test weekly practice plan" });
     return { messageId: info?.messageId || "" };
 }
