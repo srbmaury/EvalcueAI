@@ -14,6 +14,13 @@ export const normalizeEnvironment = (env = process.env) => {
         env.COOKIE_SAMESITE = "none";
     }
 
+    // Optional capabilities must default consistently everywhere. Routes only
+    // enable these features for the literal value "true", so normalize missing
+    // values to "false" before startup validation reads them as well.
+    if (!env.ENABLE_STT) env.ENABLE_STT = "false";
+    if (!env.ENABLE_CODE_EXEC) env.ENABLE_CODE_EXEC = "false";
+    if (!env.ACCOUNT_DATA_EXPORT_ENABLED) env.ACCOUNT_DATA_EXPORT_ENABLED = "false";
+
     // Render Key Value exposes an unauthenticated internal Redis endpoint to
     // services in the same workspace/region. Allow deployments to provide the
     // host/port separately while preserving REDIS_URL as the canonical value
