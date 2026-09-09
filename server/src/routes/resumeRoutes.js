@@ -5,6 +5,7 @@ import {
     deleteResume,
     updateResume,
     previewResume,
+    downloadResumeFile,
     reviewResume,
     getResumeReviews,
     deleteResumeReview,
@@ -164,6 +165,12 @@ router.delete(
     protect,
     validate(z.object({ reviewId: ObjectIdString }), "params"),
     deleteResumeReview
+);
+router.get(
+    "/:id/file",
+    validate(z.object({ id: ObjectIdString }), "params"),
+    validate(z.object({ expires: z.coerce.number().int().positive(), signature: z.string().min(20).max(200) }), "query"),
+    downloadResumeFile
 );
 router.delete(
     "/:id",

@@ -8,6 +8,7 @@ import { assertPdfMagic } from "../utils/magicBytes.js";
 import metrics from "../metrics/index.js";
 import { generateJSON } from "../utils/generateQuestions/aiClient.js";
 import { rankResumesForJob } from "../services/resumeMatcher.js";
+import { publicResume, resumeStorageUrl, verifyResumeFileToken } from "../services/resumeAccess.js";
 
 // Align with multer filter (PDF only) and use single source of truth for max bytes
 const ALLOWED_MIME = ["application/pdf"];
@@ -42,8 +43,38 @@ const optionalAntivirusScan = async (buffer) => {
     }
 };
 
+const streamResume = (res, resume, disposition = "inline") => {
+    const sourceUrl = resumeStorageUrl(resume);
+    if (!sourceUrl) {
+        res.status(404).end();
+        return;
+    }
+    res.setHeader("Content-Type", resume.fileType || "application/octet-stream");
+    res.setHeader("Content-Disposition", `${disposition}; filename="${safeDownloadName(resume.fileName)}"`);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    const reqTimeoutMs = Math.max(parseInt(process.env.RESUME_PREVIEW_TIMEOUT_MS || "10000", 10) || 10000, 1000);
+    const httpReq = https.get(sourceUrl, (r) => {
+        if (r.statusCode && r.statusCode >= 400) {
+            if (!res.headersSent) res.status(r.statusCode);
+            res.end();
+            return;
+        }
+        r.pipe(res);
+    }).on("error", (err) => {
+        console.error("Resume stream error:", err);
+        if (!res.headersSent) res.status(500);
+        res.end();
+    });
+    httpReq.setTimeout(reqTimeoutMs, () => {
+        try { httpReq.destroy(new Error("resume_stream_timeout")); } catch {}
+        try { if (!res.headersSent) res.status(504).end(); } catch {}
+    });
+};
+
 // Upload resume
 export const uploadResume = async (req, res, next) => {
+    let uploaded;
     try {
         if (!req.file)
             return res.status(400).json({ message: "No file uploaded" });
@@ -69,12 +100,14 @@ export const uploadResume = async (req, res, next) => {
         // Extract text from file buffer
         const extractedText = await parseFile(req.file.buffer, req.file.mimetype);
 
-        // Upload to Cloudinary
+        // Upload as an authenticated Cloudinary asset. The underlying storage URL
+        // is never returned to clients; downloads are proxied by this API.
         const streamUpload = (fileBuffer) => {
             return new Promise((resolve, reject) => {
                 const stream = cloudinary.uploader.upload_stream(
                     {
                         resource_type: "raw",
+                        type: "authenticated",
                         folder: "resumes",
                     },
                     (error, result) => {
@@ -86,22 +119,26 @@ export const uploadResume = async (req, res, next) => {
             });
         };
 
-        const uploaded = await streamUpload(req.file.buffer);
-        try { metrics.uploadResumeTotal.labels("success").inc(); } catch {}
+        uploaded = await streamUpload(req.file.buffer);
 
         // Save resume in DB
         const resume = await Resume.create({
             user: req.user._id,
             fileUrl: uploaded.secure_url,
             publicId: uploaded.public_id,
+            deliveryType: "authenticated",
             fileName: req.file.originalname,
             fileType: req.file.mimetype,
             fileSize: req.file.size,
             extractedText,
         });
+        try { metrics.uploadResumeTotal.labels("success").inc(); } catch {}
 
-        res.status(201).json(resume);
+        return res.status(201).json(publicResume(req, resume));
     } catch (error) {
+        if (uploaded?.public_id) {
+            await cloudinary.uploader.destroy(uploaded.public_id, { resource_type: "raw", type: "authenticated" }).catch(() => {});
+        }
         console.error("Resume upload error:", error);
         try { metrics.uploadResumeTotal.labels("failure").inc(); } catch {}
         return next(error instanceof Error ? error : new Error(String(error)));
@@ -129,7 +166,7 @@ export const getUserResumes = async (req, res, next) => {
             Resume.find(query).sort(sortSpec).skip((page - 1) * limit).limit(limit).lean(),
             Resume.countDocuments(query),
         ]);
-        res.json({ items, total, page, limit, totalPages: Math.max(Math.ceil(total / limit), 1) });
+        res.json({ items: items.map((item) => publicResume(req, item)), total, page, limit, totalPages: Math.max(Math.ceil(total / limit), 1) });
     } catch (error) {
         console.error("Fetch resumes error:", error);
         return next(error instanceof Error ? error : new Error(String(error)));
@@ -149,7 +186,7 @@ export const deleteResume = async (req, res, next) => {
         // Remove from Cloudinary (raw resource)
         try {
             if (resume.publicId) {
-                await cloudinary.uploader.destroy(resume.publicId, { resource_type: "raw" });
+                await cloudinary.uploader.destroy(resume.publicId, { resource_type: "raw", type: resume.deliveryType || "upload" });
             }
         } catch (e) {
             console.warn("Cloudinary destroy failed:", e?.message || e);
@@ -168,14 +205,14 @@ export const viewResume = async (req, res, next) => {
     try {
         const resume = await Resume.findOne({ _id: req.params.id, user: req.user._id });
         if (!resume) return res.status(404).json({ message: "Resume not found" });
-        res.json(resume);
+        res.json(publicResume(req, resume));
     } catch (error) {
         console.error("View resume error:", error);
         return next(error instanceof Error ? error : new Error(String(error)));
     }
 };
 
-// Stream PDF inline for preview
+// Stream PDF inline for authenticated preview
 export const previewResume = async (req, res, next) => {
     try {
         const resume = await Resume.findOne({ _id: req.params.id, user: req.user._id });
@@ -183,28 +220,27 @@ export const previewResume = async (req, res, next) => {
         if (resume.fileType !== "application/pdf") {
             return res.status(400).json({ message: "Preview available for PDFs only" });
         }
-        res.setHeader("Content-Type", "application/pdf");
-        res.setHeader("Content-Disposition", `inline; filename="${safeDownloadName(resume.fileName)}"`);
-        const reqTimeoutMs = Math.max(parseInt(process.env.RESUME_PREVIEW_TIMEOUT_MS || "10000", 10) || 10000, 1000);
-        const httpReq = https.get(resume.fileUrl, (r) => {
-            if (r.statusCode && r.statusCode >= 400) {
-                res.status(r.statusCode).end();
-                return;
-            }
-            r.pipe(res);
-        }).on("error", (err) => {
-            console.error("Preview stream error:", err);
-            res.status(500).end();
-        });
-        httpReq.setTimeout(reqTimeoutMs, () => {
-            try { httpReq.destroy(new Error("preview_timeout")); } catch {}
-            try { if (!res.headersSent) res.status(504).end(); } catch {}
-        });
+        return streamResume(res, resume, "inline");
     } catch (error) {
         console.error("Preview resume error:", error);
         return next(error instanceof Error ? error : new Error(String(error)));
     }
 };
+
+// Short-lived signed link used by browser downloads that cannot attach the
+// in-memory Bearer token. The file is still proxied; Cloudinary URLs stay private.
+export const downloadResumeFile = async (req, res, next) => {
+    try {
+        const resume = await Resume.findById(req.params.id);
+        if (!resume || !verifyResumeFileToken(resume, req.query.expires, req.query.signature)) {
+            return res.status(404).json({ message: "Resume link unavailable" });
+        }
+        return streamResume(res, resume, "attachment");
+    } catch (error) {
+        return next(error instanceof Error ? error : new Error(String(error)));
+    }
+};
+
 // Update resume metadata (rename, tags, notes)
 export const updateResume = async (req, res, next) => {
     try {
@@ -223,7 +259,7 @@ export const updateResume = async (req, res, next) => {
             resume.notes = notes;
         }
         await resume.save();
-        res.json(resume);
+        res.json(publicResume(req, resume));
     } catch (error) {
         console.error("Update resume error:", error);
         return next(error instanceof Error ? error : new Error(String(error)));

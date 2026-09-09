@@ -33,6 +33,7 @@ import {
     PictureAsPdfOutlined as PreviewIcon,
 } from "@mui/icons-material";
 import { useResumes } from "../hooks/useResumes";
+import { useResumePdf } from "../hooks/useResumePdf";
 import { useNotify } from "../context/NotificationContext";
 import { resumeFileError } from "../utils/resumeFileValidation";
 
@@ -62,6 +63,8 @@ const ResumesPage = () => {
     const [editNotes, setEditNotes] = useState("");
     const [saving, setSaving] = useState(false);
     const [preview, setPreview] = useState(null);
+    const previewPath = preview?._id ? `/resumes/${preview._id}/preview` : "";
+    const previewBlobUrl = useResumePdf({ resumeOpen: Boolean(preview), resumePreviewPath: previewPath, resumeFileType: preview?.fileType || "" });
 
     useEffect(() => {
         let active = true;
@@ -232,7 +235,9 @@ const ResumesPage = () => {
 
             <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} fullWidth maxWidth="xl" PaperProps={{ sx: { height: "92vh" } }} aria-labelledby="resume-preview-title">
                 <DialogTitle id="resume-preview-title">{preview?.fileName || "Resume preview"}</DialogTitle>
-                <DialogContent dividers sx={{ p: 0 }}><iframe src={preview ? `/api/resumes/${preview._id}/preview` : undefined} title={`Preview of ${preview?.fileName || "resume"}`} width="100%" height="100%" style={{ border: 0 }} /></DialogContent>
+                <DialogContent dividers sx={{ p: 0 }}>
+                    {previewBlobUrl ? <iframe src={previewBlobUrl} title={`Preview of ${preview?.fileName || "resume"}`} width="100%" height="100%" style={{ border: 0 }} /> : <Stack height="100%" alignItems="center" justifyContent="center"><CircularProgress /></Stack>}
+                </DialogContent>
                 <DialogActions><Button onClick={() => setPreview(null)}>Close</Button></DialogActions>
             </Dialog>
         </Box>

@@ -3,6 +3,7 @@ import Round from "../models/Round.js";
 import mongoose from "mongoose";
 import Resume from "../models/Resume.js";
 import { getCompanyGrounding } from "../services/companyGrounding.js";
+import { publicResume } from "../services/resumeAccess.js";
 
 export const createInterview = async (req, res, next) => {
     const { resumeId, company, jobRole, jobDescription, rounds } = req.body;
@@ -167,6 +168,8 @@ export const getInterview = async (req, res, next) => {
             .populate("resume");
         if (!interview) return res.status(404).json({ message: "Interview not found" });
 
+        const obj = interview.toObject();
+        if (obj.resume) obj.resume = publicResume(req, obj.resume);
         try {
             const rounds = Array.isArray(interview?.rounds) ? interview.rounds : [];
             const roundAverages = [];
@@ -178,11 +181,10 @@ export const getInterview = async (req, res, next) => {
             const overall = roundAverages.length
                 ? Math.round((roundAverages.reduce((a, b) => a + b, 0) / roundAverages.length) * 10) / 10
                 : 0;
-            const obj = interview.toObject();
             obj.overallScore = overall;
             return res.json(obj);
         } catch {
-            return res.json(interview);
+            return res.json(obj);
         }
     } catch (err) {
         console.error(err);

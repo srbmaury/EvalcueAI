@@ -1,5 +1,4 @@
-import dns from "node:dns/promises";
-import net from "node:net";
+import { requestPublicUrl, resolvePublicUrl } from "../utils/safeHttp.js";
 
 const MAX_BYTES = 1_000_000;
 const MAX_REDIRECTS = 3;
@@ -17,54 +16,17 @@ const htmlToText = (value = "") => decodeHtml(value)
     .replace(/<[^>]+>/g, " ")
     .replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
 
-const isPrivateAddress = (address) => {
-    const normalized = String(address || "").toLowerCase().split("%")[0];
-    if (normalized.startsWith("::ffff:")) return true;
-    if (net.isIP(normalized) === 4) {
-        const [a, b] = normalized.split(".").map(Number);
-        return a === 0 || a === 10 || a === 127 || a >= 224 ||
-            (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
-            (a === 192 && (b === 0 || b === 168)) || (a === 100 && b >= 64 && b <= 127) ||
-            (a === 198 && (b === 18 || b === 19));
-    }
-    if (net.isIP(normalized) === 6) {
-        return normalized === "::" || normalized === "::1" || normalized.startsWith("fc") ||
-            normalized.startsWith("fd") || normalized.startsWith("fe8") || normalized.startsWith("fe9") ||
-            normalized.startsWith("fea") || normalized.startsWith("feb") || normalized.startsWith("::ffff:127.");
-    }
-    return true;
-};
-
 export const validatePublicJobUrl = async (rawUrl) => {
     let url;
     try { url = new URL(rawUrl); } catch { throw new Error("Enter a valid job-post URL."); }
     if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new Error("Only public HTTP(S) job-post URLs are allowed.");
     if ((url.protocol === "http:" && url.port && url.port !== "80") || (url.protocol === "https:" && url.port && url.port !== "443")) throw new Error("Custom URL ports are not allowed.");
-    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
-    if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local") || hostname.endsWith(".internal") || hostname === "metadata.google.internal") throw new Error("Private network URLs are not allowed.");
-    if (net.isIP(hostname) && isPrivateAddress(hostname)) throw new Error("Private network URLs are not allowed.");
-    let addresses;
-    try { addresses = await dns.lookup(hostname, { all: true, verbatim: true }); }
-    catch { throw new Error("The job-post hostname could not be resolved."); }
-    if (!addresses.length || addresses.some(({ address }) => isPrivateAddress(address))) throw new Error("Private network URLs are not allowed.");
-    return url;
-};
-
-const readLimitedBody = async (response) => {
-    const declared = Number(response.headers.get("content-length") || 0);
-    if (declared > MAX_BYTES) throw new Error("The job post is too large to import.");
-    if (!response.body?.getReader) return (await response.text()).slice(0, MAX_BYTES);
-    const reader = response.body.getReader(); const chunks = []; let size = 0;
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        size += value.byteLength;
-        if (size > MAX_BYTES) { await reader.cancel(); throw new Error("The job post is too large to import."); }
-        chunks.push(value);
+    try {
+        return (await resolvePublicUrl(url)).url;
+    } catch (error) {
+        if (/resolve/i.test(error?.message || "")) throw new Error("The job-post hostname could not be resolved.");
+        throw new Error("Private network URLs are not allowed.");
     }
-    const result = new Uint8Array(size); let offset = 0;
-    for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength; }
-    return new TextDecoder().decode(result);
 };
 
 const metaContent = (html, key) => {
@@ -100,23 +62,29 @@ export const extractJobPost = (html, sourceUrl) => {
 };
 
 export const importJobPost = async (rawUrl) => {
-    let current = await validatePublicJobUrl(rawUrl);
-    for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
-        const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-        let response;
-        try { response = await fetch(current, { redirect: "manual", signal: controller.signal, headers: { "user-agent": "Evalcue AI-JobImporter/1.0", accept: "text/html,text/plain;q=0.9" } }); }
-        catch (error) { throw new Error(error?.name === "AbortError" ? "The job post took too long to respond." : "The job post could not be reached."); }
-        finally { clearTimeout(timeout); }
-        if ([301, 302, 303, 307, 308].includes(response.status)) {
-            const location = response.headers.get("location");
-            if (!location || redirects === MAX_REDIRECTS) throw new Error("The job post redirected too many times.");
-            current = await validatePublicJobUrl(new URL(location, current).toString());
-            continue;
-        }
-        if (!response.ok) throw new Error(`The job post returned HTTP ${response.status}.`);
-        const type = (response.headers.get("content-type") || "").toLowerCase();
-        if (!type.includes("text/html") && !type.includes("text/plain")) throw new Error("The URL must return an HTML or text job post.");
-        return extractJobPost(await readLimitedBody(response), current.toString());
+    // requestPublicUrl resolves the hostname once for each hop and pins the socket
+    // to that validated address, closing the DNS-rebinding gap between validation
+    // and connection. Redirect targets are independently resolved and validated.
+    let response;
+    try {
+        response = await requestPublicUrl(rawUrl, {
+            maxRedirects: MAX_REDIRECTS,
+            timeoutMs: TIMEOUT_MS,
+            maxBytes: MAX_BYTES,
+            headers: { "user-agent": "Evalcue AI-JobImporter/1.0", accept: "text/html,text/plain;q=0.9" },
+        });
+    } catch (error) {
+        const message = error?.message || "";
+        if (/timed out/i.test(message)) throw new Error("The job post took too long to respond.");
+        if (/too large/i.test(message)) throw new Error("The job post is too large to import.");
+        if (/redirect/i.test(message)) throw new Error("The job post redirected too many times.");
+        if (/private|public addresses|network/i.test(message)) throw new Error("Private network URLs are not allowed.");
+        if (/resolve/i.test(message)) throw new Error("The job-post hostname could not be resolved.");
+        throw new Error("The job post could not be reached.");
     }
-    throw new Error("The job post could not be imported.");
+
+    if (response.status < 200 || response.status >= 300) throw new Error(`The job post returned HTTP ${response.status}.`);
+    const type = String(response.headers["content-type"] || "").toLowerCase();
+    if (!type.includes("text/html") && !type.includes("text/plain")) throw new Error("The URL must return an HTML or text job post.");
+    return extractJobPost(response.body.toString("utf8"), response.url.toString());
 };

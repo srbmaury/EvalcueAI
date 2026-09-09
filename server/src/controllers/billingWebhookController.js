@@ -7,6 +7,7 @@ import { activeHiringSubscriptionPlan } from "../services/hiringEntitlements.js"
 import metrics from "../metrics/index.js";
 
 const activeStatuses = new Set(["active", "trialing"]);
+const BILLING_EVENT_LEASE_MS = Math.max(Number(process.env.BILLING_EVENT_LEASE_MS || 120_000), 30_000);
 
 const priceIdOf = (subscription) => subscription.items?.data?.[0]?.price?.id || "";
 
@@ -135,6 +136,48 @@ const activatePaidPilot = async (session) => {
     );
 };
 
+const claimBillingEvent = async (event) => {
+    const now = new Date();
+    const leaseExpiresAt = new Date(now.getTime() + BILLING_EVENT_LEASE_MS);
+    try {
+        const record = await BillingEvent.create({
+            provider: "stripe",
+            eventId: event.id,
+            type: event.type,
+            status: "processing",
+            leaseExpiresAt,
+            processedAt: null,
+            lastError: "",
+        });
+        return { state: "claimed", record };
+    } catch (error) {
+        if (error?.code !== 11000) throw error;
+    }
+
+    // Lean is intentional: Mongoose schema defaults can make a legacy row that
+    // predates the status field look like status="processing" in memory. Those
+    // legacy rows were the old processed-event marker, so never replay them.
+    const existing = await BillingEvent.findOne({ provider: "stripe", eventId: event.id }).lean();
+    if (!existing) return { state: "busy", record: null };
+    if (!existing.status || existing.status === "processed") return { state: "duplicate", record: existing };
+
+    const retryable = existing.status === "failed" ||
+        (existing.status === "processing" && (!existing.leaseExpiresAt || existing.leaseExpiresAt <= now));
+    if (!retryable) return { state: "busy", record: existing };
+
+    const filter = { _id: existing._id, status: existing.status };
+    if (existing.status === "processing") filter.$or = [
+        { leaseExpiresAt: { $lte: now } },
+        { leaseExpiresAt: null },
+    ];
+    const record = await BillingEvent.findOneAndUpdate(
+        filter,
+        { $set: { type: event.type, status: "processing", leaseExpiresAt, processedAt: null, lastError: "" } },
+        { new: true },
+    );
+    return record ? { state: "claimed", record } : { state: "busy", record: existing };
+};
+
 export const stripeWebhook = async (req, res) => {
     const startedAt = process.hrtime.bigint();
     let event;
@@ -148,15 +191,27 @@ export const stripeWebhook = async (req, res) => {
         return res.status(400).send(`Invalid webhook: ${error.message}`);
     }
 
+    let claim;
     try {
-        await BillingEvent.create({ provider: "stripe", eventId: event.id, type: event.type });
+        claim = await claimBillingEvent(event);
     } catch (error) {
-        if (error?.code === 11000) {
-            metrics.billingWebhooksTotal.labels(event.type, "duplicate").inc();
-            metrics.billingWebhookDurationSeconds.labels(event.type, "duplicate").observe(Number(process.hrtime.bigint() - startedAt) / 1e9);
-            return res.json({ received: true, duplicate: true });
-        }
-        throw error;
+        console.error("Stripe webhook claim failed", event.id, error);
+        metrics.billingWebhooksTotal.labels(event.type, "failure").inc();
+        metrics.billingWebhookDurationSeconds.labels(event.type, "failure").observe(Number(process.hrtime.bigint() - startedAt) / 1e9);
+        return res.status(500).json({ message: "Webhook processing failed" });
+    }
+
+    if (claim.state === "duplicate") {
+        metrics.billingWebhooksTotal.labels(event.type, "duplicate").inc();
+        metrics.billingWebhookDurationSeconds.labels(event.type, "duplicate").observe(Number(process.hrtime.bigint() - startedAt) / 1e9);
+        return res.json({ received: true, duplicate: true });
+    }
+    if (claim.state === "busy") {
+        // Do not acknowledge an event that another worker has only claimed, not
+        // completed. A non-2xx response tells Stripe to retry if that worker dies.
+        metrics.billingWebhooksTotal.labels(event.type, "busy").inc();
+        metrics.billingWebhookDurationSeconds.labels(event.type, "busy").observe(Number(process.hrtime.bigint() - startedAt) / 1e9);
+        return res.status(409).json({ message: "Webhook is already being processed" });
     }
 
     try {
@@ -199,11 +254,21 @@ export const stripeWebhook = async (req, res) => {
             // inferring subscription state from an individual invoice or charge event.
             await syncInvoiceSubscription(event.data.object);
         }
+
+        const completed = await BillingEvent.updateOne(
+            { _id: claim.record._id, status: "processing" },
+            { $set: { status: "processed", processedAt: new Date(), leaseExpiresAt: null, lastError: "" } },
+        );
+        if (!completed.modifiedCount) throw new Error("Billing event processing lease was lost");
+
         metrics.billingWebhooksTotal.labels(event.type, "success").inc();
         metrics.billingWebhookDurationSeconds.labels(event.type, "success").observe(Number(process.hrtime.bigint() - startedAt) / 1e9);
         return res.json({ received: true });
     } catch (error) {
-        await BillingEvent.deleteOne({ provider: "stripe", eventId: event.id }).catch(() => {});
+        await BillingEvent.updateOne(
+            { _id: claim.record._id, status: "processing" },
+            { $set: { status: "failed", leaseExpiresAt: null, lastError: String(error?.message || error).slice(0, 1000) } },
+        ).catch(() => {});
         console.error("Stripe webhook processing failed", event.id, error);
         metrics.billingWebhooksTotal.labels(event.type, "failure").inc();
         metrics.billingWebhookDurationSeconds.labels(event.type, "failure").observe(Number(process.hrtime.bigint() - startedAt) / 1e9);

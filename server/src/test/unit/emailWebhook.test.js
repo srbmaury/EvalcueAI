@@ -16,9 +16,33 @@ describe("Brevo delivery webhook", () => {
         expect(updateOne).not.toHaveBeenCalled();
     });
 
-    it("marks matching provider messages delivered", async () => {
-        const response = await request(app).post("/brevo").set("x-evalcue-webhook-secret", "long-test-secret").send({ event: "delivered", "message-id": "provider-1", email: "candidate@example.com" }).expect(200);
+    it("ignores delivery events that cannot be tied to a provider message", async () => {
+        const response = await request(app).post("/brevo").set("x-evalcue-webhook-secret", "long-test-secret").send({ event: "delivered", email: "candidate@example.com" }).expect(200);
+        expect(response.body.updated).toBe(false);
+        expect(updateOne).not.toHaveBeenCalled();
+    });
+
+    it("updates only the matching provider message and records event ordering metadata", async () => {
+        const response = await request(app).post("/brevo").set("x-evalcue-webhook-secret", "long-test-secret").send({
+            event: "delivered",
+            "message-id": "provider-1",
+            "event-id": "event-1",
+            ts_event: 1_800_000_000,
+            email: "candidate@example.com",
+        }).expect(200);
         expect(response.body.updated).toBe(true);
-        expect(updateOne).toHaveBeenCalledWith({ "invitations.providerMessageId": "provider-1" }, expect.objectContaining({ $set: expect.objectContaining({ "invitations.$[invitation].status": "delivered" }) }), expect.any(Object));
+        expect(updateOne).toHaveBeenCalledWith(
+            expect.objectContaining({
+                invitations: expect.objectContaining({
+                    $elemMatch: expect.objectContaining({ providerMessageId: "provider-1", providerEventId: { $ne: "event-1" } }),
+                }),
+            }),
+            expect.objectContaining({
+                $set: expect.objectContaining({
+                    "invitations.$.status": "delivered",
+                    "invitations.$.providerEventId": "event-1",
+                }),
+            }),
+        );
     });
 });

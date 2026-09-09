@@ -15,6 +15,11 @@ const resumeSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
+        deliveryType: {
+            type: String,
+            enum: ["upload", "authenticated"],
+            default: "upload",
+        },
         fileName: {
             type: String,
             required: true,

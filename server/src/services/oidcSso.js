@@ -1,48 +1,40 @@
 import crypto from "crypto";
-import dns from "dns/promises";
-import net from "net";
 import jwt from "jsonwebtoken";
+import { requestPublicUrl, resolvePublicUrl } from "../utils/safeHttp.js";
 
 const normalizeIssuer = (value = "") => value.trim().replace(/\/+$/, "");
 const hash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const base64url = (buffer) => Buffer.from(buffer).toString("base64url");
 
-const isPrivateIp = (address) => {
-    if (net.isIPv4(address)) {
-        const [a, b] = address.split(".").map(Number);
-        return a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a === 0;
-    }
-    if (net.isIPv6(address)) {
-        const value = address.toLowerCase();
-        return value === "::1" || value === "::" || value.startsWith("fc") || value.startsWith("fd") || value.startsWith("fe8") || value.startsWith("fe9") || value.startsWith("fea") || value.startsWith("feb");
-    }
-    return true;
-};
-
 export const assertSafeOidcUrl = async (raw) => {
-    const url = new URL(raw);
+    let url;
+    try { url = new URL(raw); } catch { throw new Error("Invalid OIDC endpoint"); }
     if (url.protocol !== "https:") throw new Error("OIDC endpoints must use HTTPS");
-    const hostname = url.hostname.toLowerCase();
-    if (["localhost", "localhost.localdomain"].includes(hostname)) throw new Error("Private OIDC endpoints are not allowed");
-    if (net.isIP(hostname) && isPrivateIp(hostname)) throw new Error("Private OIDC endpoints are not allowed");
-    if (!net.isIP(hostname)) {
-        const addresses = await dns.lookup(hostname, { all: true });
-        if (!addresses.length || addresses.some(({ address }) => isPrivateIp(address))) throw new Error("OIDC hostname must resolve only to public addresses");
+    try {
+        return (await resolvePublicUrl(url, { httpsOnly: true, allowCustomPorts: true })).url;
+    } catch (error) {
+        if (/resolve/i.test(error?.message || "")) throw new Error("OIDC hostname could not be resolved");
+        throw new Error("Private OIDC endpoints are not allowed");
     }
-    return url;
 };
 
-const fetchJson = async (url, options = {}) => {
-    await assertSafeOidcUrl(url);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    try {
-        const response = await fetch(url, { ...options, redirect: "error", signal: controller.signal });
-        if (!response.ok) throw new Error(`OIDC provider returned ${response.status}`);
-        return await response.json();
-    } finally {
-        clearTimeout(timeout);
-    }
+const fetchJson = async (rawUrl, options = {}) => {
+    // Resolve and pin the socket to the validated address. No redirects are
+    // followed for OIDC metadata/token/JWKS requests, so a provider cannot
+    // redirect the server into a private network either.
+    const response = await requestPublicUrl(rawUrl, {
+        method: options.method || "GET",
+        headers: options.headers || {},
+        body: options.body,
+        httpsOnly: true,
+        allowCustomPorts: true,
+        maxRedirects: 0,
+        timeoutMs: 5_000,
+        maxBytes: 1_000_000,
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(`OIDC provider returned ${response.status}`);
+    try { return JSON.parse(response.body.toString("utf8")); }
+    catch { throw new Error("OIDC provider returned invalid JSON"); }
 };
 
 export const discoverOidcProvider = async (issuer) => {

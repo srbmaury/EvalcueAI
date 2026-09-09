@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 
 // API / Context
 import { useResumes } from "../hooks/useResumes";
+import { useResumePdf } from "../hooks/useResumePdf";
 
 // UI Components
 import {
     Box,
     Button,
+    CircularProgress,
     Dialog,
     DialogActions,
     DialogContent,
@@ -46,7 +48,9 @@ const ResumeReview = ({ value, onChange, title = "Resume Review" }) => {
     const [selectedResumeId, setSelectedResumeId] = useState(value || "");
 
     const [previewOpen, setPreviewOpen] = useState(false);
-    const [previewUrl, setPreviewUrl] = useState("");
+    const [previewResume, setPreviewResume] = useState(null);
+    const previewPath = previewResume?._id ? `/resumes/${previewResume._id}/preview` : "";
+    const previewBlobUrl = useResumePdf({ resumeOpen: previewOpen, resumePreviewPath: previewPath, resumeFileType: previewResume?.fileType || "" });
 
     useEffect(() => {
         const fetchResumes = async () => {
@@ -106,7 +110,7 @@ const ResumeReview = ({ value, onChange, title = "Resume Review" }) => {
             notify("Preview is available for PDF files only.", "warning");
             return;
         }
-        setPreviewUrl(`/api/resumes/${r._id}/preview`);
+        setPreviewResume(r);
         setPreviewOpen(true);
     };
 
@@ -209,15 +213,15 @@ const ResumeReview = ({ value, onChange, title = "Resume Review" }) => {
             >
                 <DialogTitle id="resume-preview-title">Preview</DialogTitle>
                 <DialogContent dividers sx={{ p: 0, height: "100%" }}>
-                    {previewUrl ? (
+                    {previewBlobUrl ? (
                         <iframe
-                            src={previewUrl}
+                            src={previewBlobUrl}
                             title="Resume Preview"
                             width="100%"
                             height="100%"
                             style={{ border: 0 }}
                         />
-                    ) : null}
+                    ) : <Stack height="100%" alignItems="center" justifyContent="center"><CircularProgress /></Stack>}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setPreviewOpen(false)}>Close</Button>
