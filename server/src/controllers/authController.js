@@ -471,7 +471,7 @@ export const resetPassword = async (req, res, next) => {
         await revokeAllRefreshTokens(user._id);
         try { metrics.authResetTotal.labels("reset", "success").inc(); } catch {}
         try { await AuditLog.create({ user: user._id, action: "auth.reset", ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
-        return res.json({ message: "Password has been reset", workspace: resetWorkspace });
+        return res.json({ message: "Password has been reset" });
     } catch (err) {
         try { metrics.authResetTotal.labels("reset", "failure").inc(); } catch {}
         return next(err instanceof Error ? err : new Error(String(err)));
