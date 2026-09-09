@@ -151,6 +151,9 @@ export const addMember = async (req, res, next) => {
         }
         const user = await User.findOne({ email: req.body.email.toLowerCase().trim() });
         if (!user) return res.status(404).json({ message: "That person needs a Evalcue AI account before they can be added" });
+        if (String(user._id) === String(req.user._id)) {
+            return res.status(400).json({ message: "You cannot change your own organization role through Add member. Transfer ownership or ask another authorized member to manage your role." });
+        }
         const membership = await OrganizationMembership.findOneAndUpdate(
             { organization: req.params.organizationId, user: user._id },
             {
