@@ -130,8 +130,10 @@ test("mock interview clarifications stay in the live stage and are spoken", asyn
 
     await expect.poll(() => clarificationRequest?.message).toBe("Should I use a project example?");
     await expect(page.getByText("Interviewer: Use one strong project example and explain the impact.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Play clarification again" })).toBeVisible();
-    await expect.poll(() => page.evaluate(() => window.__spoken.some((item) => item.includes("Use one strong project example")))).toBeTruthy();
+    const replayClarification = page.getByRole("button", { name: "Play clarification again" });
+    await expect(replayClarification).toBeVisible();
+    await replayClarification.click();
+    await expect.poll(() => page.evaluate(() => window.__spoken.join("\n"))).toContain("Use one strong project example");
 });
 
 test("mock interview refreshes completed-round feedback after the background job finishes", async ({ page }) => {
