@@ -20,7 +20,7 @@ router.get("/", protect, async (req, res, next) => {
             id: `${req.user.practiceGoal || "confidence"}-${index}`,
             title,
             href: index === 1 && hasIncomplete ? `/interviews/${last._id}` : index === 2 ? "/progress" : "/create-interview",
-            reason: index === 1 && hasIncomplete ? "Continue your latest unfinished session while the context is fresh." : index === 2 ? `Track progress toward your ${req.user.weeklyPracticeTarget || 3}-session weekly goal.` : req.user.targetRole ? `Create focused practice for your ${req.user.targetRole} target.` : "Set a target role through a focused practice session.",
+            reason: index === 1 && hasIncomplete ? "Continue your latest unfinished session while the context is fresh." : index === 2 ? `Your weekly plan prepares ${req.user.weeklyPracticeTarget || 3} tailored practice session${(req.user.weeklyPracticeTarget || 3) === 1 ? "" : "s"}.` : req.user.targetRole ? `Create focused practice for your ${req.user.targetRole} target.` : "Set a target role through a focused practice session.",
         }));
         res.json({ goal: req.user.practiceGoal || "confidence", targetRole: req.user.targetRole || "", weeklyTarget: req.user.weeklyPracticeTarget || 3, hasIncomplete, actions });
     } catch (error) { next(error); }
