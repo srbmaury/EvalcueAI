@@ -71,8 +71,8 @@ const Captcha = ({ onVerify, onExpire, provider, theme = "auto", enabled = true 
                     widgetIdRef.current = window.turnstile.render(containerRef.current, {
                         sitekey: cfg.siteKey,
                         theme,
-                        callback: (token) => { try { onVerifyRef.current?.(token); } catch {} },
-                        "expired-callback": () => { try { onExpireRef.current?.(); } catch {} },
+                        callback: (token) => { try { onVerifyRef.current?.(token); } catch { return undefined; } },
+                        "expired-callback": () => { try { onExpireRef.current?.(); } catch { return undefined; } },
                         "error-callback": () => setError("CAPTCHA failed to load. Try again."),
                     });
                     setReady(true);
@@ -88,8 +88,8 @@ const Captcha = ({ onVerify, onExpire, provider, theme = "auto", enabled = true 
                         widgetIdRef.current = window.grecaptcha.render(containerRef.current, {
                             sitekey: cfg.siteKey,
                             theme: theme === "auto" ? "light" : theme,
-                            callback: (token) => { try { onVerifyRef.current?.(token); } catch {} },
-                            "expired-callback": () => { try { onExpireRef.current?.(); } catch {} },
+                            callback: (token) => { try { onVerifyRef.current?.(token); } catch { return undefined; } },
+                            "expired-callback": () => { try { onExpireRef.current?.(); } catch { return undefined; } },
                             "error-callback": () => setError("CAPTCHA failed to load. Try again."),
                         });
                         setReady(true);
