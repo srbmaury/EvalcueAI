@@ -9,6 +9,7 @@ const mockSignedOut = async (page) => {
 const mockSignedIn = async (page, user = { _id: "user-1", name: "Recruiter One", email: "recruiter@example.com", role: "user", practicePlan: "free" }, organizationRole = "owner") => {
     await page.route("**/api/auth/refresh", (route) => json(route, { token: "test-access-token" }));
     await page.route("**/api/auth/profile", (route) => json(route, user));
+    await page.route("**/api/auth/reminders/deliveries", (route) => json(route, { items: [] }));
     await page.route("**/api/organizations", (route) => json(route, {
         organizations: [{ _id: "org-1", name: "Acme Hiring", role: organizationRole, memberCount: 1 }],
     }));
@@ -114,19 +115,19 @@ test("a signed-in hiring user can create their first organization", async ({ pag
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 });
 
-test("Practice and Hire stay separate while profile keeps advanced settings collapsed", async ({ page }) => {
+test("Practice and Hire stay separate while profile exposes core practice settings", async ({ page }) => {
     await mockSignedIn(page);
     await page.route("**/api/assessments/overview**", (route) => json(route, { summary: {}, assessments: [], candidates: [], totalPages: 1 }));
     await page.route("**/api/assessments?**", (route) => json(route, { items: [], totalPages: 1 }));
     await page.goto("/practice/profile");
     await expect(page).toHaveURL(/\/practice\/profile$/);
-    await expect(page.getByRole("heading", { name: "Profile & settings" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Profile", level: 1 })).toBeVisible();
     await expect(page.getByText("Your workspace", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Plan & billing" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Security", exact: true })).toBeVisible();
-    await expect(page.getByLabel("Primary goal")).not.toBeVisible();
-    await page.getByRole("button", { name: /Practice preferences/ }).click();
+    await expect(page.getByLabel("Role you’re targeting")).toBeVisible();
     await expect(page.getByLabel("Primary goal")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Weekly Practice Plan" })).toBeVisible();
     if ((page.viewportSize()?.width || 0) >= 900) {
         await expect(page.getByRole("button", { name: "Resume review" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Progress" })).toBeVisible();
@@ -414,7 +415,7 @@ test("supporting authenticated screens render without overflow", async ({ page }
     await page.route("**/api/admin/feedback**", (route) => json(route, { items: [], totalPages: 1 }));
     await page.route("**/api/admin/audit**", (route) => json(route, { items: [], totalPages: 1 }));
     const screens = [
-        ["/practice/profile", "Profile & settings"],
+        ["/practice/profile", "Profile"],
         ["/practice/progress", "Your progress"],
         ["/practice/resumes", "Resumes"],
         ["/practice/resume-review", "AI resume review"],
