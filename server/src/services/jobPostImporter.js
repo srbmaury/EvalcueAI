@@ -157,9 +157,10 @@ const looksJobRich = (text) => /responsibilit|qualification|requirement|experien
 const buildDescription = ({ posting, embedded, html }) => {
     const candidates = [];
     const add = (label, value, weight) => {
+        const minLength = ["Job details", "Page content", "Page description"].includes(label) ? 20 : 3;
         for (const raw of stringList(value)) {
             const text = cleanText(raw, 12_000);
-            if (text.length >= 20) candidates.push({ label, text, weight: weight + Math.min(text.length / 1000, 4) + (looksJobRich(text) ? 2 : 0) });
+            if (text.length >= minLength) candidates.push({ label, text, weight: weight + Math.min(text.length / 1000, 4) + (looksJobRich(text) ? 2 : 0) });
         }
     };
 
@@ -219,7 +220,12 @@ export const extractJobPost = (html, sourceUrl) => {
     const location = compact(locationText(posting) || valueFrom(embedded, ["location", "jobLocation", "workplace"]), 300);
     const employmentType = compact(posting?.employmentType || valueFrom(embedded, ["employmentType", "employment_type", "jobType"]), 120);
     const salary = compact(salaryText(posting) || valueFrom(embedded, ["salary", "compensation", "baseSalary"]), 200);
-    const extractionQuality = jobDescription.length >= 1200 ? "high" : jobDescription.length >= 500 ? "medium" : "low";
+    const hasStructuredDepth = Boolean(posting?.responsibilities || posting?.qualifications || posting?.skills || posting?.experienceRequirements || posting?.educationRequirements);
+    const extractionQuality = jobDescription.length >= 1200
+        ? "high"
+        : jobDescription.length >= 500 || (hasStructuredDepth && jobDescription.length >= 180)
+            ? "medium"
+            : "low";
 
     return {
         company,
