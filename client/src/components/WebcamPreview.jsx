@@ -5,7 +5,7 @@ import VideocamRoundedIcon from "@mui/icons-material/VideocamRounded";
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
 import { useFacePresenceMonitor } from "../hooks/useFacePresenceMonitor";
 
-const WebcamPreview = ({ autoStart = false, required = false, monitorFaces = false, onIntegrityEvent, onFaceStatusChange }) => {
+const WebcamPreview = ({ autoStart = false, required = false, monitorFaces = false, onIntegrityEvent, onFaceStatusChange, onCameraStatusChange }) => {
     const videoRef = useRef(null);
     const streamRef = useRef(null);
     const [on, setOn] = useState(false);
@@ -37,6 +37,10 @@ const WebcamPreview = ({ autoStart = false, required = false, monitorFaces = fal
     useEffect(() => {
         if (on && videoRef.current && streamRef.current) videoRef.current.srcObject = streamRef.current;
     }, [on]);
+
+    useEffect(() => {
+        onCameraStatusChange?.({ on, denied });
+    }, [denied, on, onCameraStatusChange]);
 
     const stop = (event) => {
         event?.stopPropagation();
@@ -117,7 +121,7 @@ const WebcamPreview = ({ autoStart = false, required = false, monitorFaces = fal
                     <>
                         {denied ? <PersonIcon sx={{ color: "error.light", fontSize: 30 }} /> : <VideocamRoundedIcon sx={{ color: "rgba(255,255,255,.62)", fontSize: 30 }} />}
                         <Typography sx={{ color: denied ? "error.light" : "rgba(255,255,255,.75)", fontSize: 10, textAlign: "center", px: 1, fontWeight: 650 }}>
-                            {denied ? "Camera blocked" : "Turn camera on"}
+                            {denied ? "Camera blocked" : required ? "Turn camera on" : "Turn camera on"}
                         </Typography>
                     </>
                 )}

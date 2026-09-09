@@ -55,11 +55,17 @@ const ConversationalPanel = ({
     submitAnswerLabel = "I’m done",
     submitFollowUpLabel = "I’m done",
     cameraSlot,
+    requireCameraBeforeStart = true,
+    autoStartCamera = true,
 }) => {
     const [clarifyText, setClarifyText] = useState("");
+    const [clarifying, setClarifying] = useState(false);
+    const [clarification, setClarification] = useState(null);
     const [submitRoundOpen, setSubmitRoundOpen] = useState(false);
     const [aiSpeaking, setAiSpeaking] = useState(false);
     const [showTypedAnswer, setShowTypedAnswer] = useState(false);
+    const [cameraState, setCameraState] = useState({ on: false, denied: false });
+    const [cameraBypassed, setCameraBypassed] = useState(false);
     const elapsedLabel = useElapsed();
 
     const questionNumber = useMemo(() => (convState?.index ?? 0) + 1, [convState?.index]);
@@ -69,6 +75,20 @@ const ConversationalPanel = ({
     const isFollowUp = Boolean(pendingFollowUp);
     const isDone = convState?.done;
     const typedWorkspaceVisible = showTypedAnswer || codingEnabled || !supportsSTT;
+    const cameraReady = cameraSlot !== undefined || !requireCameraBeforeStart || cameraState.on || cameraBypassed;
+    const micReady = !supportsSTT || micSessionActive;
+    const needsMic = Boolean(supportsSTT && activeText && !micReady && !isDone && !convRoundSubmitting);
+    const needsCamera = Boolean(requireCameraBeforeStart && cameraSlot === undefined && activeText && !cameraReady && !isDone && !convRoundSubmitting);
+    const readinessNeeded = needsMic || needsCamera;
+
+    const readinessPrompt = useMemo(() => {
+        if (needsMic && needsCamera) return "Hi, I’m your interviewer. Before we start, please turn on your microphone and camera so this feels like a real mock interview.";
+        if (needsMic) return "Hi, I’m your interviewer. Please turn on your microphone before I ask the first question.";
+        if (needsCamera) return "Hi, I’m your interviewer. Please turn on your camera before I ask the first question.";
+        return "";
+    }, [needsCamera, needsMic]);
+
+    const replayText = readinessNeeded ? readinessPrompt : activeText;
 
     const savedLabel = useMemo(() => {
         if (!savedAt) return null;
@@ -83,13 +103,14 @@ const ConversationalPanel = ({
     const interviewerState = useMemo(() => {
         if (isDone) return { label: "Round complete", color: "success" };
         if (convSubmitting || convRoundSubmitting) return { label: "One moment…", color: "info" };
+        if (readinessNeeded) return { label: "Setup needed", color: "warning" };
         if (aiSpeaking) return { label: "Interviewer speaking", color: "primary" };
         if (isRecording) return { label: "Listening", color: "success" };
         if (micSessionActive) return { label: "Your turn", color: "success" };
         return { label: supportsSTT ? "Connecting mic…" : "Your turn", color: supportsSTT ? "default" : "success" };
-    }, [aiSpeaking, convRoundSubmitting, convSubmitting, isDone, isRecording, micSessionActive, supportsSTT]);
+    }, [aiSpeaking, convRoundSubmitting, convSubmitting, isDone, isRecording, micSessionActive, readinessNeeded, supportsSTT]);
 
-    const triggerSpeak = useCallback(async (text) => {
+    const triggerSpeak = useCallback(async (text, { resumeAfter = true } = {}) => {
         if (!text) return;
         await onPauseHandsFree?.();
         if (supportsTTS) {
@@ -97,7 +118,7 @@ const ConversationalPanel = ({
             await onSpeak?.(text);
             setAiSpeaking(false);
         }
-        if (!isDone && !convSubmitting && !convRoundSubmitting) await onResumeHandsFree?.(target);
+        if (resumeAfter && !isDone && !convSubmitting && !convRoundSubmitting) await onResumeHandsFree?.(target);
     }, [convRoundSubmitting, convSubmitting, isDone, onPauseHandsFree, onResumeHandsFree, onSpeak, supportsTTS, target]);
 
     useEffect(() => {
@@ -112,24 +133,47 @@ const ConversationalPanel = ({
     }, [activeText, aiSpeaking, convRoundSubmitting, convSubmitting, handsFreePaused, isDone, micSessionActive, onResumeHandsFree, onStartHandsFree, supportsSTT, target]);
 
     useEffect(() => {
-        if (!supportsTTS || !questionText) return;
-        const timer = setTimeout(() => { triggerSpeak(questionText); }, 350);
+        if (!supportsTTS || !readinessNeeded || !readinessPrompt) return;
+        const timer = setTimeout(() => { triggerSpeak(readinessPrompt, { resumeAfter: false }); }, 250);
         return () => clearTimeout(timer);
-    }, [questionText]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [readinessNeeded, readinessPrompt, supportsTTS, triggerSpeak]);
 
     useEffect(() => {
-        if (!supportsTTS || !pendingFollowUp?.question) return;
+        if (!supportsTTS || !questionText || readinessNeeded) return;
+        const intro = questionNumber === 1 && !isFollowUp
+            ? `Hi, I’m your interviewer for this round. Let’s begin. ${questionText}`
+            : questionText;
+        const timer = setTimeout(() => { triggerSpeak(intro); }, 350);
+        return () => clearTimeout(timer);
+    }, [isFollowUp, questionNumber, questionText, readinessNeeded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (!supportsTTS || !pendingFollowUp?.question || readinessNeeded) return;
         const timer = setTimeout(() => { triggerSpeak(pendingFollowUp.question); }, 350);
         return () => clearTimeout(timer);
-    }, [pendingFollowUp?.question]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [pendingFollowUp?.question, readinessNeeded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        setClarification(null);
+        setClarifyText("");
+    }, [activeText]);
 
     useEffect(() => () => { onStopHandsFree?.(); }, [onStopHandsFree]);
 
-    const submitClarify = () => {
+    const submitClarify = async () => {
         const value = clarifyText.trim();
-        if (value && onClarify) {
-            onClarify(value);
-            setClarifyText("");
+        if (!value || !onClarify || clarifying) return;
+        setClarifying(true);
+        await onPauseHandsFree?.();
+        try {
+            const answer = await onClarify(value);
+            if (answer) {
+                setClarification({ question: value, answer });
+                setClarifyText("");
+                await triggerSpeak(answer);
+            }
+        } finally {
+            setClarifying(false);
         }
     };
 
@@ -161,12 +205,12 @@ const ConversationalPanel = ({
                     <Stack direction="row" spacing={1} alignItems="center">
                         <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: isDone ? "success.main" : isRecording ? "success.main" : "warning.main", animation: isRecording ? "blink 1.4s ease-in-out infinite" : "none", "@keyframes blink": { "0%,100%": { opacity: 1 }, "50%": { opacity: .35 } } }} />
                         <Typography sx={{ color: "rgba(255,255,255,.76)", fontSize: ".72rem", fontWeight: 700, letterSpacing: .45, textTransform: "uppercase" }}>{isDone ? "Completed" : "Live interview"}</Typography>
-                        {!isDone && <Chip size="small" label={`Q ${questionNumber}`} sx={{ height: 20, bgcolor: "rgba(255,255,255,.1)", color: "rgba(255,255,255,.8)" }} />}
+                        {!isDone && !readinessNeeded && <Chip size="small" label={`Q ${questionNumber}`} sx={{ height: 20, bgcolor: "rgba(255,255,255,.1)", color: "rgba(255,255,255,.8)" }} />}
                     </Stack>
                     <Stack direction="row" spacing={1} alignItems="center">
                         {!isDone && <Chip size="small" label={interviewerState.label} color={interviewerState.color} sx={{ display: { xs: "none", sm: "flex" }, height: 22 }} />}
-                        {supportsTTS && activeText && !isDone && (
-                            <Tooltip title="Replay question"><Button size="small" onClick={() => triggerSpeak(activeText)} startIcon={<VolumeUpIcon sx={{ fontSize: 18 }} />} sx={{ color: "rgba(255,255,255,.72)", minWidth: 0 }}>Replay</Button></Tooltip>
+                        {supportsTTS && replayText && !isDone && (
+                            <Tooltip title={readinessNeeded ? "Replay setup prompt" : "Replay question"}><Button size="small" onClick={() => triggerSpeak(replayText, { resumeAfter: !readinessNeeded })} startIcon={<VolumeUpIcon sx={{ fontSize: 18 }} />} sx={{ color: "rgba(255,255,255,.72)", minWidth: 0 }}>Replay</Button></Tooltip>
                         )}
                         <Box sx={{ px: 1, py: .35, bgcolor: "rgba(0,0,0,.4)", borderRadius: 1.5, border: "1px solid rgba(255,255,255,.1)" }}><Typography sx={{ color: "rgba(255,255,255,.75)", fontSize: ".72rem", fontFamily: "monospace" }}>{elapsedLabel}</Typography></Box>
                     </Stack>
@@ -176,6 +220,23 @@ const ConversationalPanel = ({
                     <Stack alignItems="center" spacing={2} py={5}><Typography sx={{ color: "white", fontSize: 36 }}>✓</Typography><Typography sx={{ color: "rgba(255,255,255,.9)", fontWeight: 700, fontSize: "1.2rem" }}>Round complete</Typography></Stack>
                 ) : !convState?.current && !convSubmitting ? (
                     <Stack direction="row" spacing={1.5} alignItems="center" color="rgba(255,255,255,.65)"><CircularProgress size={20} sx={{ color: "rgba(255,255,255,.5)" }} /><Typography>Preparing the interview…</Typography></Stack>
+                ) : readinessNeeded ? (
+                    <Stack spacing={2.25} alignItems="center" sx={{ width: "100%", maxWidth: 760, px: { xs: 2, sm: 4 }, pt: 6, pb: 7 }}>
+                        <Box sx={{ width: 86, height: 86, borderRadius: "50%", background: "linear-gradient(145deg, #2563eb 0%, #1e40af 100%)", display: "grid", placeItems: "center", boxShadow: "0 12px 36px rgba(0,0,0,.4)" }}><PersonRoundedIcon sx={{ fontSize: 48, color: "white" }} /></Box>
+                        <Paper elevation={0} sx={{ width: "100%", px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 2.5 }, bgcolor: "rgba(255,255,255,.1)", color: "white", border: "1px solid rgba(255,255,255,.14)", borderRadius: 3, backdropFilter: "blur(8px)" }}>
+                            <Chip size="small" label="Before we start" sx={{ mb: 1, bgcolor: "rgba(250,204,21,.2)", color: "#fef3c7" }} />
+                            <Typography component="h2" sx={{ fontSize: { xs: "1rem", sm: "1.18rem", md: "1.28rem" }, lineHeight: 1.55, fontWeight: 700, color: "rgba(255,255,255,.96)" }}>{readinessPrompt}</Typography>
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+                                <Chip size="small" color={micReady ? "success" : "warning"} label={micReady ? "Mic ready" : "Mic needed"} />
+                                <Chip size="small" color={cameraReady ? "success" : "warning"} label={cameraReady ? "Camera ready" : "Camera needed"} />
+                            </Stack>
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
+                                {supportsSTT && <Button variant={micReady ? "outlined" : "contained"} onClick={() => onStartHandsFree?.(target)}>{micReady ? "Mic is on" : "Turn on mic"}</Button>}
+                                {!cameraReady && !cameraState.denied && <Typography variant="body2" sx={{ color: "rgba(255,255,255,.72)", alignSelf: "center" }}>Use the camera tile in the bottom-right corner to turn camera on.</Typography>}
+                                {cameraState.denied && <Button variant="outlined" sx={{ color: "white", borderColor: "rgba(255,255,255,.45)" }} onClick={() => setCameraBypassed(true)}>Continue without camera</Button>}
+                            </Stack>
+                        </Paper>
+                    </Stack>
                 ) : (
                     <Stack spacing={2.5} alignItems="center" sx={{ width: "100%", maxWidth: 820, px: { xs: 2, sm: 4 }, pt: 5, pb: 6 }}>
                         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.25 }}>
@@ -191,11 +252,11 @@ const ConversationalPanel = ({
                         </Paper>
                     </Stack>
                 )}
-                {cameraSlot === undefined ? <WebcamPreview /> : cameraSlot}
+                {cameraSlot === undefined ? <WebcamPreview required={requireCameraBeforeStart} autoStart={autoStartCamera} onCameraStatusChange={setCameraState} /> : cameraSlot}
             </Box>
 
             <Box sx={{ bgcolor: "background.paper", p: { xs: 2, sm: 2.5, md: 3 } }}>
-                {(pendingFollowUp || (convState?.current && !convState?.done)) && !convSubmitting && (
+                {(pendingFollowUp || (convState?.current && !convState?.done)) && !convSubmitting && !readinessNeeded && (
                     <Stack spacing={2.25}>
                         <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
                             <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: .7, minWidth: { md: 140 } }}>
@@ -211,6 +272,19 @@ const ConversationalPanel = ({
                             </Box>
                             {supportsSTT && !codingEnabled && <Button variant={typedWorkspaceVisible ? "contained" : "outlined"} startIcon={<NotesRoundedIcon />} onClick={() => setShowTypedAnswer((current) => !current)} sx={{ flexShrink: 0 }}>{typedWorkspaceVisible ? "Hide typing" : "Type / code"}</Button>}
                         </Stack>
+
+                        {clarification && (
+                            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2.5, bgcolor: "primary.50", borderColor: "primary.light" }} aria-live="polite">
+                                <Stack spacing={0.75}>
+                                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                                        <Chip size="small" color="primary" label="Clarification" />
+                                        <Typography variant="caption" color="text.secondary">You asked: {clarification.question}</Typography>
+                                    </Stack>
+                                    <Typography variant="body2" fontWeight={700}>Interviewer: {clarification.answer}</Typography>
+                                    {supportsTTS && <Button size="small" variant="text" startIcon={<VolumeUpIcon />} onClick={() => triggerSpeak(clarification.answer)} sx={{ alignSelf: "flex-start" }}>Play clarification again</Button>}
+                                </Stack>
+                            </Paper>
+                        )}
 
                         {typedWorkspaceVisible && (
                             <Suspense fallback={<Skeleton variant="rectangular" height={180} sx={{ borderRadius: 2 }} />}>
@@ -228,7 +302,7 @@ const ConversationalPanel = ({
                         ) : (
                             <Stack direction={{ xs: "column", lg: "row" }} spacing={1.25} alignItems={{ lg: "center" }}>
                                 <Button variant="contained" startIcon={convSubmitting ? <CircularProgress size={16} color="inherit" /> : <SendIcon />} onClick={submitAnswerTurn} disabled={convSubmitting || !String(convAnswer || "").trim()} sx={{ minWidth: 150, order: { xs: 1, lg: 3 } }}>{convSubmitting ? "One moment…" : submitAnswerLabel}</Button>
-                                {onClarify && <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ flex: 1, minWidth: 0, width: "100%", order: { xs: 2, lg: 1 } }}><TextField size="small" placeholder="Need clarification? Ask the interviewer…" fullWidth value={clarifyText} onChange={(event) => setClarifyText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") submitClarify(); }} /><Button variant="outlined" size="small" onClick={submitClarify} disabled={!clarifyText.trim()}>Ask</Button></Stack>}
+                                {onClarify && <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ flex: 1, minWidth: 0, width: "100%", order: { xs: 2, lg: 1 } }}><TextField size="small" placeholder="Need clarification? Ask the interviewer…" fullWidth value={clarifyText} onChange={(event) => setClarifyText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") submitClarify(); }} /><Button variant="outlined" size="small" onClick={submitClarify} disabled={!clarifyText.trim() || clarifying}>{clarifying ? "Asking…" : "Ask"}</Button></Stack>}
                                 {showRoundControls && (onCompleteRound || onSkip) && <Stack direction="row" spacing={1} sx={{ order: { xs: 3, lg: 2 } }}>{onCompleteRound && <Button variant="text" size="small" color="inherit" onClick={() => setSubmitRoundOpen(true)} disabled={convRoundSubmitting}>End round</Button>}{onSkip && <SkipRoundButton onSkip={skipRound} />}</Stack>}
                             </Stack>
                         )}

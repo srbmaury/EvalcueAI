@@ -75,6 +75,12 @@ const InterviewPage = () => {
         return questions.some((question) => (question?.answerGiven || "").toString().trim() && !question?.feedback);
     }, [selectedRound?.questions]);
 
+    const pendingFeedbackNotice = hasAnsweredMissingFeedback ? (
+        <Alert severity="info">
+            Some detailed feedback is still being prepared. The round is saved, and the page will show any available feedback without needing a manual refresh.
+        </Alert>
+    ) : null;
+
     const convAnswerSetterRef = useRef(null);
     const oaAnswersSetterRef = useRef(null);
     const [convSpokenAnswer, setConvSpokenAnswer] = useState("");
@@ -426,14 +432,14 @@ const InterviewPage = () => {
                                 </Stack>
                             ) : isConversational ? (
                                 selectedRound.status === "completed" ? (
-                                    (convRoundSubmitting || hasAnsweredMissingFeedback) ? (
+                                    convRoundSubmitting ? (
                                         <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
                                             <Stack spacing={1}>
                                                 <Typography fontWeight={800}>Generating interview feedback… {convFeedbackProgress ? `${Math.round(convFeedbackProgress)}%` : ""}</Typography>
                                                 <LinearProgress variant={convFeedbackProgress ? "determinate" : "indeterminate"} value={convFeedbackProgress || 0} />
                                             </Stack>
                                         </Paper>
-                                    ) : <Stack spacing={2}><FeedbackPanel round={selectedRound} />{completedRoundActions}</Stack>
+                                    ) : <Stack spacing={2}>{pendingFeedbackNotice}<FeedbackPanel round={selectedRound} />{completedRoundActions}</Stack>
                                 ) : isSystemDesign ? (
                                     <SystemDesignDiscussionPanel
                                         problem={convViewState.current?.text || ""}
@@ -494,14 +500,14 @@ const InterviewPage = () => {
                                 )
                             ) : (
                                 selectedRound.status === "completed" ? (
-                                    hasAnsweredMissingFeedback ? (
+                                    oaSubmitting ? (
                                         <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
                                             <Stack spacing={1}>
                                                 <Typography fontWeight={800}>Generating interview feedback… {oaFeedbackProgress ? `${Math.round(oaFeedbackProgress)}%` : ""}</Typography>
                                                 <LinearProgress variant={oaFeedbackProgress ? "determinate" : "indeterminate"} value={oaFeedbackProgress || 0} />
                                             </Stack>
                                         </Paper>
-                                    ) : <Stack spacing={2}><FeedbackPanel round={selectedRound} />{completedRoundActions}</Stack>
+                                    ) : <Stack spacing={2}>{pendingFeedbackNotice}<FeedbackPanel round={selectedRound} />{completedRoundActions}</Stack>
                                 ) : (
                                     <>
                                         <OAForm

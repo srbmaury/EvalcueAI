@@ -9,17 +9,20 @@ import api from "../api/axios";
  */
 export const pollJobStatus = async (jobType, jobId, onProgress, timeoutMs = 60000) => {
     const start = Date.now();
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const timedOut = () => Date.now() - start > timeoutMs;
     const poll = async () => {
         try {
             const { data } = await api.get(`/jobs/status/${jobType}/${jobId}`);
             if (onProgress) onProgress(Math.max(0, Math.min(100, Number(data?.progress) || 0)));
             const state = data?.state;
             if (state === "completed" || state === "failed") return state;
-            if (Date.now() - start > timeoutMs) return "timeout";
-            await new Promise((r) => setTimeout(r, 700));
+            if (timedOut()) return "timeout";
+            await sleep(700);
             return poll();
         } catch {
-            await new Promise((r) => setTimeout(r, 1000));
+            if (timedOut()) return "timeout";
+            await sleep(1000);
             return poll();
         }
     };
