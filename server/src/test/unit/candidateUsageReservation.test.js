@@ -21,25 +21,27 @@ describe("candidate interview usage reservations", () => {
         if (replset) { await mongoose.disconnect(); await replset.stop(); }
     });
 
-    it("finalizes a reservation only once", async () => {
+    it("finalizes a reservation idempotently without double-counting usage", async () => {
         const organization = await Organization.create({ name: "Usage Test", createdBy: new mongoose.Types.ObjectId(), hiringPlan: "trial", hiringTrialEndsAt: new Date(Date.now() + 86400000) });
         const attemptId = new mongoose.Types.ObjectId();
-        const reserved = await reserveCandidateInterview(organization._id, { attemptId });
+        const reserved = await reserveCandidateInterview(organization._id, attemptId);
         expect(reserved.ok).toBe(true);
         expect(await finalizeCandidateInterview(reserved.reservation)).toBe(true);
-        expect(await finalizeCandidateInterview(reserved.reservation)).toBe(false);
-        const counter = await OrganizationUsageCounter.findById(reserved.reservation.counterId).lean();
+        expect(await finalizeCandidateInterview(reserved.reservation)).toBe(true);
+        const reservation = await CandidateUsageReservation.findById(reserved.reservation.reservationId).lean();
+        const counter = await OrganizationUsageCounter.findById(reservation.counter).lean();
         expect(counter.used).toBe(1);
         expect(counter.reserved).toBe(0);
     });
 
-    it("releases an abandoned reservation without consuming usage", async () => {
+    it("releases an abandoned reservation idempotently without consuming usage", async () => {
         const organization = await Organization.create({ name: "Release Test", createdBy: new mongoose.Types.ObjectId(), hiringPlan: "trial", hiringTrialEndsAt: new Date(Date.now() + 86400000) });
         const attemptId = new mongoose.Types.ObjectId();
-        const reserved = await reserveCandidateInterview(organization._id, { attemptId });
+        const reserved = await reserveCandidateInterview(organization._id, attemptId);
         expect(await releaseOrganizationUsage(reserved.reservation)).toBe(true);
-        expect(await releaseOrganizationUsage(reserved.reservation)).toBe(false);
-        const counter = await OrganizationUsageCounter.findById(reserved.reservation.counterId).lean();
+        expect(await releaseOrganizationUsage(reserved.reservation)).toBe(true);
+        const reservation = await CandidateUsageReservation.findById(reserved.reservation.reservationId).lean();
+        const counter = await OrganizationUsageCounter.findById(reservation.counter).lean();
         expect(counter.used).toBe(0);
         expect(counter.reserved).toBe(0);
     });
