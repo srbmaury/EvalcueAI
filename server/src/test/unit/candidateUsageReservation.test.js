@@ -22,7 +22,7 @@ describe("candidate interview usage reservations", () => {
     });
 
     it("finalizes a reservation idempotently without double-counting usage", async () => {
-        const organization = await Organization.create({ name: "Usage Test", createdBy: new mongoose.Types.ObjectId(), hiringPlan: "trial", hiringTrialEndsAt: new Date(Date.now() + 86400000) });
+        const organization = await Organization.create({ name: "Usage Test", createdBy: new mongoose.Types.ObjectId(), hiringTrialEligible: true });
         const attemptId = new mongoose.Types.ObjectId();
         const reserved = await reserveCandidateInterview(organization._id, attemptId);
         expect(reserved.ok).toBe(true);
@@ -35,9 +35,10 @@ describe("candidate interview usage reservations", () => {
     });
 
     it("releases an abandoned reservation idempotently without consuming usage", async () => {
-        const organization = await Organization.create({ name: "Release Test", createdBy: new mongoose.Types.ObjectId(), hiringPlan: "trial", hiringTrialEndsAt: new Date(Date.now() + 86400000) });
+        const organization = await Organization.create({ name: "Release Test", createdBy: new mongoose.Types.ObjectId(), hiringTrialEligible: true });
         const attemptId = new mongoose.Types.ObjectId();
         const reserved = await reserveCandidateInterview(organization._id, attemptId);
+        expect(reserved.ok).toBe(true);
         expect(await releaseOrganizationUsage(reserved.reservation)).toBe(true);
         expect(await releaseOrganizationUsage(reserved.reservation)).toBe(true);
         const reservation = await CandidateUsageReservation.findById(reserved.reservation.reservationId).lean();
