@@ -17,6 +17,7 @@ const HiringOrganizationGate = lazy(() => import("./components/HiringOrganizatio
 const PracticeLimitDialog = lazy(() => import("./components/PracticeLimitDialog"));
 
 const CreateInterviewPage = lazy(() => import("./pages/CreateInterviewPage"));
+const WeeklyPlanSessionPage = lazy(() => import("./pages/WeeklyPlanSessionPage.jsx"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage.jsx"));
 const InterviewPage = lazy(() => import("./pages/InterviewPage"));
@@ -131,6 +132,7 @@ function App() {
                 <Route path="/practice/resumes" element={<ProtectedRoute><ResumesPage /></ProtectedRoute>} />
                 <Route path="/practice/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />
                 <Route path="/practice/billing/success" element={<ProtectedRoute><BillingSuccessPage /></ProtectedRoute>} />
+                <Route path="/practice/weekly-plan" element={<ProtectedRoute><WeeklyPlanSessionPage /></ProtectedRoute>} />
                 <Route path="/practice/new" element={<ProtectedRoute><CreateInterviewPage /></ProtectedRoute>} />
                 <Route path="/practice/resume-review" element={<ProtectedRoute><ResumeReviewPage /></ProtectedRoute>} />
                 <Route path="/practice/interviews/:interviewId" element={<ProtectedRoute><InterviewPage /></ProtectedRoute>} />

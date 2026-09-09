@@ -82,7 +82,7 @@ const DashboardPage = () => {
             title: "Set the role you’re targeting",
             body: "Your target role helps Evalcue AI choose more relevant interview plans and recommendations.",
             label: "Set target role",
-            href: "/practice/profile",
+            href: "/practice/profile#target-role",
         };
         if (resumeCount === 0) return {
             eyebrow: "Make practice more realistic",
@@ -134,7 +134,7 @@ const DashboardPage = () => {
             </Card>}
 
             {!loading && Number(progress.completed || 0) === 0 && <Card variant="outlined" sx={{ mb: 4 }}><CardContent sx={{ p: { xs: 2.5, md: 3 } }}><Typography variant="h6" fontWeight={800}>Your first practice loop</Typography><Typography color="text.secondary" mt={.5} mb={2}>You don’t need to configure everything before you begin.</Typography><Stack spacing={1.1}>{[
-                { done: Boolean(user?.targetRole), label: "Set your target role", action: "Set goal", href: "/practice/profile" },
+                { done: Boolean(user?.targetRole), label: "Set your target role", action: "Set goal", href: "/practice/profile#target-role" },
                 { done: resumeCount > 0, label: "Add your résumé", action: "Add résumé", href: "/practice/resumes" },
                 { done: totalInterviews > 0, label: "Create a tailored interview", action: "Create interview", href: "/practice/new" },
                 { done: Number(progress.completed || 0) > 0, label: "Finish one round and review feedback", action: "Continue", href: activeInterview?._id ? `/practice/interviews/${activeInterview._id}` : "/practice/new" },
