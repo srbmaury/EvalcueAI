@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { describe, expect, it } from "vitest";
 
 describe("job importer extraction quality", () => {
     it("combines structured and page content instead of preferring a short meta description", () => {
