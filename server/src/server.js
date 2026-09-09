@@ -108,6 +108,26 @@ const scheduleTask = (...args) => {
 };
 let stopOtlpPush = () => {};
 
+const candidateEvaluationJobOptions = (attempt) => ({
+    jobId: createJobId("candidate-assessment", { attemptId: String(attempt._id), evaluationStartedAt: attempt.evaluationStartedAt.toISOString() }),
+    removeOnComplete: { age: 86400, count: 1000 },
+    removeOnFail: { age: 604800, count: 1000 },
+});
+
+const recoverCandidateEvaluations = async ({ olderThanMs = 0 } = {}) => {
+    if (!process.env.REDIS_URL) return 0;
+    const evaluationFilter = { status: "evaluating", evaluationStartedAt: { $ne: null } };
+    if (olderThanMs > 0) evaluationFilter.evaluationStartedAt.$lte = new Date(Date.now() - olderThanMs);
+    const strandedAttempts = await CandidateAttempt.find(evaluationFilter).select("evaluationStartedAt").lean();
+    if (!strandedAttempts.length) return 0;
+    const assessmentQueue = await getQueue("candidate-assessment");
+    if (!assessmentQueue) return 0;
+    for (const attempt of strandedAttempts) {
+        await assessmentQueue.add("evaluate", { attemptId: String(attempt._id) }, candidateEvaluationJobOptions(attempt));
+    }
+    return strandedAttempts.length;
+};
+
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`);
@@ -126,13 +146,8 @@ const server = app.listen(PORT, async () => {
             console.log("[Workers] bulk-feedback worker started");
             await createWorker("candidate-assessment", candidateAssessmentProcessor);
             console.log("[Workers] candidate-assessment worker started");
-            const assessmentQueue = await getQueue("candidate-assessment");
-            const strandedAttempts = await CandidateAttempt.find({ status: "evaluating", evaluationStartedAt: { $ne: null } }).select("evaluationStartedAt").lean();
-            for (const attempt of strandedAttempts) {
-                const jobId = createJobId("candidate-assessment", { attemptId: String(attempt._id), evaluationStartedAt: attempt.evaluationStartedAt.toISOString() });
-                await assessmentQueue.add("evaluate", { attemptId: String(attempt._id) }, { jobId, removeOnComplete: { age: 86400, count: 1000 }, removeOnFail: { age: 604800, count: 1000 } });
-            }
-            if (strandedAttempts.length) console.log(`[Workers] recovered ${strandedAttempts.length} candidate assessment evaluations`);
+            const recovered = await recoverCandidateEvaluations();
+            if (recovered) console.log(`[Workers] recovered ${recovered} candidate assessment evaluations`);
         } catch (e) {
             console.warn("[Workers] Failed to start background workers", e?.message || e);
         }
@@ -145,28 +160,55 @@ const server = app.listen(PORT, async () => {
             if (!process.env.CLOUDINARY_CLOUD_NAME) return;
             console.log("[CLEANUP] Starting orphan Cloudinary resume cleanup...");
             try {
-                const { resources = [], next_cursor } = await cloudinary.api.resources({ type: "upload", resource_type: "raw", prefix: "resumes/", max_results: 500 });
-                const publicIds = resources.map((r) => r.public_id);
-                if (publicIds.length === 0) return console.log("[CLEANUP] No raw resources found");
-                const existing = await Resume.find({ publicId: { $in: publicIds } }).select("publicId").lean();
-                const existingSet = new Set(existing.map((r) => r.publicId));
-                const orphans = publicIds.filter((pid) => !existingSet.has(pid));
-                if (orphans.length === 0) return console.log("[CLEANUP] No orphans found");
-                const chunks = (arr, n) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, (i + 1) * n));
-                for (const batch of chunks(orphans, 100)) {
-                    try {
-                        await cloudinary.api.delete_resources(batch, { resource_type: "raw" });
-                        console.log(`[CLEANUP] Deleted ${batch.length} orphan(s)`);
-                    } catch (e) {
-                        console.warn("[CLEANUP] Batch delete failed", e?.message || e);
-                    }
+                let totalDeleted = 0;
+                for (const deliveryType of ["upload", "authenticated"]) {
+                    let nextCursor;
+                    do {
+                        const page = await cloudinary.api.resources({
+                            type: deliveryType,
+                            resource_type: "raw",
+                            prefix: "resumes/",
+                            max_results: 500,
+                            ...(nextCursor ? { next_cursor: nextCursor } : {}),
+                        });
+                        const publicIds = (page.resources || []).map((resource) => resource.public_id);
+                        if (publicIds.length) {
+                            const deliveryFilter = deliveryType === "upload"
+                                ? { $or: [{ deliveryType: "upload" }, { deliveryType: { $exists: false } }] }
+                                : { deliveryType: "authenticated" };
+                            const existing = await Resume.find({ publicId: { $in: publicIds }, ...deliveryFilter }).select("publicId").lean();
+                            const existingSet = new Set(existing.map((resume) => resume.publicId));
+                            const orphans = publicIds.filter((publicId) => !existingSet.has(publicId));
+                            for (let index = 0; index < orphans.length; index += 100) {
+                                const batch = orphans.slice(index, index + 100);
+                                try {
+                                    await cloudinary.api.delete_resources(batch, { resource_type: "raw", type: deliveryType });
+                                    totalDeleted += batch.length;
+                                } catch (error) {
+                                    console.warn(`[CLEANUP] ${deliveryType} batch delete failed`, error?.message || error);
+                                }
+                            }
+                        }
+                        nextCursor = page.next_cursor || null;
+                    } while (nextCursor);
                 }
-                if (next_cursor) console.log("[CLEANUP] More assets exist beyond first page; consider increasing pagination");
+                console.log(totalDeleted ? `[CLEANUP] Deleted ${totalDeleted} orphan(s)` : "[CLEANUP] No orphans found");
             } catch (e) {
                 console.warn("[CLEANUP] Failed:", e?.message || e);
             }
         });
     } catch {}
+
+    try {
+        scheduleTask("* * * * *", async () => {
+            try {
+                const recovered = await recoverCandidateEvaluations({ olderThanMs: 60_000 });
+                if (recovered) console.log(`[Workers] reconciled ${recovered} candidate assessment evaluation(s)`);
+            } catch (error) {
+                console.warn("[Workers] Candidate evaluation reconciliation failed", error?.message || error);
+            }
+        });
+    } catch (error) { console.warn("[Workers] Candidate evaluation scheduler failed", error?.message || error); }
 
     try {
         scheduleTask("*/5 * * * *", async () => {
