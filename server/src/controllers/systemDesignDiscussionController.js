@@ -12,7 +12,7 @@ const isSystemDesignRound = (round) => round?.deliveryMode === "system-design"
 const findOwnedInterviewForRound = (userId, roundId) => Interview.findOne({ user: userId, "rounds.round": roundId }).lean();
 const findPublicAssessment = (shareToken) => Assessment.findOne({
     shareToken,
-    status: "active",
+    status: { $in: ["active", "closed"] },
     $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
 });
 const findAttempt = async (assessmentId, attemptId, rawToken) => rawToken
