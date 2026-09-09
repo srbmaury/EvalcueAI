@@ -24,6 +24,7 @@ const uploadResume = async (file) => {
 
 const deleteResume = async (id) => {
     await api.delete(`/resumes/${id}`);
+    return true;
 };
 
 const updateResume = async (id, payload) => {
