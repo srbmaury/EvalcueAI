@@ -1,0 +1,46 @@
+import mongoose from "mongoose";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
+import Organization from "../../models/Organization.js";
+import CandidateUsageReservation from "../../models/CandidateUsageReservation.js";
+import OrganizationUsageCounter from "../../models/OrganizationUsageCounter.js";
+import { finalizeCandidateInterview, releaseOrganizationUsage, reserveCandidateInterview } from "../../services/organizationUsage.js";
+
+let replset;
+
+describe("candidate interview usage reservations", () => {
+    beforeAll(async () => {
+        if (mongoose.connection.readyState) return;
+        replset = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+        await mongoose.connect(replset.getUri());
+    }, 30000);
+
+    afterAll(async () => {
+        await CandidateUsageReservation.deleteMany({});
+        await OrganizationUsageCounter.deleteMany({});
+        if (replset) { await mongoose.disconnect(); await replset.stop(); }
+    });
+
+    it("finalizes a reservation only once", async () => {
+        const organization = await Organization.create({ name: "Usage Test", createdBy: new mongoose.Types.ObjectId(), hiringPlan: "trial", hiringTrialEndsAt: new Date(Date.now() + 86400000) });
+        const attemptId = new mongoose.Types.ObjectId();
+        const reserved = await reserveCandidateInterview(organization._id, { attemptId });
+        expect(reserved.ok).toBe(true);
+        expect(await finalizeCandidateInterview(reserved.reservation)).toBe(true);
+        expect(await finalizeCandidateInterview(reserved.reservation)).toBe(false);
+        const counter = await OrganizationUsageCounter.findById(reserved.reservation.counterId).lean();
+        expect(counter.used).toBe(1);
+        expect(counter.reserved).toBe(0);
+    });
+
+    it("releases an abandoned reservation without consuming usage", async () => {
+        const organization = await Organization.create({ name: "Release Test", createdBy: new mongoose.Types.ObjectId(), hiringPlan: "trial", hiringTrialEndsAt: new Date(Date.now() + 86400000) });
+        const attemptId = new mongoose.Types.ObjectId();
+        const reserved = await reserveCandidateInterview(organization._id, { attemptId });
+        expect(await releaseOrganizationUsage(reserved.reservation)).toBe(true);
+        expect(await releaseOrganizationUsage(reserved.reservation)).toBe(false);
+        const counter = await OrganizationUsageCounter.findById(reserved.reservation.counterId).lean();
+        expect(counter.used).toBe(0);
+        expect(counter.reserved).toBe(0);
+    });
+});
