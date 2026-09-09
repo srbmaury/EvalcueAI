@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { describe, expect, it } from "vitest";
 
 describe("candidate assessment CAPTCHA contract", () => {
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
