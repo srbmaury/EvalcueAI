@@ -1,4 +1,5 @@
 import api from "../api/axios";
+import { resumeFileError } from "../utils/resumeFileValidation";
 
 const getResumes = async (opts = {}) => {
         const params = new URLSearchParams();
@@ -14,6 +15,9 @@ const getResumes = async (opts = {}) => {
 };
 
 const uploadResume = async (file) => {
+        const validationError = resumeFileError(file);
+        if (validationError) throw new Error(validationError);
+
         const form = new FormData();
         form.append("resume", file);
         const { data } = await api.post(`/resumes`, form, {
@@ -24,6 +28,7 @@ const uploadResume = async (file) => {
 
 const deleteResume = async (id) => {
     await api.delete(`/resumes/${id}`);
+    return true;
 };
 
 const updateResume = async (id, payload) => {

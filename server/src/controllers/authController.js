@@ -18,7 +18,7 @@ import ResumeReview from "../models/ResumeReview.js";
 import SavedExperience from "../models/SavedExperience.js";
 import ProductFeedback from "../models/ProductFeedback.js";
 import PracticeUsageCounter from "../models/PracticeUsageCounter.js";
-import { practiceClientOrigin } from "../config/clientOrigins.js";
+import { hiringClientOrigin, practiceClientOrigin } from "../config/clientOrigins.js";
 import ReminderDelivery from "../models/ReminderDelivery.js";
 import ProductEvent from "../models/ProductEvent.js";
 import Assessment from "../models/Assessment.js";
@@ -50,6 +50,8 @@ const clearRefreshCookie = (res) => {
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const safeUserFields = "_id name email role provider preferredProgrammingLanguage practiceGoal targetRole weeklyPracticeTarget reminderEnabled reminderDay reminderTime reminderTimezone practicePlan practiceSubscriptionStatus isVerified";
+const resetWorkspaceFor = (value) => value === "hiring" ? "hiring" : "practice";
+const clientOriginForWorkspace = (workspace) => resetWorkspaceFor(workspace) === "hiring" ? hiringClientOrigin() : practiceClientOrigin();
 
 // Register
 export const registerUser = async (req, res, next) => {
@@ -409,7 +411,7 @@ export const deleteAccount = async (req, res, next) => {
 };
 
 export const forgotPassword = async (req, res, next) => {
-    const { email } = req.body;
+    const { email, workspace } = req.body;
     try {
         const user = await User.findOne({ email });
         if (!user) return res.json({ message: "If the email exists, a reset link has been sent" });
@@ -421,8 +423,9 @@ export const forgotPassword = async (req, res, next) => {
         user.resetPasswordExpires = new Date(Date.now() + 1000 * 60 * 30); // 30 min
         await user.save();
 
-        const baseUrl = practiceClientOrigin();
-        const resetUrl = `${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+        const resetWorkspace = resetWorkspaceFor(workspace);
+        const baseUrl = clientOriginForWorkspace(resetWorkspace);
+        const resetUrl = `${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}&workspace=${resetWorkspace}`;
         const subject = "Reset your password";
         const html = `
             <div style="font-family: Arial, sans-serif; line-height:1.5;">
@@ -448,7 +451,8 @@ export const forgotPassword = async (req, res, next) => {
 };
 
 export const resetPassword = async (req, res, next) => {
-    const { token, email, newPassword } = req.body;
+    const { token, email, newPassword, workspace } = req.body;
+    const resetWorkspace = resetWorkspaceFor(workspace);
     try {
         const hashed = crypto.createHash("sha256").update(token).digest("hex");
         const user = await User.findOne({ email, resetPasswordToken: hashed });

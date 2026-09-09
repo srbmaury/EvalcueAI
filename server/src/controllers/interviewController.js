@@ -79,17 +79,15 @@ export const getInterviews = async (req, res, next) => {
     try {
         const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
         const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
+        const status = ["completed", "in_progress"].includes(req.query.status) ? req.query.status : "all";
         const filter = { user: req.user._id };
-        const total = await Interview.countDocuments(filter);
         const paginationRequested = typeof req.query.page !== "undefined" || typeof req.query.limit !== "undefined";
         const itemsRaw = await Interview.find(filter)
             .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(limit)
             .populate({ path: "rounds.round", select: "status" })
             .lean();
 
-        const items = (itemsRaw || []).map((it) => {
+        const withProgress = (itemsRaw || []).map((it) => {
             try {
                 const rounds = Array.isArray(it?.rounds) ? it.rounds : [];
                 const totalRounds = rounds.length;
@@ -99,10 +97,13 @@ export const getInterviews = async (req, res, next) => {
                 return { ...it, roundsCompleted: 0, roundsTotal: 0, isCompleted: false };
             }
         });
+        const items = withProgress.filter((item) => status === "all" ? true : status === "completed" ? item.isCompleted : !item.isCompleted);
+        const total = items.length;
 
-        if (!paginationRequested && total <= limit) return res.status(200).json(items);
+        if (!paginationRequested) return res.status(200).json(items);
         const totalPages = Math.max(Math.ceil(total / limit), 1);
-        return res.status(200).json({ items, total, page, limit, totalPages });
+        const pageItems = items.slice((page - 1) * limit, page * limit);
+        return res.status(200).json({ items: pageItems, total, page, limit, totalPages });
     } catch (error) {
         return next(error instanceof Error ? error : new Error(String(error)));
     }

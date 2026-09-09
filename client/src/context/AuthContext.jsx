@@ -72,16 +72,18 @@ export const AuthProvider = ({ children }) => {
         return data;
     };
 
-    const forgotPassword = async (email, captchaToken) => {
+    const forgotPassword = async (email, captchaToken, workspace) => {
         const payload = { email };
         if (captchaToken) payload.captchaToken = captchaToken;
+        if (["practice", "hiring"].includes(workspace)) payload.workspace = workspace;
         const { data } = await api.post(`/auth/forgot-password`, payload);
         return data;
     };
 
-    const resetPassword = async ({ token, email, newPassword, captchaToken }) => {
+    const resetPassword = async ({ token, email, newPassword, captchaToken, workspace }) => {
         const payload = { token, email, newPassword };
         if (captchaToken) payload.captchaToken = captchaToken;
+        if (["practice", "hiring"].includes(workspace)) payload.workspace = workspace;
         const { data } = await api.post(`/auth/reset-password`, payload);
         return data;
     };

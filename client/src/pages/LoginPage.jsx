@@ -60,6 +60,7 @@ const LoginPage = () => {
         )
     ), [requestedDestination, requestedWorkspace]);
     const registerPath = productRegisterPath(requestedWorkspace);
+    const forgotPasswordPath = `/forgot-password?workspace=${requestedWorkspace || getWorkspacePreference() || "practice"}`;
 
     const validate = () => {
         const next = { email: "", password: "" };
@@ -181,7 +182,7 @@ const LoginPage = () => {
                     <FormControl fullWidth>
                         <TextField id="password" label="Password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" autoComplete="current-password" error={!!errors.password} size="medium" InputProps={{ endAdornment: <InputAdornment position="end"><IconButton aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((s) => !s)} edge="end">{showPassword ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment> }} />
                         {errors.password && <FormHelperText error>{errors.password}</FormHelperText>}
-                        <Typography variant="body2" align="right" sx={{ mt: 1 }}><Link component={RouterLink} to="/forgot-password" underline="hover">Forgot password?</Link></Typography>
+                        <Typography variant="body2" align="right" sx={{ mt: 1 }}><Link component={RouterLink} to={forgotPasswordPath} underline="hover">Forgot password?</Link></Typography>
                     </FormControl>
                     {errors.password === "Email not verified" && <Stack spacing={1}><Typography variant="body2" color="text.secondary">Didn’t receive the verification email?</Typography><Button size="small" variant="text" onClick={async () => { try { const r = await resendVerification(email); setErrors((p) => ({ ...p, password: r?.message || "Verification email sent" })); } catch (e) { console.error(e); } }}>Resend verification</Button></Stack>}
                     <Captcha onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />

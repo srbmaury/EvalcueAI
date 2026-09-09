@@ -1,7 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Box, Button, CircularProgress, Collapse, Link, Stack, TextField, Typography } from "@mui/material";
 import { ExpandMoreRounded, LinkRounded } from "@mui/icons-material";
 import api from "../api/axios";
+
+const safeHostname = (value) => {
+    try {
+        return value ? new URL(value).hostname : "job post";
+    } catch {
+        return "job post";
+    }
+};
 
 export default function JobPostImporter({ onImport }) {
     const [url, setUrl] = useState("");
@@ -9,6 +17,7 @@ export default function JobPostImporter({ onImport }) {
     const [error, setError] = useState("");
     const [result, setResult] = useState(null);
     const [expanded, setExpanded] = useState(false);
+    const importedHost = useMemo(() => safeHostname(result?.sourceUrl), [result?.sourceUrl]);
 
     const importPost = async () => {
         setLoading(true); setError(""); setResult(null);
@@ -35,7 +44,7 @@ export default function JobPostImporter({ onImport }) {
         </Collapse>
         <Box aria-live="polite">
             {error && <Alert severity="warning" sx={{ borderRadius: 0 }}>{error}</Alert>}
-            {result && <Alert severity="success" sx={{ borderRadius: 0 }}>Imported from <Link href={result.sourceUrl} target="_blank" rel="noreferrer">{new URL(result.sourceUrl).hostname}</Link>. Review the editable details below.</Alert>}
+            {result && <Alert severity="success" sx={{ borderRadius: 0 }}>Imported from {result.sourceUrl ? <Link href={result.sourceUrl} target="_blank" rel="noreferrer">{importedHost}</Link> : importedHost}. Review the editable details below.</Alert>}
         </Box>
     </Box>;
 }

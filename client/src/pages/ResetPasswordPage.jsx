@@ -1,10 +1,10 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { Box, Card, CardContent, Stack, Typography, TextField, Button, Alert, InputAdornment, IconButton } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import Captcha from "../components/Captcha";
-import { getWorkspacePreference } from "../utils/workspacePreference";
+import { getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
 import { productLoginPath } from "../utils/productRoutes";
 
 const useQuery = () => new URLSearchParams(useLocation().search);
@@ -28,6 +28,10 @@ const ResetPasswordPage = () => {
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
     const [captchaToken, setCaptchaToken] = useState("");
+
+    useEffect(() => {
+        setWorkspacePreference(workspace);
+    }, [workspace]);
 
     const passwordPolicyError = (pwd) => {
         if (!pwd) return "Password is required";
