@@ -64,7 +64,8 @@ const assessmentSchema = new mongoose.Schema({
         name: { type: String, maxlength: 120, default: "" },
         status: { type: String, enum: ["queued", "invited", "sent", "delivered", "failed", "bounced", "opened", "started", "completed", "revoked"], default: "queued" },
         invitedAt: { type: Date, default: Date.now }, lastSentAt: Date, nextAttemptAt: Date, openedAt: Date, revokedAt: Date,
-        attempts: { type: Number, default: 0 }, providerMessageId: String, lastError: { type: String, maxlength: 500, default: "" },
+        attempts: { type: Number, default: 0 }, providerMessageId: String, providerEventId: String, providerEventAt: Date,
+        lastError: { type: String, maxlength: 500, default: "" },
     }],
     rounds: { type: [assessmentRoundSchema], validate: (value) => value.length >= 1 && value.length <= 5 },
 }, { timestamps: true });
