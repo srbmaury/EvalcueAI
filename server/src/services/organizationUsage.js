@@ -17,12 +17,14 @@ export const organizationHiringUsage = async (organizationOrId) => {
         period: period.key,
     }).lean();
     const used = counter?.used || 0;
+    const reserved = counter?.reserved || 0;
     return {
         organization,
         plan: limits.plan,
         limit: limits.candidateInterviews,
         used,
-        remaining: Math.max(limits.candidateInterviews - used, 0),
+        reserved,
+        remaining: Math.max(limits.candidateInterviews - used - reserved, 0),
         period,
     };
 };
@@ -33,19 +35,22 @@ export const reserveCandidateInterview = async (organizationId) => {
     const limits = hiringLimitsFor(organization);
     const period = hiringUsagePeriod(organization);
     const limit = limits.candidateInterviews;
-    if (limit <= 0) {
-        return { ok: false, reason: "capacity", plan: limits.plan, limit, period: period.key, used: 0 };
-    }
+    if (limit <= 0) return { ok: false, reason: "capacity", plan: limits.plan, limit, period: period.key, used: 0, reserved: 0 };
 
     const filter = {
         organization: organization._id,
         metric: METRIC,
         period: period.key,
-        used: { $lt: limit },
+        $expr: {
+            $lt: [
+                { $add: [{ $ifNull: ["$used", 0] }, { $ifNull: ["$reserved", 0] }] },
+                limit,
+            ],
+        },
     };
     let counter = await OrganizationUsageCounter.findOneAndUpdate(
         filter,
-        { $inc: { used: 1 } },
+        { $inc: { reserved: 1 } },
         { new: true },
     );
     if (!counter) {
@@ -54,29 +59,23 @@ export const reserveCandidateInterview = async (organizationId) => {
                 organization: organization._id,
                 metric: METRIC,
                 period: period.key,
-                used: 1,
+                used: 0,
+                reserved: 1,
             });
         } catch {
-            counter = await OrganizationUsageCounter.findOneAndUpdate(
-                filter,
-                { $inc: { used: 1 } },
-                { new: true },
-            );
+            counter = await OrganizationUsageCounter.findOneAndUpdate(filter, { $inc: { reserved: 1 } }, { new: true });
         }
     }
     if (!counter) {
-        const current = await OrganizationUsageCounter.findOne({
-            organization: organization._id,
-            metric: METRIC,
-            period: period.key,
-        }).lean();
+        const current = await OrganizationUsageCounter.findOne({ organization: organization._id, metric: METRIC, period: period.key }).lean();
         return {
             ok: false,
             reason: "capacity",
             plan: limits.plan,
             limit,
             period: period.key,
-            used: current?.used || limit,
+            used: current?.used || 0,
+            reserved: current?.reserved || 0,
         };
     }
 
@@ -85,15 +84,26 @@ export const reserveCandidateInterview = async (organizationId) => {
         plan: limits.plan,
         limit,
         period: period.key,
-        used: counter.used,
+        used: counter.used || 0,
+        reserved: counter.reserved || 0,
         reservation: { counterId: counter._id },
     };
 };
 
+export const finalizeCandidateInterview = async (reservation) => {
+    if (!reservation?.counterId) return false;
+    const result = await OrganizationUsageCounter.updateOne(
+        { _id: reservation.counterId, reserved: { $gt: 0 } },
+        { $inc: { reserved: -1, used: 1 } },
+    );
+    return result.modifiedCount > 0;
+};
+
 export const releaseOrganizationUsage = async (reservation) => {
-    if (!reservation?.counterId) return;
-    await OrganizationUsageCounter.updateOne(
-        { _id: reservation.counterId, used: { $gt: 0 } },
-        { $inc: { used: -1 } },
-    ).catch(() => {});
+    if (!reservation?.counterId) return false;
+    const result = await OrganizationUsageCounter.updateOne(
+        { _id: reservation.counterId, reserved: { $gt: 0 } },
+        { $inc: { reserved: -1 } },
+    ).catch(() => null);
+    return Boolean(result?.modifiedCount);
 };
