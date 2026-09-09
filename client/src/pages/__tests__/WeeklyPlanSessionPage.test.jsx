@@ -3,8 +3,8 @@ import { render, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import WeeklyPlanSessionPage from "../WeeklyPlanSessionPage.jsx";
 
-const writeDraft = vi.fn();
-vi.mock("../../utils/practiceCreateDraft", () => ({ writePracticeCreateDraft: (...args) => writeDraft(...args) }));
+const mocks = vi.hoisted(() => ({ writeDraft: vi.fn() }));
+vi.mock("../../utils/practiceCreateDraft", () => ({ writePracticeCreateDraft: (...args) => mocks.writeDraft(...args) }));
 
 describe("WeeklyPlanSessionPage", () => {
     it("writes a prefilled interview draft and redirects to interview creation", async () => {
@@ -17,7 +17,7 @@ describe("WeeklyPlanSessionPage", () => {
             </MemoryRouter>,
         );
 
-        await waitFor(() => expect(writeDraft).toHaveBeenCalledWith(expect.objectContaining({
+        await waitFor(() => expect(mocks.writeDraft).toHaveBeenCalledWith(expect.objectContaining({
             formData: expect.objectContaining({
                 jobRole: "Senior Backend Engineer",
                 jobDescription: "Practice distributed systems",
