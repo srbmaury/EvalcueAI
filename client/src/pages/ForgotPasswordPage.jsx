@@ -1,9 +1,9 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { Box, Card, CardContent, Link, Stack, Typography, TextField, Button, Alert } from "@mui/material";
 import Captcha from "../components/Captcha";
-import { getWorkspacePreference } from "../utils/workspacePreference";
+import { getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
 import { productLoginPath, workspaceForSurface, surfaceForPath } from "../utils/productRoutes";
 
 const ForgotPasswordPage = () => {
@@ -23,6 +23,10 @@ const ForgotPasswordPage = () => {
     }, [location.search, location.state]);
     const loginPath = productLoginPath(workspace);
     const productName = workspace === "hiring" ? "Evalcue AI Hire" : "Evalcue AI Practice";
+
+    useEffect(() => {
+        setWorkspacePreference(workspace);
+    }, [workspace]);
 
     const onSubmit = async (e) => {
         e.preventDefault();
