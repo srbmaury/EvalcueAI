@@ -1,0 +1,34 @@
+name: Apply app UX fixes
+
+on:
+  push:
+    branches:
+      - ux/fix-app-p1-p2-p3
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, 'Apply P1-P3 app UX fixes') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ux/fix-app-p1-p2-p3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Apply targeted fixes
+        run: node .github/scripts/apply-app-ux-fixes.mjs
+      - name: Commit patched files
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Apply P1-P3 app UX fixes"
+          git push origin HEAD:ux/fix-app-p1-p2-p3
