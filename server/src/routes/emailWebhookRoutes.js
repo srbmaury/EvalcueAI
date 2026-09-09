@@ -26,7 +26,10 @@ const parseProviderEventAt = (body = {}) => {
 router.post("/brevo", async (req, res, next) => {
     try {
         const configured = process.env.BREVO_WEBHOOK_SECRET;
-        const supplied = req.get("x-evalcue-webhook-secret") || req.query.secret;
+        // Do not accept credentials in the query string: URLs are frequently
+        // copied into access logs and analytics. Configure Brevo/proxy to send
+        // this shared secret as a header instead.
+        const supplied = req.get("x-evalcue-webhook-secret");
         if (!configured || !safeEqual(supplied, configured)) return res.status(401).json({ message: "Invalid webhook secret" });
         const event = String(req.body?.event || "").toLowerCase();
         const messageId = String(req.body?.["message-id"] || req.body?.messageId || "").trim();
