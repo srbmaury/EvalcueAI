@@ -3,10 +3,12 @@ import { useLocation, useNavigate, useSearchParams, Link as RouterLink } from "r
 import { AuthContext } from "../context/AuthContext";
 import Captcha from "../components/Captcha";
 import AuthShell from "../components/AuthShell";
+import usePublicConfig from "../hooks/usePublicConfig";
 import { getWorkspaceHome, getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
 import { productLoginPath, surfaceForPath, workspaceForSurface } from "../utils/productRoutes";
 
 import {
+    Alert,
     Box,
     Button,
     Checkbox,
@@ -24,6 +26,8 @@ import { PersonAddAlt1 as PersonAddIcon, Visibility, VisibilityOff } from "@mui/
 
 const RegisterPage = () => {
     const { register, googleLogin, resendVerification } = useContext(AuthContext);
+    const publicConfig = usePublicConfig();
+    const googleClientId = publicConfig?.google?.enabled ? publicConfig.google.clientId : "";
     const navigate = useNavigate();
     const location = useLocation();
     const [params] = useSearchParams();
@@ -50,6 +54,7 @@ const RegisterPage = () => {
     const [gsiReady, setGsiReady] = useState(false);
     const [submittedEmail, setSubmittedEmail] = useState("");
     const [successMsg, setSuccessMsg] = useState("");
+    const [apiError, setApiError] = useState("");
     const googleDivRef = useRef(null);
     const [captchaToken, setCaptchaToken] = useState("");
     const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -81,6 +86,7 @@ const RegisterPage = () => {
         e.preventDefault();
         if (!validate() || !acceptedTerms) return;
         setSubmitting(true);
+        setApiError("");
         try {
             const resp = await register(name.trim(), email, password, captchaToken);
             setSubmittedEmail(email);
@@ -93,10 +99,11 @@ const RegisterPage = () => {
                 const pwdIssues = apiDetails.filter((d) => String(d?.path || "").includes("password"));
                 if (pwdIssues.length > 0) pwdError = pwdIssues.map((d) => d?.message).filter(Boolean).join(". ");
             }
+            if (apiMsg && apiMsg !== "User already exists" && !pwdError) setApiError(apiMsg);
             setErrors((prev) => ({
                 ...prev,
                 email: apiMsg === "User already exists" ? "Email already registered" : prev.email,
-                password: pwdError || (apiMsg && apiMsg !== "User already exists" ? apiMsg : prev.password || "Could not register. Try again."),
+                password: pwdError || prev.password,
             }));
         } finally {
             setSubmitting(false);
@@ -104,11 +111,11 @@ const RegisterPage = () => {
     };
 
     useEffect(() => {
-        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
-        if (!clientId) return;
-        if (window.google && window.google.accounts && window.google.accounts.id) {
+        setGsiReady(false);
+        if (!googleClientId) return undefined;
+        if (window.google?.accounts?.id) {
             setGsiReady(true);
-            return;
+            return undefined;
         }
         let script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
         const onLoad = () => setGsiReady(true);
@@ -120,22 +127,22 @@ const RegisterPage = () => {
             document.head.appendChild(script);
         }
         script.addEventListener("load", onLoad);
-        return () => { if (script) script.removeEventListener("load", onLoad); };
-    }, []);
+        return () => script?.removeEventListener("load", onLoad);
+    }, [googleClientId]);
 
     useEffect(() => {
-        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
-        if (!acceptedTerms || !clientId || !gsiReady || !googleDivRef.current) return;
+        if (!acceptedTerms || !googleClientId || !gsiReady || !googleDivRef.current || !window.google?.accounts?.id) return;
         try {
             window.google.accounts.id.initialize({
-                client_id: clientId,
+                client_id: googleClientId,
                 callback: async (response) => {
                     try {
-                        const authenticatedUser = await googleLogin(response.credential);
+                        setApiError("");
+                        const authenticatedUser = await googleLogin(response.credential, { termsAccepted: true });
                         const workspace = requestedWorkspace || getWorkspacePreference(authenticatedUser?._id) || "practice";
                         navigate(requestedDestination || getWorkspaceHome(workspace), { replace: true });
-                    } catch {
-                        setErrors((prev) => ({ ...prev, password: "Google sign-in failed" }));
+                    } catch (error) {
+                        setApiError(error?.response?.data?.message || "Google sign-up failed");
                     }
                 },
                 auto_select: false,
@@ -143,11 +150,12 @@ const RegisterPage = () => {
                 use_fedcm_for_button: true,
                 itp_support: true,
             });
+            googleDivRef.current.innerHTML = "";
             window.google.accounts.id.renderButton(googleDivRef.current, { theme: "filled_blue", size: "large", shape: "pill", text: "signup_with" });
-        } catch (e) {
-            console.warn("Google button init failed", e);
+        } catch (error) {
+            console.warn("Google button init failed", error);
         }
-    }, [acceptedTerms, gsiReady, googleLogin, navigate, requestedDestination, requestedWorkspace]);
+    }, [acceptedTerms, googleClientId, gsiReady, googleLogin, navigate, requestedDestination, requestedWorkspace]);
 
     const authState = requested ? { from: requested } : undefined;
 
@@ -160,7 +168,8 @@ const RegisterPage = () => {
         >
             <Box component="form" noValidate onSubmit={handleSubmit}>
                 <Stack spacing={{ xs: 2.25, md: 1.35 }}>
-                    {successMsg && <Typography color="success.main">{successMsg}</Typography>}
+                    {successMsg && <Alert severity="success">{successMsg}</Alert>}
+                    {apiError && <Alert severity="error" onClose={() => setApiError("")}>{apiError}</Alert>}
                     <FormControl fullWidth><TextField id="name" label="Name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Jane Doe" autoComplete="name" error={!!errors.name} helperText={errors.name || undefined} size="medium" /></FormControl>
                     <FormControl fullWidth><TextField id="email" label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="name@example.com" autoComplete="email" error={!!errors.email} helperText={errors.email || undefined} size="medium" /></FormControl>
                     <FormControl fullWidth>
@@ -174,11 +183,11 @@ const RegisterPage = () => {
                             { label: "Special character", ok: /[^A-Za-z0-9]/.test(password) },
                         ].map(({ label, ok }) => <Typography key={label} variant="caption" color={ok ? "success.main" : "text.disabled"}>{ok ? "✓" : "○"} {label}</Typography>)}</Stack>}
                     </FormControl>
-                    <Captcha onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
+                    <Captcha enabled={Boolean(publicConfig?.captcha?.registerEnabled)} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken("")} />
                     <FormControlLabel control={<Checkbox checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />} label={<Typography variant="body2">I agree to the <Link component={RouterLink} to="/terms">Terms</Link> and acknowledge the <Link component={RouterLink} to="/privacy">Privacy Notice</Link>.</Typography>} />
                     <Button type="submit" variant="contained" size="large" startIcon={<PersonAddIcon />} disabled={submitting || !acceptedTerms} sx={{ py: 1.25, borderRadius: 2, textTransform: "none", fontWeight: 700 }}>{submitting ? "Creating account..." : requestedWorkspace === "hiring" ? "Create hiring account" : requestedWorkspace === "practice" ? "Create practice account" : "Create account"}</Button>
-                    {acceptedTerms && <Stack spacing={2} alignItems="center"><div ref={googleDivRef} /><Typography variant="caption" color="text.secondary" align="center">Google sign-up may not display in embedded browsers. If the Google window is blank, open Evalcue AI in Chrome or Safari, or create your account with email.</Typography></Stack>}
-                    {submittedEmail && <Stack spacing={1} alignItems="center"><Typography variant="body2" color="text.secondary">Didn’t get the email? Check spam or resend.</Typography><Button variant="text" onClick={async () => { try { const r = await resendVerification(submittedEmail); setSuccessMsg(r?.message || "Verification email re-sent"); } catch (e) { console.warn("Resend verification failed", e); } }}>Resend verification</Button><Button component={RouterLink} to={loginPath} state={authState} size="small">Continue to sign in</Button></Stack>}
+                    {acceptedTerms && googleClientId && <Stack spacing={2} alignItems="center"><div ref={googleDivRef} /><Typography variant="caption" color="text.secondary" align="center">Google sign-up may not display in embedded browsers. If the Google window is blank, open Evalcue AI in Chrome or Safari, or create your account with email.</Typography></Stack>}
+                    {submittedEmail && <Stack spacing={1} alignItems="center"><Typography variant="body2" color="text.secondary">Didn’t get the email? Check spam or resend.</Typography><Button variant="text" onClick={async () => { try { const r = await resendVerification(submittedEmail); setSuccessMsg(r?.message || "Verification email re-sent"); } catch (error) { setApiError(error?.response?.data?.message || "Verification email could not be resent"); } }}>Resend verification</Button><Button component={RouterLink} to={loginPath} state={authState} size="small">Continue to sign in</Button></Stack>}
                 </Stack>
             </Box>
             <Typography align="center" color="text.secondary" sx={{ mt: { xs: 4, md: 2 } }}>Already have an account? <Link component={RouterLink} to={loginPath} state={authState} underline="hover">Login</Link></Typography>
