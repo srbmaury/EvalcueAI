@@ -32,8 +32,6 @@ const attemptQuestionSchema = new mongoose.Schema({
     diagramSummary: { type: String, maxlength: 10000, default: "" },
     discussionTurns: { type: [discussionTurnSchema], default: [], validate: (value) => value.length <= 80 },
     followUps: { type: [attemptFollowUpSchema], default: [], validate: (value) => value.length <= 3 },
-    // Kept as a compatibility projection for existing candidate UI/local recovery.
-    // The authoritative history is followUps[].
     followUpQuestion: { type: String, maxlength: 1000, default: "" },
     followUpAnswer: { type: String, maxlength: 5000, default: "" },
     feedbackComment: { type: String, maxlength: 2500, default: "" },
@@ -63,7 +61,7 @@ const candidateAttemptSchema = new mongoose.Schema({
     candidateName: { type: String, required: true, maxlength: 120 },
     candidateEmail: { type: String, required: true, lowercase: true, trim: true, maxlength: 254 },
     accessTokenHash: { type: String, required: true, select: false },
-    usageReservationCounterId: { type: mongoose.Schema.Types.ObjectId, ref: "OrganizationUsageCounter", default: null, select: false },
+    usageReservationId: { type: mongoose.Schema.Types.ObjectId, ref: "CandidateUsageReservation", default: null, select: false },
     usageReservedAt: { type: Date, default: null },
     usageFinalizedAt: { type: Date, default: null },
     status: { type: String, enum: ["started", "evaluating", "submitted", "evaluation_failed"], default: "started", index: true },
