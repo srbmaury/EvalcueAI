@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emailDomain, normalizeEmail, normalizeSsoDomain } from "../../utils/identity.js";
+import { emailDomain, normalizeDomain, normalizeEmail } from "../../utils/identity.js";
 
 describe("identity normalization", () => {
     it("canonicalizes email identity consistently", () => {
@@ -8,6 +8,6 @@ describe("identity normalization", () => {
     });
 
     it("canonicalizes SSO domains without accepting whitespace or case drift", () => {
-        expect(normalizeSsoDomain("  EXAMPLE.COM ")).toBe("example.com");
+        expect(normalizeDomain("  EXAMPLE.COM ")).toBe("example.com");
     });
 });
