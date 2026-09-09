@@ -6,7 +6,8 @@ describe("candidate CSV export", () => {
     it("neutralizes spreadsheet formula prefixes before quoting", () => {
         const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
         const page = fs.readFileSync(path.join(root, "client/src/pages/AssessmentReportPage.jsx"), "utf8");
-        expect(page).toContain("quoteCsvCell");
-        expect(page).toMatch(/\[=\+\\-@\]/);
+        expect(page).toContain("row.map(quote)");
+        expect(page).toContain('/^[\\t\\r\\n ]*[=+\\-@]/');
+        expect(page).toContain("text = `'${text}`");
     });
 });
