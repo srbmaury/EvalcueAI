@@ -1,3 +1,4 @@
+import { describe, expect, it } from "vitest";
 import { normalizeEnvironment } from "../../config/bootstrapEnv.js";
 
 describe("production CAPTCHA configuration", () => {
