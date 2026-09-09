@@ -18,11 +18,6 @@ export const candidateRoundComplete = (round) => {
     return questions.length > 0 && questions.every((question) => Boolean(question?.answer?.trim()) && !hasPendingFollowUp(question));
 };
 
-/**
- * Candidate live rounds are sequential. This server-side guard mirrors the UX
- * lock so a crafted request cannot answer a later round before earlier rounds
- * have actually finished. OA navigation inside the active round remains free.
- */
 export const requireCandidateRoundSequence = async (req, res, next) => {
     try {
         const roundIndex = Number(req.body?.roundIndex);
@@ -30,7 +25,7 @@ export const requireCandidateRoundSequence = async (req, res, next) => {
 
         const assessment = await Assessment.findOne({
             shareToken: req.params.shareToken,
-            status: "active",
+            status: { $in: ["active", "closed"] },
             $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
         }).select("_id").lean();
         if (!assessment) return res.status(404).json({ message: "Assessment unavailable" });
