@@ -42,6 +42,14 @@ const followUpExchanges = (question) => question.followUps?.length
         ? [{ question: question.followUpQuestion, answer: question.followUpAnswer || "" }]
         : [];
 
+const quoteCsvCell = (value) => {
+    let text = String(value ?? "");
+    // Spreadsheet applications can execute candidate-controlled cells that begin
+    // with formula markers. Prefix them as text before normal CSV quoting.
+    if (/^[\t\r\n ]*[=+\-@]/.test(text)) text = `'${text}`;
+    return `"${text.replaceAll('"', '""')}"`;
+};
+
 function FollowUpEvidence({ question }) {
     const exchanges = followUpExchanges(question);
     if (!exchanges.length) return null;
@@ -63,13 +71,12 @@ export default function AssessmentReportPage() {
     const copyCandidateLink = async () => { try { await navigator.clipboard.writeText(link); notify("Candidate link copied.", "success"); } catch { notify("Candidate link could not be copied. Copy it from the browser address bar after opening the candidate preview.", "warning"); } };
     const scrollToInvites = () => document.getElementById("invite-candidates")?.scrollIntoView({ behavior: "smooth", block: "center" });
     const exportCsv = () => {
-        const quote = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
         const rows = [["Candidate", "Email", "Status", "Overall score", "Round", "Question", "Answer", "Follow-up questions", "Follow-up answers", "AI score", "AI feedback"]];
         attempts.forEach((attempt) => attempt.rounds.forEach((round) => round.questions.forEach((question) => {
             const exchanges = followUpExchanges(question);
             rows.push([attempt.candidateName, attempt.candidateEmail, attempt.status, attempt.overallScore ?? "", round.name, question.text, question.answer, exchanges.map((item, index) => `${index + 1}. ${item.question}`).join("\n"), exchanges.map((item, index) => `${index + 1}. ${item.answer || ""}`).join("\n"), question.score ?? "", question.feedbackComment]);
         })));
-        const blob = new Blob([rows.map((row) => row.map(quote).join(",")).join("\n")], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${assessment.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-reports.csv`; anchor.click(); URL.revokeObjectURL(url);
+        const blob = new Blob([rows.map((row) => row.map(quoteCsvCell).join(",")).join("\n")], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${assessment.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-reports.csv`; anchor.click(); URL.revokeObjectURL(url);
     };
     const sendInvites = async () => { const candidates = inviteText.split(/[\n,;]+/).map((email) => email.trim()).filter(Boolean).map((email) => ({ email })); if (!candidates.length) return; try { const { data: result } = await api.post(`/assessments/${assessmentId}/invitations`, { candidates }); setInviteText(""); const sent = result.results.filter((item) => item.sent).length; const queued = result.results.filter((item) => item.queued).length; notify(sent ? `${sent} invitation email(s) sent.` : `${queued} invitation(s) queued for delivery.`, "success"); await load(); } catch (err) { notify(err?.response?.data?.message || "Invitations could not be sent.", "error"); } };
     const resendInvite = async (invitation) => { try { await api.post(`/assessments/${assessmentId}/invitations`, { candidates: [{ email: invitation.email, name: invitation.name || "" }] }); notify(`Invitation resent to ${invitation.email}.`, "success"); await load(); } catch (err) { notify(err?.response?.data?.message || "Invitation could not be resent.", "error"); } };
