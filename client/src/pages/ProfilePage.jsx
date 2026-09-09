@@ -20,17 +20,42 @@ export default function ProfilePage() {
         const supported = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
         return [...new Set([detectedTimezone, "Asia/Kolkata", "UTC", ...supported])].sort();
     }, [detectedTimezone]);
-    const [name, setName] = useState(""); const [language, setLanguage] = useState("cpp"); const [saving, setSaving] = useState(false);
-    const [practiceGoal, setPracticeGoal] = useState("confidence"); const [targetRole, setTargetRole] = useState("");
-    const [reminderEnabled, setReminderEnabled] = useState(false); const [reminderDay, setReminderDay] = useState("monday"); const [reminderTime, setReminderTime] = useState("19:00");
+
+    const [name, setName] = useState("");
+    const [language, setLanguage] = useState("cpp");
+    const [saving, setSaving] = useState(false);
+    const [practiceGoal, setPracticeGoal] = useState("confidence");
+    const [targetRole, setTargetRole] = useState("");
+    const [weeklyTarget, setWeeklyTarget] = useState(3);
+    const [reminderEnabled, setReminderEnabled] = useState(false);
+    const [reminderDay, setReminderDay] = useState("monday");
+    const [reminderTime, setReminderTime] = useState("19:00");
     const [reminderTimezone, setReminderTimezone] = useState(detectedTimezone);
     const [testSending, setTestSending] = useState(false);
-    const [passwordOpen, setPasswordOpen] = useState(false); const [passwordSaving, setPasswordSaving] = useState(false);
-    const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState(""); const [confirmPassword, setConfirmPassword] = useState("");
-    const [showCurrent, setShowCurrent] = useState(false); const [showNew, setShowNew] = useState(false);
-    const [deleteOpen, setDeleteOpen] = useState(false); const [deleteText, setDeleteText] = useState(""); const [deletePassword, setDeletePassword] = useState(""); const [deleting, setDeleting] = useState(false);
+    const [passwordOpen, setPasswordOpen] = useState(false);
+    const [passwordSaving, setPasswordSaving] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [showCurrent, setShowCurrent] = useState(false);
+    const [showNew, setShowNew] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deleteText, setDeleteText] = useState("");
+    const [deletePassword, setDeletePassword] = useState("");
+    const [deleting, setDeleting] = useState(false);
 
-    useEffect(() => { setName(user?.name || ""); setLanguage(user?.preferredProgrammingLanguage || "cpp"); setPracticeGoal(user?.practiceGoal || "confidence"); setTargetRole(user?.targetRole || ""); setReminderEnabled(Boolean(user?.reminderEnabled)); setReminderDay(user?.reminderDay || "monday"); setReminderTime(user?.reminderTime || "19:00"); setReminderTimezone(isValidTimezone(user?.reminderTimezone) ? user.reminderTimezone : detectedTimezone); }, [user, detectedTimezone]);
+    useEffect(() => {
+        setName(user?.name || "");
+        setLanguage(user?.preferredProgrammingLanguage || "cpp");
+        setPracticeGoal(user?.practiceGoal || "confidence");
+        setTargetRole(user?.targetRole || "");
+        setWeeklyTarget(user?.weeklyPracticeTarget || 3);
+        setReminderEnabled(Boolean(user?.reminderEnabled));
+        setReminderDay(user?.reminderDay || "monday");
+        setReminderTime(user?.reminderTime || "19:00");
+        setReminderTimezone(isValidTimezone(user?.reminderTimezone) ? user.reminderTimezone : detectedTimezone);
+    }, [user, detectedTimezone]);
+
     useEffect(() => {
         if (location.hash !== "#target-role") return;
         requestAnimationFrame(() => {
@@ -40,10 +65,37 @@ export default function ProfilePage() {
         });
     }, [location.hash]);
 
-    const changed = name.trim() !== (user?.name || "") || language !== (user?.preferredProgrammingLanguage || "cpp") || practiceGoal !== (user?.practiceGoal || "confidence") || targetRole.trim() !== (user?.targetRole || "") || reminderEnabled !== Boolean(user?.reminderEnabled) || reminderDay !== (user?.reminderDay || "monday") || reminderTime !== (user?.reminderTime || "19:00") || reminderTimezone !== (user?.reminderTimezone || detectedTimezone);
-    const resetSettings = () => { setName(user?.name || ""); setLanguage(user?.preferredProgrammingLanguage || "cpp"); setPracticeGoal(user?.practiceGoal || "confidence"); setTargetRole(user?.targetRole || ""); setReminderEnabled(Boolean(user?.reminderEnabled)); setReminderDay(user?.reminderDay || "monday"); setReminderTime(user?.reminderTime || "19:00"); setReminderTimezone(user?.reminderTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"); };
-    const closePassword = () => { if (passwordSaving) return; setPasswordOpen(false); setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); };
-    const passwordInvalid = passwordError(newPassword); const mismatch = Boolean(confirmPassword && newPassword !== confirmPassword);
+    const changed = name.trim() !== (user?.name || "")
+        || language !== (user?.preferredProgrammingLanguage || "cpp")
+        || practiceGoal !== (user?.practiceGoal || "confidence")
+        || targetRole.trim() !== (user?.targetRole || "")
+        || weeklyTarget !== (user?.weeklyPracticeTarget || 3)
+        || reminderEnabled !== Boolean(user?.reminderEnabled)
+        || reminderDay !== (user?.reminderDay || "monday")
+        || reminderTime !== (user?.reminderTime || "19:00")
+        || reminderTimezone !== (user?.reminderTimezone || detectedTimezone);
+
+    const resetSettings = () => {
+        setName(user?.name || "");
+        setLanguage(user?.preferredProgrammingLanguage || "cpp");
+        setPracticeGoal(user?.practiceGoal || "confidence");
+        setTargetRole(user?.targetRole || "");
+        setWeeklyTarget(user?.weeklyPracticeTarget || 3);
+        setReminderEnabled(Boolean(user?.reminderEnabled));
+        setReminderDay(user?.reminderDay || "monday");
+        setReminderTime(user?.reminderTime || "19:00");
+        setReminderTimezone(user?.reminderTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+    };
+
+    const closePassword = () => {
+        if (passwordSaving) return;
+        setPasswordOpen(false);
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+    };
+    const passwordInvalid = passwordError(newPassword);
+    const mismatch = Boolean(confirmPassword && newPassword !== confirmPassword);
 
     return <Container maxWidth="md" sx={{ py: { xs: 3, md: 5 } }}>
         <Typography component="h1" variant="h3" fontWeight={850}>Profile</Typography>
@@ -59,37 +111,74 @@ export default function ProfilePage() {
         <Paper variant="outlined" sx={{ mt: 3, p: { xs: 2.5, sm: 3 } }}>
             <Stack spacing={2.5}>
                 <Box>
-                    <Typography component="h2" variant="h5" fontWeight={800}>Practice preferences</Typography>
-                    <Typography variant="body2" color="text.secondary" mt={.5}>Set the context Evalcue AI should use when preparing your practice.</Typography>
+                    <Typography component="h2" variant="h5" fontWeight={800}>Practice</Typography>
+                    <Typography variant="body2" color="text.secondary" mt={.5}>Give Evalcue AI the minimum context it needs to tailor your interviews.</Typography>
                 </Box>
 
                 <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}>
                     <FlagOutlined color="primary" sx={{ flexShrink: 0, mt: .25 }} />
                     <Box flex={1} minWidth={0}>
                         <Typography fontWeight={800}>Target role</Typography>
-                        <Typography variant="body2" color="text.secondary" mb={1.5}>Used to prefill new interviews and make recommendations more relevant.</Typography>
+                        <Typography variant="body2" color="text.secondary" mb={1.5}>Prefills new interviews, shapes recommendations, and anchors your weekly practice plan.</Typography>
                         <TextField id="target-role" label="Role you’re targeting" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} placeholder="e.g. Senior Backend Engineer" fullWidth inputProps={{ maxLength: 120 }} />
                     </Box>
                 </Stack>
 
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                     <TextField fullWidth select label="Primary goal" value={practiceGoal} onChange={(e) => setPracticeGoal(e.target.value)}>{[["get-first-role","Land my first role"],["switch-role","Switch roles"],["promotion","Prepare for promotion"],["confidence","Build interview confidence"],["other","Another goal"]].map(([value,label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</TextField>
-                    <TextField fullWidth select label="Programming language" value={language} onChange={(e) => setLanguage(e.target.value)} helperText="Default for coding questions.">{[["javascript","JavaScript"],["python","Python"],["cpp","C++"],["java","Java"]].map(([value,label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</TextField>
+                    <TextField fullWidth select label="Programming language" value={language} onChange={(e) => setLanguage(e.target.value)} helperText="Used when a weekly session includes coding.">{[["javascript","JavaScript"],["python","Python"],["cpp","C++"],["java","Java"]].map(([value,label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</TextField>
                 </Stack>
+            </Stack>
+        </Paper>
 
-                <Box sx={{ borderTop: 1, borderColor: "divider", pt: 2.5 }}>
+        <Paper variant="outlined" sx={{ mt: 3, p: { xs: 2.5, sm: 3 } }}>
+            <Stack spacing={2.25}>
+                <Box>
+                    <Typography component="h2" variant="h5" fontWeight={800}>Weekly Practice Plan</Typography>
+                    <Typography variant="body2" color="text.secondary" mt={.5}>Choose how many tailored interview templates Evalcue AI should prepare for you each week.</Typography>
+                </Box>
+
+                <TextField select label="Sessions per week" value={weeklyTarget} onChange={(e) => setWeeklyTarget(Number(e.target.value))} helperText={`Your weekly email will contain ${weeklyTarget} separately crafted interview ${weeklyTarget === 1 ? "template" : "templates"}.`} fullWidth>
+                    {[1,2,3,4,5,6,7].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+                </TextField>
+
+                <Box sx={{ borderTop: 1, borderColor: "divider", pt: 2.25 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "flex-start", sm: "center" }}>
                         <NotificationsActiveOutlined color="primary" sx={{ flexShrink: 0 }} />
-                        <Box flex={1} minWidth={0}><Typography fontWeight={750}>Weekly reminder</Typography><Typography variant="body2" color="text.secondary">Get one email reminder on the day and time you choose.</Typography></Box>
+                        <Box flex={1} minWidth={0}>
+                            <Typography fontWeight={750}>Email my weekly plan</Typography>
+                            <Typography variant="body2" color="text.secondary">Receive direct links to each pre-filled practice session at your preferred time.</Typography>
+                        </Box>
                         <FormControlLabel control={<Switch checked={reminderEnabled} onChange={(e) => setReminderEnabled(e.target.checked)} />} label={reminderEnabled ? "On" : "Off"} />
                     </Stack>
-                    {reminderEnabled && <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mt={2}><TextField select label="Day" value={reminderDay} onChange={(e) => setReminderDay(e.target.value)} fullWidth>{["monday","tuesday","wednesday","thursday","friday","saturday","sunday"].map((day) => <MenuItem key={day} value={day}>{day[0].toUpperCase()+day.slice(1)}</MenuItem>)}</TextField><TextField label="Time" type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} /><Autocomplete options={timezones} value={reminderTimezone} onChange={(_, value) => setReminderTimezone(value || detectedTimezone)} disableClearable fullWidth renderInput={(params) => <TextField {...params} label="Timezone" helperText={reminderTimezone === detectedTimezone ? "Detected timezone" : "Search by city or region"} />} /></Stack>}
-                    {reminderEnabled && <Alert severity={changed ? "info" : "success"} sx={{ mt: 2 }} action={!changed ? <Button color="inherit" size="small" disabled={testSending} onClick={async () => { try { setTestSending(true); await api.post("/auth/reminders/test"); notify("Test reminder sent. Check your inbox and spam folder.", "success"); } catch (e) { notify(e?.response?.data?.message || "Test reminder failed", "error"); } finally { setTestSending(false); } }}>{testSending ? "Sending…" : "Send test"}</Button> : undefined}>{changed ? "Save changes to activate this reminder." : `Reminder active for ${reminderDay.charAt(0).toUpperCase() + reminderDay.slice(1)} at ${reminderTime} (${reminderTimezone}).`}</Alert>}
+
+                    {reminderEnabled && <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mt={2}>
+                        <TextField select label="Day" value={reminderDay} onChange={(e) => setReminderDay(e.target.value)} fullWidth>{["monday","tuesday","wednesday","thursday","friday","saturday","sunday"].map((day) => <MenuItem key={day} value={day}>{day[0].toUpperCase()+day.slice(1)}</MenuItem>)}</TextField>
+                        <TextField label="Time" type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+                        <Autocomplete options={timezones} value={reminderTimezone} onChange={(_, value) => setReminderTimezone(value || detectedTimezone)} disableClearable fullWidth renderInput={(params) => <TextField {...params} label="Timezone" helperText={reminderTimezone === detectedTimezone ? "Detected timezone" : "Search by city or region"} />} />
+                    </Stack>}
+
+                    {reminderEnabled && <Alert severity={changed ? "info" : "success"} sx={{ mt: 2 }} action={!changed ? <Button color="inherit" size="small" disabled={testSending} onClick={async () => { try { setTestSending(true); await api.post("/auth/reminders/test"); notify("Test weekly plan sent. Check your inbox and spam folder.", "success"); } catch (e) { notify(e?.response?.data?.message || "Test weekly plan failed", "error"); } finally { setTestSending(false); } }}>{testSending ? "Sending…" : "Send test plan"}</Button> : undefined}>
+                        {changed ? "Save changes to activate this weekly plan." : `${weeklyTarget} tailored session${weeklyTarget === 1 ? "" : "s"} will be sent every ${reminderDay.charAt(0).toUpperCase() + reminderDay.slice(1)} at ${reminderTime} (${reminderTimezone}).`}
+                    </Alert>}
                 </Box>
             </Stack>
         </Paper>
 
-        <Stack direction="row" justifyContent="flex-end" spacing={1} mt={2}><Button onClick={resetSettings} disabled={!changed || saving}>Discard</Button><Button variant="contained" disabled={!changed || !name.trim() || saving} onClick={async () => { try { setSaving(true); await updateProfile({ name: name.trim(), preferredProgrammingLanguage: language, practiceGoal, targetRole: targetRole.trim(), reminderEnabled, reminderDay, reminderTime, reminderTimezone }); notify("Profile saved", "success"); } catch (e) { notify(e?.response?.data?.message || "Save failed", "error"); } finally { setSaving(false); } }}>{saving ? "Saving…" : "Save changes"}</Button></Stack>
+        <Stack direction="row" justifyContent="flex-end" spacing={1} mt={2}>
+            <Button onClick={resetSettings} disabled={!changed || saving}>Discard</Button>
+            <Button variant="contained" disabled={!changed || !name.trim() || saving} onClick={async () => {
+                try {
+                    setSaving(true);
+                    await updateProfile({ name: name.trim(), preferredProgrammingLanguage: language, practiceGoal, targetRole: targetRole.trim(), weeklyPracticeTarget: weeklyTarget, reminderEnabled, reminderDay, reminderTime, reminderTimezone });
+                    notify("Profile saved", "success");
+                } catch (e) {
+                    notify(e?.response?.data?.message || "Save failed", "error");
+                } finally {
+                    setSaving(false);
+                }
+            }}>{saving ? "Saving…" : "Save changes"}</Button>
+        </Stack>
 
         <Typography component="h2" variant="h5" fontWeight={800} mt={4} mb={2}>Plan & billing</Typography>
         <Paper variant="outlined" sx={{ p: 2.5 }}><Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={2}><Box><Typography fontWeight={750}>{user?.practicePlan ? `Practice ${user.practicePlan.charAt(0).toUpperCase()}${user.practicePlan.slice(1)}` : "Your Practice plan"}</Typography><Typography variant="body2" color="text.secondary">Manage your personal Practice usage, invoices, upgrades, and cancellation.</Typography></Box><Button variant="outlined" onClick={() => navigate("/practice/pricing")}>Manage plan</Button></Stack></Paper>
