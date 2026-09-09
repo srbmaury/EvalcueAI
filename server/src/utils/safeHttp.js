@@ -22,32 +22,33 @@ export const isPrivateAddress = (address) => {
             (a === 100 && b >= 64 && b <= 127) ||
             (a === 169 && b === 254) ||
             (a === 172 && b >= 16 && b <= 31) ||
-            (a === 192 && b === 0) ||
+            (a === 192 && b === 0 && c === 0) ||
+            (a === 192 && b === 0 && c === 2) ||
             (a === 192 && b === 88 && c === 99) ||
             (a === 192 && b === 168) ||
-            (a === 192 && b === 0 && c === 2) ||
             (a === 198 && (b === 18 || b === 19)) ||
             (a === 198 && b === 51 && c === 100) ||
             (a === 203 && b === 0 && c === 113);
     }
     if (net.isIPv6(normalized)) {
-        // Public IPv6 addresses currently live in 2000::/3. Reject all other
-        // scopes (loopback, link-local, ULA, multicast, documentation, etc.).
-        return !/^[23]/.test(normalized);
+        if (!/^[23]/.test(normalized)) return true;
+        return normalized.startsWith("2001:db8:") || normalized === "2001:db8::" ||
+            normalized.startsWith("2001:0:") || normalized.startsWith("2001:10:") || normalized.startsWith("2001:20:") ||
+            normalized.startsWith("2002:") || normalized.startsWith("3fff:");
     }
     return true;
 };
 
 const normalizeHostname = (url) => url.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
 
-export const resolvePublicUrl = async (rawUrl, { httpsOnly = false, allowHttp = true } = {}) => {
+export const resolvePublicUrl = async (rawUrl, { httpsOnly = false, allowHttp = true, allowCustomPorts = false } = {}) => {
     let url;
     try { url = rawUrl instanceof URL ? new URL(rawUrl.toString()) : new URL(rawUrl); }
     catch { throw new Error("Invalid URL"); }
 
     const allowedProtocols = httpsOnly ? ["https:"] : allowHttp ? ["http:", "https:"] : ["https:"];
     if (!allowedProtocols.includes(url.protocol) || url.username || url.password) throw new Error("Only public HTTP(S) URLs are allowed");
-    if ((url.protocol === "http:" && url.port && url.port !== "80") || (url.protocol === "https:" && url.port && url.port !== "443")) {
+    if (!allowCustomPorts && ((url.protocol === "http:" && url.port && url.port !== "80") || (url.protocol === "https:" && url.port && url.port !== "443"))) {
         throw new Error("Custom URL ports are not allowed");
     }
 
@@ -121,13 +122,14 @@ export const requestPublicUrl = async (rawUrl, {
     maxBytes = DEFAULT_MAX_BYTES,
     maxRedirects = 0,
     httpsOnly = false,
+    allowCustomPorts = false,
 } = {}) => {
     let current = rawUrl instanceof URL ? new URL(rawUrl.toString()) : new URL(rawUrl);
     let currentMethod = method;
     let currentBody = body;
 
     for (let redirects = 0; redirects <= maxRedirects; redirects += 1) {
-        const endpoint = await resolvePublicUrl(current, { httpsOnly });
+        const endpoint = await resolvePublicUrl(current, { httpsOnly, allowCustomPorts });
         const response = await requestOnce(endpoint, {
             method: currentMethod,
             headers,
