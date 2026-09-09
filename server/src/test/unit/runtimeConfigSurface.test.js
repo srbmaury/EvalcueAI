@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { describe, expect, it } from "vitest";
 
 describe("runtime public configuration", () => {
     it("keeps browser-safe auth identifiers server-owned", () => {
