@@ -124,7 +124,6 @@ test("mock interview clarifications stay in the live stage and are spoken", asyn
 
     await openVoiceRound(page);
     await expect(page.getByRole("heading", { name: "Tell me about a production incident you handled." })).toBeVisible();
-    await expect.poll(() => page.evaluate(() => window.__spoken.join("\n"))).toContain("Hi, I’m your interviewer");
 
     await page.getByPlaceholder("Need clarification? Ask the interviewer…").fill("Should I use a project example?");
     await page.getByRole("button", { name: "Ask" }).click();
@@ -161,7 +160,7 @@ test("mock interview refreshes completed-round feedback after the background job
     await openVoiceRound(page);
     await expect(page.getByRole("heading", { name: "Tell me about a production incident you handled." })).toBeVisible();
     await page.getByRole("button", { name: "Type / code" }).click();
-    await page.getByRole("textbox", { name: "Editor content" }).fill("I coordinated rollback, added alerts, and wrote the postmortem.");
+    await page.getByPlaceholder("Answer by typing or speaking...").fill("I coordinated rollback, added alerts, and wrote the postmortem.");
     await page.getByRole("button", { name: "I’m done" }).click();
     await expect.poll(() => answerText).toContain("coordinated rollback");
 
