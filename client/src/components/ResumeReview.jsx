@@ -40,7 +40,7 @@ import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
  * - title: string (heading text)
  */
 const ResumeReview = ({ value, onChange, title = "Resume Review" }) => {
-    const { getResumes, deleteResume, uploadResume } = useResumes();
+    const { getResumes, deleteResume, uploadResume, downloadResume } = useResumes();
     const notify = useNotify();
 
     const [resumes, setResumes] = useState([]);
@@ -104,6 +104,14 @@ const ResumeReview = ({ value, onChange, title = "Resume Review" }) => {
         }
     };
 
+    const handleDownload = async (resume) => {
+        try {
+            await downloadResume(resume);
+        } catch (error) {
+            notify(error?.response?.data?.message || "Resume download failed.", "error");
+        }
+    };
+
     const handlePreviewResume = (r) => {
         if (!r) return;
         if (r.fileType !== "application/pdf") {
@@ -149,10 +157,11 @@ const ResumeReview = ({ value, onChange, title = "Resume Review" }) => {
                                     <IconButton
                                         color="primary"
                                         size="small"
-                                        component="a"
-                                        href={r.fileUrl}
-                                        download
                                         onMouseDown={(e) => e.stopPropagation()}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDownload(r);
+                                        }}
                                     >
                                         <DownloadIcon />
                                     </IconButton>
