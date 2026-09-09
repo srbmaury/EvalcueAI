@@ -11,7 +11,7 @@ export const assertSafeOidcUrl = async (raw) => {
     try { url = new URL(raw); } catch { throw new Error("Invalid OIDC endpoint"); }
     if (url.protocol !== "https:") throw new Error("OIDC endpoints must use HTTPS");
     try {
-        return (await resolvePublicUrl(url, { httpsOnly: true })).url;
+        return (await resolvePublicUrl(url, { httpsOnly: true, allowCustomPorts: true })).url;
     } catch (error) {
         if (/resolve/i.test(error?.message || "")) throw new Error("OIDC hostname could not be resolved");
         throw new Error("Private OIDC endpoints are not allowed");
@@ -27,6 +27,7 @@ const fetchJson = async (rawUrl, options = {}) => {
         headers: options.headers || {},
         body: options.body,
         httpsOnly: true,
+        allowCustomPorts: true,
         maxRedirects: 0,
         timeoutMs: 5_000,
         maxBytes: 1_000_000,
