@@ -1,5 +1,6 @@
 import axios from "axios";
 import { markPracticeLimitHandled, PRACTICE_LIMIT_EVENT } from "../utils/appEvents";
+import { productLoginPath, surfaceForPath, workspaceForSurface } from "../utils/productRoutes";
 
 export const resolveApiBaseUrl = (envUrl, hostname) => {
     const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
@@ -33,6 +34,11 @@ export const shouldAttachOrganization = (url = "") => {
     const isProtectedSsoSettingsApi = path === "/sso/settings" || path.startsWith("/sso/settings/");
 
     return (isAssessmentApi && !isCandidateApi) || isHiringBillingApi || isProtectedSsoSettingsApi;
+};
+
+export const resolveAuthRedirectPath = (pathname = "") => {
+    const workspace = workspaceForSurface(surfaceForPath(pathname));
+    return productLoginPath(workspace);
 };
 
 const api = axios.create({
@@ -98,8 +104,10 @@ api.interceptors.response.use(
 
             try {
                 clearAccessToken();
-                if (!window.location.pathname.startsWith("/login")) {
-                    window.location.href = "/login";
+                const currentPath = window.location.pathname;
+                const loginPath = resolveAuthRedirectPath(currentPath);
+                if (currentPath !== loginPath) {
+                    window.location.href = loginPath;
                 }
             } catch { /* ignore */ }
         }
