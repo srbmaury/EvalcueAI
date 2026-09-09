@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { describe, expect, it } from "vitest";
 
 describe("interview resume download surface", () => {
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
