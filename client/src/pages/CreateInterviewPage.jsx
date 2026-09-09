@@ -113,7 +113,7 @@ const CreateInterviewPage = () => {
             }
         } catch (err) {
             console.error("Upload failed", err);
-            notify("Resume upload failed.", "error");
+            notify(err?.response?.data?.message || err?.message || "Resume upload failed.", "error");
         } finally {
             setUploading(false);
         }

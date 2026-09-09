@@ -33,8 +33,8 @@ const formatTime = (seconds) => {
 
 export default function CandidateAssessmentPage() {
     const { shareToken } = useParams();
-    const storageKey = `assessment-attempt:${shareToken}`;
     const invitationId = useMemo(() => new URLSearchParams(window.location.search).get("invite") || "", []);
+    const storageKey = useMemo(() => `assessment-attempt:${shareToken}:${invitationId || "open"}`, [invitationId, shareToken]);
     const notify = useNotify();
 
     const [assessment, setAssessment] = useState(null);
@@ -54,6 +54,7 @@ export default function CandidateAssessmentPage() {
     const [online, setOnline] = useState(navigator.onLine);
     const [dirty, setDirty] = useState({});
     const [lastSavedAt, setLastSavedAt] = useState(null);
+    const [restoreNotice, setRestoreNotice] = useState("");
     const [faceStatus, setFaceStatus] = useState("off");
     const [fullscreenActive, setFullscreenActive] = useState(Boolean(document.fullscreenElement));
     const [activeRoundIndex, setActiveRoundIndex] = useState(0);
@@ -129,6 +130,7 @@ export default function CandidateAssessmentPage() {
                     setActiveRoundIndex(Math.max(0, Number(saved.navigation?.activeRoundIndex) || 0));
                     setActiveQuestionIndex(Math.max(0, Number(saved.navigation?.activeQuestionIndex) || 0));
                     setRoundTransition(saved.navigation?.roundTransition || null);
+                    setRestoreNotice("We found a saved attempt on this device. Continue from where you left off, or start over if this is not your attempt.");
                 }
             } catch {
                 setError("This assessment link is invalid, closed, or expired.");
@@ -146,17 +148,19 @@ export default function CandidateAssessmentPage() {
             attempt: nextAttempt,
             attemptToken: token,
             dirty: nextDirty,
+            identity,
+            invitationId,
             savedAt,
             navigation: { activeRoundIndex, activeQuestionIndex, roundTransition },
         });
-    }, [activeQuestionIndex, activeRoundIndex, attemptToken, dirty, roundTransition, storageKey]);
+    }, [activeQuestionIndex, activeRoundIndex, attemptToken, dirty, identity, invitationId, roundTransition, storageKey]);
 
     useEffect(() => {
         if (!attempt || !attemptToken) return;
         const savedAt = new Date().toISOString();
-        writeSavedAttempt(storageKey, { attempt, attemptToken, dirty, savedAt, navigation: { activeRoundIndex, activeQuestionIndex, roundTransition } });
+        writeSavedAttempt(storageKey, { attempt, attemptToken, dirty, identity, invitationId, savedAt, navigation: { activeRoundIndex, activeQuestionIndex, roundTransition } });
         setLastSavedAt(savedAt);
-    }, [activeQuestionIndex, activeRoundIndex, attempt, attemptToken, dirty, roundTransition, storageKey]);
+    }, [activeQuestionIndex, activeRoundIndex, attempt, attemptToken, dirty, identity, invitationId, roundTransition, storageKey]);
 
     useEffect(() => {
         const update = () => setOnline(navigator.onLine);
@@ -194,6 +198,7 @@ export default function CandidateAssessmentPage() {
             setActiveRoundIndex(0);
             setActiveQuestionIndex(0);
             setRoundTransition(null);
+            setRestoreNotice("");
             persist(data.attempt, data.attemptToken, {});
             if (!(await fullscreenRequest)) {
                 const message = "Assessment started, but fullscreen could not be enabled. Use Enter fullscreen before continuing.";
@@ -427,6 +432,7 @@ export default function CandidateAssessmentPage() {
         try {
             await api.post(`${candidateToolBase}/submit`, {}, { headers: candidateToolHeaders, skipAuthRedirect: true });
             removeSavedAttempt(storageKey);
+            setRestoreNotice("");
             setSubmitted(true);
             notify("Assessment submitted successfully.", "success");
         } catch (err) {
@@ -499,6 +505,7 @@ export default function CandidateAssessmentPage() {
                         </Stack>
                     </Paper>
 
+                    {restoreNotice && <Alert severity="info" sx={{ mb: 2 }} action={<Stack direction="row" spacing={1}><Button color="inherit" size="small" onClick={() => setRestoreNotice("")}>Continue</Button><Button color="inherit" size="small" onClick={() => { removeSavedAttempt(storageKey); setAttempt(null); setAttemptToken(""); setDirty({}); setRestoreNotice(""); }}>Start over</Button></Stack>}>{restoreNotice}</Alert>}
                     {assessment.integrity?.requireFullscreen && !fullscreenActive && <Alert severity="warning" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={enterFullscreen}>Enter fullscreen</Button>}>Fullscreen is required for this assessment.</Alert>}
                     {timeReached && <Alert severity="warning" sx={{ mb: 2 }}>The suggested interview time has been reached. Finish the current response and submit when ready; your attempt is not automatically ended.</Alert>}
                     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}

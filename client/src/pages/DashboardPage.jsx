@@ -34,12 +34,16 @@ const DashboardPage = () => {
         api.get("/resumes", { params: { page: 1, limit: 1 } }).then(({ data }) => setResumeCount(Array.isArray(data) ? data.length : Number(data?.total) || 0)).catch(() => {});
     }, [user]);
 
+    useEffect(() => { setPage(1); }, [statusFilter]);
+
     useEffect(() => {
         const fetchInterviews = async () => {
             setLoading(true);
             setError("");
             try {
-                const { data } = await api.get(`/interviews`, { params: { page, limit } });
+                const params = { page, limit };
+                if (statusFilter !== "all") params.status = statusFilter;
+                const { data } = await api.get(`/interviews`, { params });
                 if (Array.isArray(data)) {
                     setInterviews(data);
                     setTotalPages(1);
@@ -60,7 +64,7 @@ const DashboardPage = () => {
             }
         };
         if (user?._id) fetchInterviews();
-    }, [user, page, limit]);
+    }, [user, page, limit, statusFilter]);
 
     const completedCount = interviews.filter((item) => item.isCompleted).length;
     const firstName = user?.name?.trim()?.split(/\s+/)[0] || "there";
