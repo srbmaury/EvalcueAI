@@ -31,6 +31,12 @@ const mockAuth = async (page) => {
     await page.route("**/api/events", (route) => json(route, { accepted: true }, 202));
 };
 
+const openVoiceRound = async (page) => {
+    await page.goto("/practice/interviews/interview-voice");
+    await expect(page.getByRole("heading", { name: "Choose your next round" })).toBeVisible();
+    await page.getByRole("button", { name: /Behavioral deep dive/i }).click();
+};
+
 const installReadyMedia = async (page) => {
     await page.addInitScript(() => {
         window.__spoken = [];
@@ -97,7 +103,7 @@ test("mock interview asks for mic and camera before revealing the first question
     await mockAuth(page);
     await page.route("**/api/interviews/interview-voice", (route) => json(route, interviewPayload()));
 
-    await page.goto("/practice/interviews/interview-voice");
+    await openVoiceRound(page);
 
     await expect(page.getByText("Before we start", { exact: true })).toBeVisible();
     await expect(page.getByText(/turn on your microphone and camera/i)).toBeVisible();
@@ -116,7 +122,7 @@ test("mock interview clarifications stay in the live stage and are spoken", asyn
         return json(route, { answer: "Use one strong project example and explain the impact." });
     });
 
-    await page.goto("/practice/interviews/interview-voice");
+    await openVoiceRound(page);
     await expect(page.getByRole("heading", { name: "Tell me about a production incident you handled." })).toBeVisible();
     await expect.poll(() => page.evaluate(() => window.__spoken.join("\n"))).toContain("Hi, I’m your interviewer");
 
@@ -152,7 +158,7 @@ test("mock interview refreshes completed-round feedback after the background job
         return json(route, { message: "Round complete" });
     });
 
-    await page.goto("/practice/interviews/interview-voice");
+    await openVoiceRound(page);
     await expect(page.getByRole("heading", { name: "Tell me about a production incident you handled." })).toBeVisible();
     await page.getByRole("button", { name: "Type / code" }).click();
     await page.getByRole("textbox", { name: "Editor content" }).fill("I coordinated rollback, added alerts, and wrote the postmortem.");
