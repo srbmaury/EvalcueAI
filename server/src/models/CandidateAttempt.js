@@ -63,6 +63,9 @@ const candidateAttemptSchema = new mongoose.Schema({
     candidateName: { type: String, required: true, maxlength: 120 },
     candidateEmail: { type: String, required: true, lowercase: true, trim: true, maxlength: 254 },
     accessTokenHash: { type: String, required: true, select: false },
+    usageReservationCounterId: { type: mongoose.Schema.Types.ObjectId, ref: "OrganizationUsageCounter", default: null, select: false },
+    usageReservedAt: { type: Date, default: null },
+    usageFinalizedAt: { type: Date, default: null },
     status: { type: String, enum: ["started", "evaluating", "submitted", "evaluation_failed"], default: "started", index: true },
     startedAt: { type: Date, default: Date.now },
     privacyConsentAt: { type: Date, required: true },
@@ -81,15 +84,9 @@ const candidateAttemptSchema = new mongoose.Schema({
     integrityEvents: [{ type: { type: String, enum: ["tab_hidden", "window_blur", "fullscreen_exit", "copy", "paste", "offline", "online", "face_missing", "face_restored", "multiple_faces", "camera_interrupted", "face_detection_unavailable"] }, at: { type: Date, default: Date.now }, metadata: { type: mongoose.Schema.Types.Mixed } }],
 }, { timestamps: true });
 
-// A system-design interview is one evolving design conversation, not a set of
-// independent written questions. Keep exactly one problem in the live attempt;
-// the interviewer probes depth through live interjections while the candidate
-// continues talking and drawing on the same whiteboard.
 candidateAttemptSchema.pre("save", function normalizeSystemDesignRounds() {
     for (const round of this.rounds || []) {
-        if (round.deliveryMode === "system-design" && Array.isArray(round.questions) && round.questions.length > 1) {
-            round.questions = [round.questions[0]];
-        }
+        if (round.deliveryMode === "system-design" && Array.isArray(round.questions) && round.questions.length > 1) round.questions = [round.questions[0]];
     }
 });
 
