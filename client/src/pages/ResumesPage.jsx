@@ -40,7 +40,7 @@ import { resumeFileError } from "../utils/resumeFileValidation";
 const PAGE_SIZE = 6;
 
 const ResumesPage = () => {
-    const { getResumes, uploadResume, updateResume, deleteResume } = useResumes();
+    const { getResumes, uploadResume, updateResume, deleteResume, downloadResume } = useResumes();
     const fileInputRef = useRef(null);
     const [resumes, setResumes] = useState([]);
     const [page, setPage] = useState(1);
@@ -116,6 +116,14 @@ const ResumesPage = () => {
         } finally {
             setUploading(false);
             event.target.value = "";
+        }
+    };
+
+    const handleDownload = async (resume) => {
+        try {
+            await downloadResume(resume);
+        } catch (error) {
+            notify(error?.response?.data?.message || "Could not download the resume.", "error");
         }
     };
 
@@ -208,7 +216,7 @@ const ResumesPage = () => {
                                 {resume.tags?.length > 0 && <Stack direction="row" gap={0.75} useFlexGap flexWrap="wrap" mt={1.5}>{resume.tags.map((value) => <Chip key={value} label={value} size="small" />)}</Stack>}
                                 {resume.notes && <Typography variant="body2" color="text.secondary" mt={1.5} sx={{ overflowWrap: "anywhere" }}>{resume.notes}</Typography>}
                                 <Stack direction="row" spacing={0.5} mt="auto" pt={2}>
-                                    <Tooltip title="Download"><IconButton component="a" href={resume.fileUrl} download aria-label={`Download ${resume.fileName || "resume"}`}><DownloadIcon /></IconButton></Tooltip>
+                                    <Tooltip title="Download"><IconButton onClick={() => handleDownload(resume)} aria-label={`Download ${resume.fileName || "resume"}`}><DownloadIcon /></IconButton></Tooltip>
                                     <Tooltip title="Preview PDF"><span><IconButton disabled={resume.fileType !== "application/pdf"} onClick={() => setPreview(resume)} aria-label={`Preview ${resume.fileName || "resume"}`}><PreviewIcon /></IconButton></span></Tooltip>
                                     <Tooltip title="Edit details"><IconButton onClick={() => openEdit(resume)} aria-label={`Edit ${resume.fileName || "resume"}`}><EditIcon /></IconButton></Tooltip>
                                     <Tooltip title="Delete"><IconButton color="error" onClick={() => setDeleteTarget(resume)} aria-label={`Delete ${resume.fileName || "resume"}`}><DeleteIcon /></IconButton></Tooltip>
