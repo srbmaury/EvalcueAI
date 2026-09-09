@@ -154,9 +154,12 @@ const claimBillingEvent = async (event) => {
         if (error?.code !== 11000) throw error;
     }
 
-    const existing = await BillingEvent.findOne({ provider: "stripe", eventId: event.id });
+    // Lean is intentional: Mongoose schema defaults can make a legacy row that
+    // predates the status field look like status="processing" in memory. Those
+    // legacy rows were the old processed-event marker, so never replay them.
+    const existing = await BillingEvent.findOne({ provider: "stripe", eventId: event.id }).lean();
     if (!existing) return { state: "busy", record: null };
-    if (existing.status === "processed") return { state: "duplicate", record: existing };
+    if (!existing.status || existing.status === "processed") return { state: "duplicate", record: existing };
 
     const retryable = existing.status === "failed" ||
         (existing.status === "processing" && (!existing.leaseExpiresAt || existing.leaseExpiresAt <= now));
