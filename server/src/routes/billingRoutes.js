@@ -2,7 +2,6 @@ import express from "express";
 import { z } from "zod";
 import protect from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
-import PracticeUsageCounter from "../models/PracticeUsageCounter.js";
 import Organization from "../models/Organization.js";
 import OrganizationUsageCounter from "../models/OrganizationUsageCounter.js";
 import { currentMonth, practiceLimitsFor, PRACTICE_PLAN_LIMITS } from "../services/practiceEntitlements.js";
@@ -47,9 +46,10 @@ router.get("/practice/entitlements", protect, async (req, res, next) => {
         res.setHeader("Cache-Control", "no-store");
         const period = currentMonth();
         const limits = practiceLimitsFor(req.user);
-        await reconcilePracticeUsageCounter({ userId: req.user._id, metric: "resumeReviews", period });
-        const counters = await PracticeUsageCounter.find({ user: req.user._id, period }).lean();
-        const used = Object.fromEntries(counters.map((item) => [item.metric, item.used]));
+        const [interviewUsage, resumeReviewUsage] = await Promise.all([
+            reconcilePracticeUsageCounter({ userId: req.user._id, metric: "interviews", period }),
+            reconcilePracticeUsageCounter({ userId: req.user._id, metric: "resumeReviews", period }),
+        ]);
         const proPrice = await safePrice("practice", "pro");
         const hasBillingAccount = Boolean(req.user.practiceBillingCustomerId);
         return res.json({
@@ -74,8 +74,8 @@ router.get("/practice/entitlements", protect, async (req, res, next) => {
                 },
             },
             used: {
-                interviews: used.interviews || 0,
-                resumeReviews: used.resumeReviews || 0,
+                interviews: interviewUsage.used,
+                resumeReviews: resumeReviewUsage.used,
             },
             prices: { pro: proPrice },
             billingAvailable: { pro: Boolean(billingConfigured() && proPrice) },
