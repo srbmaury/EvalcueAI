@@ -95,7 +95,7 @@ export default function ResumeReviewPage() {
             const { data } = await api.post(`/resumes/${resumeId}/review`, { role, jobDescription });
             setReview(data);
         } catch (error) {
-            const limitReached = error?.response?.data?.code === "PLAN_LIMIT_REACHED";
+            const limitReached = error?.response?.data?.code === "PRACTICE_LIMIT_REACHED";
             notify(error?.response?.data?.message || "The resume review could not be generated. Try again.", limitReached ? "warning" : "error");
         } finally {
             setLoadingReview(false);
