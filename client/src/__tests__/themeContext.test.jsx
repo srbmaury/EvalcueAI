@@ -12,12 +12,17 @@ const clearThemeCookie = () => {
     document.cookie = "evalcue_theme=; Max-Age=0; Path=/; Domain=.evalcueai.com";
 };
 
+const clearDocumentTheme = () => {
+    document.documentElement.classList.remove("dark");
+    delete document.documentElement.dataset.theme;
+    document.documentElement.style.removeProperty("color-scheme");
+};
+
 describe("ThemeModeProvider", () => {
     beforeEach(() => {
         window.localStorage.clear();
         clearThemeCookie();
-        document.documentElement.classList.remove("dark");
-        delete document.documentElement.dataset.theme;
+        clearDocumentTheme();
     });
 
     it("defaults to light and persists toggles to the DOM, storage, and cookie", async () => {
@@ -45,6 +50,7 @@ describe("ThemeModeProvider", () => {
         dark.unmount();
 
         clearThemeCookie();
+        clearDocumentTheme();
         window.localStorage.setItem("ia:theme", "sepia");
         render(<ThemeModeProvider><Harness /></ThemeModeProvider>);
         expect(screen.getByRole("button", { name: "light" })).toBeTruthy();
