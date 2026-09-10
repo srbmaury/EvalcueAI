@@ -2,30 +2,91 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 
+const THEME_STORAGE_KEY = "ia:theme";
+const THEME_COOKIE_NAME = "evalcue_theme";
+const THEME_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+const isThemeMode = (value) => value === "dark" || value === "light";
+
+const readThemeCookie = () => {
+    try {
+        const prefix = `${THEME_COOKIE_NAME}=`;
+        const cookie = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
+        const value = cookie ? decodeURIComponent(cookie.slice(prefix.length)) : "";
+        return isThemeMode(value) ? value : null;
+    } catch {
+        return null;
+    }
+};
+
+const readThemePreference = () => {
+    if (typeof window === "undefined") return "light";
+    const cookieMode = readThemeCookie();
+    if (cookieMode) return cookieMode;
+    try {
+        const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+        if (isThemeMode(saved)) return saved;
+    } catch { /* Storage can be unavailable in privacy mode. */ }
+    const initialDomMode = document.documentElement?.dataset?.theme;
+    return isThemeMode(initialDomMode) ? initialDomMode : "light";
+};
+
+const sharedCookieDomain = () => {
+    try {
+        const hostname = window.location.hostname.toLowerCase();
+        return hostname === "evalcueai.com" || hostname.endsWith(".evalcueai.com") ? "; Domain=.evalcueai.com" : "";
+    } catch {
+        return "";
+    }
+};
+
+const persistThemePreference = (mode) => {
+    try { window.localStorage.setItem(THEME_STORAGE_KEY, mode); } catch { /* Storage is optional. */ }
+    try {
+        const secure = window.location.protocol === "https:" ? "; Secure" : "";
+        document.cookie = `${THEME_COOKIE_NAME}=${encodeURIComponent(mode)}; Path=/; Max-Age=${THEME_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${sharedCookieDomain()}${secure}`;
+    } catch { /* Cookies can be unavailable or blocked. */ }
+};
+
+const applyDocumentTheme = (mode) => {
+    try {
+        const root = document.documentElement;
+        root.classList.toggle("dark", mode === "dark");
+        root.dataset.theme = mode;
+        root.style.colorScheme = mode;
+        const themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) themeColor.setAttribute("content", mode === "dark" ? "#0b1020" : "#ffffff");
+    } catch { /* DOM access can be unavailable during non-browser rendering. */ }
+};
+
 export const ThemeModeContext = createContext({ mode: "light", toggle: () => {} });
 
 export const useThemeMode = () => useContext(ThemeModeContext);
 
 export const ThemeModeProvider = ({ children }) => {
-    const [mode, setMode] = useState(() => {
-        if (typeof window === "undefined") return "light";
-        const saved = window.localStorage.getItem("ia:theme");
-        return saved === "dark" || saved === "light" ? saved : "light";
-    });
+    const [mode, setMode] = useState(readThemePreference);
 
     useEffect(() => {
-        try {
-            window.localStorage.setItem("ia:theme", mode);
-        } catch { /* Storage can be unavailable in privacy mode. */ }
-        try {
-            const root = document.documentElement;
-            if (mode === "dark") {
-                root.classList.add("dark");
-            } else {
-                root.classList.remove("dark");
-            }
-        } catch { /* DOM access can be unavailable during non-browser rendering. */ }
+        persistThemePreference(mode);
+        applyDocumentTheme(mode);
     }, [mode]);
+
+    useEffect(() => {
+        const syncTheme = () => {
+            const sharedMode = readThemeCookie();
+            if (sharedMode) setMode((current) => current === sharedMode ? current : sharedMode);
+        };
+        const onVisibilityChange = () => {
+            if (document.visibilityState === "visible") syncTheme();
+        };
+        window.addEventListener("focus", syncTheme);
+        window.addEventListener("storage", syncTheme);
+        document.addEventListener("visibilitychange", onVisibilityChange);
+        return () => {
+            window.removeEventListener("focus", syncTheme);
+            window.removeEventListener("storage", syncTheme);
+            document.removeEventListener("visibilitychange", onVisibilityChange);
+        };
+    }, []);
 
     const toggle = useCallback(() => {
         setMode((currentMode) => (currentMode === "light" ? "dark" : "light"));
