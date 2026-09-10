@@ -308,8 +308,7 @@ router.post(
     async (req, res, next) => {
         try {
             const organization = await Organization.findById(req.organizationId).select("+hiringBillingCustomerId");
-            if (!organization) return res.status(404).json({ message: "Organization not found" });
-            if (!organization.hiringBillingCustomerId) return res.status(400).json({ message: "No Hiring billing account found for this organization" });
+            if (!organization?.hiringBillingCustomerId) return res.status(400).json({ message: "No Hiring billing account found for this organization" });
             const session = await getStripe().billingPortal.sessions.create({
                 customer: organization.hiringBillingCustomerId,
                 return_url: `${hiringClientOrigin()}/hire/team`,
