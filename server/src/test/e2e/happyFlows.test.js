@@ -265,7 +265,8 @@ describe("Launch-critical full product journey E2E", () => {
         await agent.post("/api/events").set(auth).set("origin", origin).set("referer", `${origin}/`).send({ event: "seo_resource_assessment_created", path: "/hire/resources/technical-assessment-template" }).expect(202);
         expect(await ProductEvent.countDocuments({ user: me._id, event: { $in: ["seo_resource_practice_started", "seo_resource_assessment_created"] } })).toBe(2);
         await agent.post("/api/events").set(auth).set("origin", origin).set("referer", `${origin}/`).send({ event: "not_allowed" }).expect(400);
-        await agent.post("/api/auth/reminders/test").set(auth).set("origin", origin).set("referer", `${origin}/`).expect(200);
+        await agent.post("/api/auth/reminders/test").set(auth).set("origin", origin).set("referer", `${origin}/`).expect(403);
+        await agent.post("/api/auth/reminders/test").set(otherAuth).set("origin", origin).set("referer", `${origin}/`).expect(200);
         const previousReminderDelivery = process.env.REMINDER_DELIVERY_ENABLED;
         process.env.REMINDER_DELIVERY_ENABLED = "true";
         const dueAt = new Date("2026-08-03T13:35:00.000Z"); // Monday 19:05 Asia/Kolkata
