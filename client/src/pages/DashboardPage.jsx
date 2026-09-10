@@ -9,6 +9,14 @@ import { canonicalProductPath } from "../utils/productRoutes";
 import { Add, ArrowForward, CheckCircleOutline, InsightsOutlined, PlayCircleOutline, RadioButtonUnchecked, TrackChanges } from "@mui/icons-material";
 import { Alert, Box, Button, Card, CardActionArea, CardContent, Chip, Container, Grid, LinearProgress, Pagination, Skeleton, Stack, Typography, ToggleButton, ToggleButtonGroup } from "@mui/material";
 
+const formatUsagePeriod = (period) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(period || "");
+    if (!match) return period || "this month";
+    const [, year, month] = match;
+    return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric", timeZone: "UTC" })
+        .format(new Date(Date.UTC(Number(year), Number(month) - 1, 1)));
+};
+
 const DashboardPage = () => {
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
@@ -43,7 +51,7 @@ const DashboardPage = () => {
             try {
                 const params = { page, limit };
                 if (statusFilter !== "all") params.status = statusFilter;
-                const { data } = await api.get(`/interviews`, { params });
+                const { data } = await api.get("/interviews", { params });
                 if (Array.isArray(data)) {
                     setInterviews(data);
                     setTotalPages(1);
@@ -100,6 +108,14 @@ const DashboardPage = () => {
         };
     }, [activeInterview, progress.completed, resumeCount, user?.targetRole]);
 
+    const filteredInterviews = interviews.filter((interview) => (
+        statusFilter === "all"
+            ? true
+            : statusFilter === "completed"
+                ? Boolean(interview.isCompleted)
+                : !interview.isCompleted
+    ));
+
     return (
         <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
             <Box mb={3}>
@@ -143,21 +159,20 @@ const DashboardPage = () => {
             {recommendations.length > 0 && <Box mb={4}><Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} mb={2}><Box><Typography component="h2" variant="h5" fontWeight={750}>More ways to improve</Typography><Typography variant="body2" color="text.secondary">Optional recommendations after your primary next step.</Typography></Box></Stack><Grid container spacing={2}>{recommendations.slice(0, 3).map((item) => <Grid size={{ xs: 12, md: 4 }} key={item.id}><Card variant="outlined" sx={{ height: "100%" }}><CardActionArea onClick={() => navigate(canonicalProductPath(item.href || "/practice/dashboard"))} sx={{ height: "100%" }}><CardContent><Typography component="h3" variant="h6" fontWeight={750}>{item.title}</Typography><Typography variant="body2" color="text.secondary" mt={1}>{item.reason || "Based on your saved goal and latest practice."}</Typography><ArrowForward color="primary" sx={{ mt: 2 }} /></CardContent></CardActionArea></Card></Grid>)}</Grid></Box>}
 
             {entitlements && <Alert severity={entitlements.plan === "pro" ? "success" : "info"} sx={{ mb: 3 }} action={<Button color="inherit" size="small" onClick={() => navigate("/practice/pricing")}>{entitlements.plan === "free" ? "View Pro" : "Manage"}</Button>}>
-                <strong>{entitlements.plan === "pro" ? "Practice Pro" : "Practice Free"}:</strong> {entitlements.used.interviews} of {entitlements.limits.interviews} practice interviews and {entitlements.used.resumeReviews} of {entitlements.limits.resumeReviews} resume reviews used in {entitlements.period}. Hiring capacity is billed separately to each organization in Evalcue AI Hire.
+                <strong>{entitlements.plan === "pro" ? "Practice Pro" : "Practice Free"}:</strong> {entitlements.used.interviews} of {entitlements.limits.interviews} practice interviews and {entitlements.used.resumeReviews} of {entitlements.limits.resumeReviews} resume reviews used in {formatUsagePeriod(entitlements.period)}.
             </Alert>}
 
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={2} mb={2}>
                 <Box><Typography component="h2" variant="h5" fontWeight={750}>Practice history</Typography><Typography variant="body2" color="text.secondary">Continue unfinished sessions or revisit completed feedback.</Typography></Box>
-                {!loading && interviews.length > 0 && <ToggleButtonGroup value={statusFilter} exclusive onChange={(_, value) => setStatusFilter(value || "all")} size="small" color="primary" aria-label="Filter interviews on this page"><ToggleButton value="all">All</ToggleButton><ToggleButton value="in_progress">In progress</ToggleButton><ToggleButton value="completed">Completed</ToggleButton></ToggleButtonGroup>}
+                {!loading && <ToggleButtonGroup value={statusFilter} exclusive onChange={(_, value) => setStatusFilter(value || "all")} size="small" color="primary" aria-label="Filter interviews on this page"><ToggleButton value="all">All</ToggleButton><ToggleButton value="in_progress">In progress</ToggleButton><ToggleButton value="completed">Completed</ToggleButton></ToggleButtonGroup>}
             </Stack>
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-            {loading ? <Stack spacing={2}>{Array.from({ length: 4 }).map((_, index) => <Card key={index} variant="outlined"><CardContent><Skeleton variant="text" width="40%" height={28} /><Skeleton variant="text" width="25%" height={20} sx={{ mt: .5 }} /><Skeleton variant="rounded" width={80} height={24} sx={{ mt: 1 }} /></CardContent></Card>)}</Stack> : interviews.length === 0 ? <Card variant="outlined" sx={{ borderStyle: "dashed" }}><Stack spacing={2} alignItems="center" textAlign="center" sx={{ py: 7, px: 2 }}><Box sx={{ width: 56, height: 56, display: "grid", placeItems: "center", borderRadius: "50%", bgcolor: "action.hover", color: "primary.main" }}><TrackChanges /></Box><Typography variant="h6" fontWeight={750}>No practice sessions yet</Typography><Typography color="text.secondary" maxWidth={460}>Start with the role you’re targeting. You can refine the plan before the interview begins.</Typography><Button variant="contained" startIcon={<Add />} onClick={() => navigate("/practice/new")}>Start practice</Button></Stack></Card> : <Stack spacing={2}>{(() => {
-                const filtered = interviews.filter((interview) => statusFilter === "all" ? true : statusFilter === "completed" ? Boolean(interview.isCompleted) : !interview.isCompleted);
-                if (filtered.length === 0) return <Typography color="text.secondary" sx={{ py: 2 }}>No {statusFilter === "completed" ? "completed" : "in-progress"} interviews yet.</Typography>;
-                return filtered.map((interview) => <Card key={interview._id} variant="outlined" sx={{ transition: "transform .18s ease, box-shadow .18s ease", "&:hover": { transform: "translateY(-2px)", boxShadow: 3 } }}><CardActionArea onClick={() => navigate(`/practice/interviews/${interview._id}`)}><CardContent><Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2}><Box><Typography variant="h6" fontWeight={750}>{interview.jobRole}</Typography><Typography color="text.secondary">{interview.company} · {new Date(interview.createdAt).toLocaleDateString()}</Typography></Box><Stack direction="row" alignItems="center" gap={.5}><Typography variant="body2" fontWeight={700} color="primary.main">{interview.isCompleted ? "Review feedback" : "Continue"}</Typography><ArrowForward color="primary" /></Stack></Stack><Stack direction="row" spacing={1} mt={2.5} mb={1.5} alignItems="center"><Chip size="small" label={interview.isCompleted ? "Completed" : "In progress"} color={interview.isCompleted ? "success" : "warning"} />{Number.isFinite(Number(interview.roundsCompleted)) && Number.isFinite(Number(interview.roundsTotal)) && <Typography variant="caption" color="text.secondary">Rounds: {interview.roundsCompleted}/{interview.roundsTotal}</Typography>}</Stack>{Number(interview.roundsTotal) > 0 && <LinearProgress variant="determinate" value={Math.min(100, (Number(interview.roundsCompleted) / Number(interview.roundsTotal)) * 100)} sx={{ height: 6, borderRadius: 99 }} />}</CardContent></CardActionArea></Card>);
-            })()}</Stack>}
+            {loading ? <Stack spacing={2}>{Array.from({ length: 4 }).map((_, index) => <Card key={index} variant="outlined"><CardContent><Skeleton variant="text" width="40%" height={28} /><Skeleton variant="text" width="25%" height={20} sx={{ mt: .5 }} /><Skeleton variant="rounded" width={80} height={24} sx={{ mt: 1 }} /></CardContent></Card>)}</Stack> : interviews.length === 0 ? (
+                statusFilter === "all" ? <Card variant="outlined" sx={{ borderStyle: "dashed" }}><Stack spacing={2} alignItems="center" textAlign="center" sx={{ py: 7, px: 2 }}><Box sx={{ width: 56, height: 56, display: "grid", placeItems: "center", borderRadius: "50%", bgcolor: "action.hover", color: "primary.main" }}><TrackChanges /></Box><Typography variant="h6" fontWeight={750}>No practice sessions yet</Typography><Typography color="text.secondary" maxWidth={460}>Start with the role you’re targeting. You can refine the plan before the interview begins.</Typography><Button variant="contained" startIcon={<Add />} onClick={() => navigate("/practice/new")}>Start practice</Button></Stack></Card>
+                    : <Card variant="outlined" sx={{ borderStyle: "dashed" }}><Stack spacing={2} alignItems="center" textAlign="center" sx={{ py: 5, px: 2 }}><Typography variant="h6" fontWeight={750}>No {statusFilter === "completed" ? "completed" : "in-progress"} practice sessions</Typography><Typography color="text.secondary">Try another history filter to see your other sessions.</Typography><Button variant="outlined" onClick={() => setStatusFilter("all")}>Show all sessions</Button></Stack></Card>
+            ) : <Stack spacing={2}>{filteredInterviews.length === 0 ? <Typography color="text.secondary" sx={{ py: 2 }}>No {statusFilter === "completed" ? "completed" : "in-progress"} interviews yet.</Typography> : filteredInterviews.map((interview) => <Card key={interview._id} variant="outlined" sx={{ transition: "transform .18s ease, box-shadow .18s ease", "&:hover": { transform: "translateY(-2px)", boxShadow: 3 } }}><CardActionArea onClick={() => navigate(`/practice/interviews/${interview._id}`)}><CardContent><Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2}><Box><Typography variant="h6" fontWeight={750}>{interview.jobRole}</Typography><Typography color="text.secondary">{interview.company} · {new Date(interview.createdAt).toLocaleDateString()}</Typography></Box><Stack direction="row" alignItems="center" gap={.5}><Typography variant="body2" fontWeight={700} color="primary.main">{interview.isCompleted ? "Review feedback" : "Continue"}</Typography><ArrowForward color="primary" /></Stack></Stack><Stack direction="row" spacing={1} mt={2.5} mb={1.5} alignItems="center"><Chip size="small" label={interview.isCompleted ? "Completed" : "In progress"} color={interview.isCompleted ? "success" : "warning"} />{Number.isFinite(Number(interview.roundsCompleted)) && Number.isFinite(Number(interview.roundsTotal)) && <Typography variant="caption" color="text.secondary">Rounds: {interview.roundsCompleted}/{interview.roundsTotal}</Typography>}</Stack>{Number(interview.roundsTotal) > 0 && <LinearProgress variant="determinate" value={Math.min(100, (Number(interview.roundsCompleted) / Number(interview.roundsTotal)) * 100)} sx={{ height: 6, borderRadius: 99 }} />}</CardContent></CardActionArea></Card>)}</Stack>}
 
             {totalPages > 1 && <Box sx={{ mt: 3, display: "flex", justifyContent: "center" }}><Pagination color="primary" page={page} count={totalPages} onChange={(_, nextPage) => setPage(nextPage)} /></Box>}
         </Container>
