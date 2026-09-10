@@ -1,5 +1,6 @@
 import PracticeUsageCounter from "../models/PracticeUsageCounter.js";
 import { currentMonth, practiceLimitsFor } from "../services/practiceEntitlements.js";
+import { reconcilePracticeUsageCounter } from "../services/practiceUsageAccounting.js";
 
 const metricLabels = {
     interviews: "practice interviews",
@@ -12,6 +13,7 @@ export default function practiceUsageLimit(metric, limitKey) {
             const limits = practiceLimitsFor(req.user);
             const limit = limits[limitKey];
             const period = currentMonth();
+            await reconcilePracticeUsageCounter({ userId: req.user._id, metric, period });
             const filter = { user: req.user._id, metric, period, used: { $lt: limit } };
             let counter = await PracticeUsageCounter.findOneAndUpdate(
                 filter,
