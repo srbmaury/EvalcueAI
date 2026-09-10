@@ -7,10 +7,15 @@ function Harness() {
     return <button onClick={toggle}>{mode}</button>;
 }
 
+const clearThemeCookie = () => {
+    document.cookie = "evalcue_theme=; Max-Age=0; Path=/";
+    document.cookie = "evalcue_theme=; Max-Age=0; Path=/; Domain=.evalcueai.com";
+};
+
 describe("ThemeModeProvider", () => {
     beforeEach(() => {
         window.localStorage.clear();
-        document.cookie = "evalcue_theme=; Max-Age=0; Path=/";
+        clearThemeCookie();
         document.documentElement.classList.remove("dark");
         delete document.documentElement.dataset.theme;
     });
@@ -39,7 +44,7 @@ describe("ThemeModeProvider", () => {
         expect(document.documentElement.classList.contains("dark")).toBe(true);
         dark.unmount();
 
-        document.cookie = "evalcue_theme=; Max-Age=0; Path=/";
+        clearThemeCookie();
         window.localStorage.setItem("ia:theme", "sepia");
         render(<ThemeModeProvider><Harness /></ThemeModeProvider>);
         expect(screen.getByRole("button", { name: "light" })).toBeTruthy();
