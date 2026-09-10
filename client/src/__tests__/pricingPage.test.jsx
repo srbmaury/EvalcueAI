@@ -34,6 +34,7 @@ describe("Practice pricing", () => {
         expect(screen.getByText("100 practice interviews each month")).toBeTruthy();
         expect(screen.getByText("100 resume reviews each month")).toBeTruthy();
         expect(screen.queryByText(/candidate assessments each month/i)).toBeNull();
+        expect(screen.queryByText(/Hiring teams|organization billing|candidate-interview capacity/i)).toBeNull();
         expect(screen.getByRole("button", { name: "Choose Pro" })).toBeTruthy();
         expect(get).toHaveBeenCalledWith("/billing/practice/entitlements");
     });
