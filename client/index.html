@@ -6,6 +6,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="application-name" content="Evalcue AI" />
     <meta name="theme-color" content="#ffffff" />
+    <script>
+      (() => {
+        const valid = (value) => value === "dark" || value === "light";
+        let mode = "";
+        try {
+          const prefix = "evalcue_theme=";
+          const cookie = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
+          if (cookie) mode = decodeURIComponent(cookie.slice(prefix.length));
+        } catch { /* Cookies may be unavailable. */ }
+        if (!valid(mode)) {
+          try { mode = localStorage.getItem("ia:theme") || ""; } catch { /* Storage may be unavailable. */ }
+        }
+        if (!valid(mode)) mode = "light";
+        const root = document.documentElement;
+        root.classList.toggle("dark", mode === "dark");
+        root.dataset.theme = mode;
+        root.style.colorScheme = mode;
+        root.style.backgroundColor = mode === "dark" ? "#0b1020" : "#fafbff";
+        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", mode === "dark" ? "#0b1020" : "#ffffff");
+      })();
+    </script>
     <meta name="description" content="Practice realistic software engineering interviews or run structured technical assessments with adaptive questioning, coding, system design, and human review." />
     <meta name="robots" content="index,follow" />
     <meta property="og:title" content="Evalcue AI | AI Interview Practice & Technical Hiring" />

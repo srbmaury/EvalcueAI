@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { Box, Card, CardContent, Stack, Typography, TextField, Button, Alert, InputAdornment, IconButton } from "@mui/material";
@@ -28,6 +28,7 @@ const ResetPasswordPage = () => {
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
     const [captchaToken, setCaptchaToken] = useState("");
+    const captchaRef = useRef(null);
 
     useEffect(() => {
         setWorkspacePreference(workspace);
@@ -64,6 +65,8 @@ const ResetPasswordPage = () => {
         } catch (e) {
             setError(e?.response?.data?.message || "We couldn’t reset your password. Request a new link and try again.");
         } finally {
+            setCaptchaToken("");
+            captchaRef.current?.reset();
             setSubmitting(false);
         }
     };
@@ -125,7 +128,7 @@ const ResetPasswordPage = () => {
                                     ),
                                 }}
                             />
-                            <Captcha onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
+                            <Captcha ref={captchaRef} onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
                             <Button type="submit" variant="contained" disabled={disabled}>
                                 {submitting ? "Saving…" : "Set new password"}
                             </Button>

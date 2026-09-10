@@ -51,6 +51,7 @@ const RegisterPage = () => {
     const [submittedEmail, setSubmittedEmail] = useState("");
     const [successMsg, setSuccessMsg] = useState("");
     const googleDivRef = useRef(null);
+    const captchaRef = useRef(null);
     const [captchaToken, setCaptchaToken] = useState("");
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [errors, setErrors] = useState({ name: "", email: "", password: "" });
@@ -99,6 +100,8 @@ const RegisterPage = () => {
                 password: pwdError || (apiMsg && apiMsg !== "User already exists" ? apiMsg : prev.password || "Could not register. Try again."),
             }));
         } finally {
+            setCaptchaToken("");
+            captchaRef.current?.reset();
             setSubmitting(false);
         }
     };
@@ -174,7 +177,7 @@ const RegisterPage = () => {
                             { label: "Special character", ok: /[^A-Za-z0-9]/.test(password) },
                         ].map(({ label, ok }) => <Typography key={label} variant="caption" color={ok ? "success.main" : "text.disabled"}>{ok ? "✓" : "○"} {label}</Typography>)}</Stack>}
                     </FormControl>
-                    <Captcha onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
+                    <Captcha ref={captchaRef} onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
                     <FormControlLabel control={<Checkbox checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />} label={<Typography variant="body2">I agree to the <Link component={RouterLink} to="/terms">Terms</Link> and acknowledge the <Link component={RouterLink} to="/privacy">Privacy Notice</Link>.</Typography>} />
                     <Button type="submit" variant="contained" size="large" startIcon={<PersonAddIcon />} disabled={submitting || !acceptedTerms} sx={{ py: 1.25, borderRadius: 2, textTransform: "none", fontWeight: 700 }}>{submitting ? "Creating account..." : requestedWorkspace === "hiring" ? "Create hiring account" : requestedWorkspace === "practice" ? "Create practice account" : "Create account"}</Button>
                     {acceptedTerms && <Stack spacing={2} alignItems="center"><div ref={googleDivRef} /><Typography variant="caption" color="text.secondary" align="center">Google sign-up may not display in embedded browsers. If the Google window is blank, open Evalcue AI in Chrome or Safari, or create your account with email.</Typography></Stack>}

@@ -36,6 +36,7 @@ const LoginPage = () => {
     const [captchaToken, setCaptchaToken] = useState("");
     const [gsiReady, setGsiReady] = useState(false);
     const googleDivRef = useRef(null);
+    const captchaRef = useRef(null);
 
     const [errors, setErrors] = useState({ email: "", password: "" });
     const [apiError, setApiError] = useState("");
@@ -87,6 +88,8 @@ const LoginPage = () => {
                 setApiError(msg);
             }
         } finally {
+            setCaptchaToken("");
+            captchaRef.current?.reset();
             setSubmitting(false);
         }
     };
@@ -185,7 +188,7 @@ const LoginPage = () => {
                         <Typography variant="body2" align="right" sx={{ mt: 1 }}><Link component={RouterLink} to={forgotPasswordPath} underline="hover">Forgot password?</Link></Typography>
                     </FormControl>
                     {errors.password === "Email not verified" && <Stack spacing={1}><Typography variant="body2" color="text.secondary">Didn’t receive the verification email?</Typography><Button size="small" variant="text" onClick={async () => { try { const r = await resendVerification(email); setErrors((p) => ({ ...p, password: r?.message || "Verification email sent" })); } catch (e) { console.error(e); } }}>Resend verification</Button></Stack>}
-                    <Captcha onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
+                    <Captcha ref={captchaRef} onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
                     <Button type="submit" variant="contained" size="large" startIcon={<LoginIcon />} disabled={submitting || ssoSubmitting} sx={{ py: 1.25, borderRadius: 2, textTransform: "none", fontWeight: 700 }}>{submitting ? "Signing in..." : "Sign in"}</Button>
                 </Stack>
             </Box>

@@ -68,4 +68,9 @@ describe("route authorization guards", () => {
         renderRoutes({ user: null, loading: false }, "/guest");
         expect(screen.getByText("Guest screen")).toBeTruthy();
     });
+
+    it("renders guest-only content while session restoration is still loading", () => {
+        renderRoutes({ user: null, loading: true }, "/guest");
+        expect(screen.getByText("Guest screen")).toBeTruthy();
+    });
 });

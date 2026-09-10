@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { Box, Card, CardContent, Link, Stack, Typography, TextField, Button, Alert } from "@mui/material";
@@ -14,6 +14,7 @@ const ForgotPasswordPage = () => {
     const [captchaToken, setCaptchaToken] = useState("");
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
+    const captchaRef = useRef(null);
 
     const workspace = useMemo(() => {
         const params = new URLSearchParams(location.search);
@@ -39,6 +40,8 @@ const ForgotPasswordPage = () => {
         } catch (e) {
             setError(e?.response?.data?.message || "We couldn’t request a reset link. Try again.");
         } finally {
+            setCaptchaToken("");
+            captchaRef.current?.reset();
             setSubmitting(false);
         }
     };
@@ -62,7 +65,7 @@ const ForgotPasswordPage = () => {
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                             />
-                            <Captcha onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
+                            <Captcha ref={captchaRef} onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
                             <Button type="submit" variant="contained" disabled={submitting}>
                                 {submitting ? "Sending…" : "Send reset link"}
                             </Button>
