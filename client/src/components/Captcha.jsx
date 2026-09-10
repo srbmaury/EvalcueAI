@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useThemeMode } from "../context/ThemeContext";
 
 // Lightweight, dependency-free CAPTCHA wrapper for Turnstile or reCAPTCHA v2 checkbox
 // Props:
@@ -13,8 +14,8 @@ const loadScript = (src) =>
             const existing = document.querySelector(`script[src="${src}"]`);
             if (existing) {
                 if (existing.getAttribute("data-loaded") === "true") return resolve();
-                existing.addEventListener("load", () => resolve());
-                existing.addEventListener("error", (e) => reject(e));
+                existing.addEventListener("load", () => resolve(), { once: true });
+                existing.addEventListener("error", (e) => reject(e), { once: true });
                 return;
             }
             const s = document.createElement("script");
@@ -24,21 +25,23 @@ const loadScript = (src) =>
             s.addEventListener("load", () => {
                 s.setAttribute("data-loaded", "true");
                 resolve();
-            });
-            s.addEventListener("error", (e) => reject(e));
+            }, { once: true });
+            s.addEventListener("error", (e) => reject(e), { once: true });
             document.head.appendChild(s);
         } catch (e) {
             reject(e);
         }
     });
 
-const Captcha = ({ onVerify, onExpire, provider, theme = "auto" }) => {
+const Captcha = forwardRef(function Captcha({ onVerify, onExpire, provider, theme = "auto" }, ref) {
     const containerRef = useRef(null);
     const widgetIdRef = useRef(null);
     const [ready, setReady] = useState(false);
     const [error, setError] = useState("");
+    const { mode: appThemeMode } = useThemeMode();
+    const resolvedTheme = theme === "auto" ? appThemeMode : theme;
 
-    // Keep latest callbacks without retriggering init
+    // Keep latest callbacks without retriggering init.
     const onVerifyRef = useRef(onVerify);
     const onExpireRef = useRef(onExpire);
     useEffect(() => { onVerifyRef.current = onVerify; }, [onVerify]);
@@ -53,41 +56,49 @@ const Captcha = ({ onVerify, onExpire, provider, theme = "auto" }) => {
         };
     }, [provider]);
 
+    const clearVerification = useCallback(() => {
+        try { onExpireRef.current?.(); } catch { /* Consumer callback errors must not break the widget. */ }
+    }, []);
+
     const reset = useCallback(() => {
         try {
-            if (cfg.provider === "turnstile" && window.turnstile && widgetIdRef.current) {
+            if (cfg.provider === "turnstile" && window.turnstile && widgetIdRef.current !== null) {
                 window.turnstile.reset(widgetIdRef.current);
             }
             if (cfg.provider === "recaptcha" && window.grecaptcha && widgetIdRef.current !== null) {
                 window.grecaptcha.reset(widgetIdRef.current);
             }
         } catch { /* CAPTCHA reset is best-effort. */ }
-    }, [cfg.provider]);
+        clearVerification();
+        setError("");
+    }, [cfg.provider, clearVerification]);
+
+    useImperativeHandle(ref, () => ({ reset }), [reset]);
 
     useEffect(() => {
         let cancelled = false;
         const init = async () => {
             try {
+                setReady(false);
                 setError("");
-                // Prevent duplicate widget renders (StrictMode/double effects)
-                if (widgetIdRef.current) return;
+                if (widgetIdRef.current !== null) return;
                 if (cfg.provider === "turnstile") {
                     if (!cfg.turnstileSiteKey) throw new Error("Missing VITE_TURNSTILE_SITE_KEY");
-                    await loadScript("https://challenges.cloudflare.com/turnstile/v0/api.js");
+                    if (!window.turnstile) await loadScript("https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit");
                     if (cancelled) return;
-                    if (!window.turnstile || !containerRef.current) return;
-                    // Ensure empty container before render
+                    if (!window.turnstile || !containerRef.current) throw new Error("CAPTCHA failed to initialize.");
                     containerRef.current.innerHTML = "";
                     const id = window.turnstile.render(containerRef.current, {
                         sitekey: cfg.turnstileSiteKey,
-                        theme,
+                        theme: resolvedTheme,
                         callback: (token) => {
+                            setError("");
                             try { onVerifyRef.current?.(token); } catch { /* Consumer callback errors must not break the widget. */ }
                         },
-                        "expired-callback": () => {
-                            try { onExpireRef.current?.(); } catch { /* Consumer callback errors must not break the widget. */ }
-                        },
+                        "expired-callback": clearVerification,
+                        "timeout-callback": clearVerification,
                         "error-callback": () => {
+                            clearVerification();
                             setError("CAPTCHA failed to load. Try again.");
                         },
                     });
@@ -96,57 +107,54 @@ const Captcha = ({ onVerify, onExpire, provider, theme = "auto" }) => {
                     return;
                 }
 
-                // reCAPTCHA v2 checkbox
                 if (!cfg.recaptchaSiteKey) throw new Error("Missing VITE_RECAPTCHA_SITE_KEY");
-                await loadScript("https://www.google.com/recaptcha/api.js?render=explicit");
+                if (!window.grecaptcha) await loadScript("https://www.google.com/recaptcha/api.js?render=explicit");
                 if (cancelled) return;
-                if (!window.grecaptcha || !containerRef.current) return;
+                if (!window.grecaptcha || !containerRef.current) throw new Error("CAPTCHA failed to initialize.");
                 window.grecaptcha.ready(() => {
+                    if (cancelled || !containerRef.current) return;
                     try {
-                        // Ensure empty container before render
                         containerRef.current.innerHTML = "";
                         const id = window.grecaptcha.render(containerRef.current, {
                             sitekey: cfg.recaptchaSiteKey,
-                            theme: theme === "auto" ? "light" : theme,
+                            theme: resolvedTheme,
                             callback: (token) => {
+                                setError("");
                                 try { onVerifyRef.current?.(token); } catch { /* Consumer callback errors must not break the widget. */ }
                             },
-                            "expired-callback": () => {
-                                try { onExpireRef.current?.(); } catch { /* Consumer callback errors must not break the widget. */ }
+                            "expired-callback": clearVerification,
+                            "error-callback": () => {
+                                clearVerification();
+                                setError("CAPTCHA failed to load. Try again.");
                             },
-                            "error-callback": () => setError("CAPTCHA failed to load. Try again."),
                         });
                         widgetIdRef.current = id;
                         setReady(true);
                     } catch {
+                        clearVerification();
                         setError("CAPTCHA failed to initialize.");
                     }
                 });
             } catch (e) {
+                clearVerification();
                 setError(e?.message || "CAPTCHA error");
             }
         };
         init();
-        const container = containerRef.current;
         return () => {
             cancelled = true;
+            const widgetId = widgetIdRef.current;
             try {
-                if (cfg.provider === "turnstile") {
-                    if (window.turnstile && container) {
-                        // Best-effort removal
-                        window.turnstile.remove(container);
-                    }
-                } else if (cfg.provider === "recaptcha") {
-                    if (window.grecaptcha && widgetIdRef.current !== null) {
-                        // No official destroy API; reset and clear container
-                        try { window.grecaptcha.reset(widgetIdRef.current); } catch { /* Widget may already be removed. */ }
-                        if (container) container.innerHTML = "";
-                    }
+                if (cfg.provider === "turnstile" && window.turnstile && widgetId !== null) {
+                    window.turnstile.remove(widgetId);
+                } else if (cfg.provider === "recaptcha" && window.grecaptcha && widgetId !== null) {
+                    try { window.grecaptcha.reset(widgetId); } catch { /* Widget may already be removed. */ }
+                    if (containerRef.current) containerRef.current.innerHTML = "";
                 }
             } catch { /* Cleanup is best-effort. */ }
             widgetIdRef.current = null;
         };
-    }, [cfg.provider, cfg.turnstileSiteKey, cfg.recaptchaSiteKey, theme]);
+    }, [cfg.provider, cfg.turnstileSiteKey, cfg.recaptchaSiteKey, resolvedTheme, clearVerification]);
 
     return (
         <div style={{ display: "grid", justifyContent: "center" }}>
@@ -154,11 +162,9 @@ const Captcha = ({ onVerify, onExpire, provider, theme = "auto" }) => {
             {error ? (
                 <div style={{ color: "#b91c1c", fontSize: 12, marginTop: 6 }}>{error}</div>
             ) : null}
-            {/* Expose a minimal API via DOM for testing if needed */}
-            <input type="hidden" data-captcha-widget-id={widgetIdRef.current || ""} />
-            <button type="button" style={{ display: "none" }} onClick={reset} aria-hidden="true" />
+            <input type="hidden" data-captcha-widget-id={widgetIdRef.current ?? ""} />
         </div>
     );
-};
+});
 
 export default Captcha;
