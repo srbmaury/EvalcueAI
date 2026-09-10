@@ -64,7 +64,7 @@ export default function PricingPage() {
         <Stack alignItems="center" textAlign="center" mb={4}>
             <Typography variant="overline" color="primary.main" fontWeight={850}>Evalcue AI Practice</Typography>
             <Typography component="h1" variant="h3" fontWeight={850}>Choose your Practice plan</Typography>
-            <Typography color="text.secondary" mt={1}>Practice billing belongs to you personally. Hiring teams have separate organization billing and shared candidate-interview capacity.</Typography>
+            <Typography color="text.secondary" mt={1}>Choose the plan that fits how often you practice and review your resume.</Typography>
         </Stack>
         {params.get("checkout") === "cancelled" && <Alert severity="info" sx={{ mb: 3 }}>Checkout was canceled. Nothing was charged.</Alert>}
         {needsPortal && <Alert severity="warning" sx={{ mb: 3 }} action={<Button color="inherit" size="small" disabled={loading} onClick={() => redirect("/billing/practice/portal-session")}>Manage billing</Button>}>Your existing Practice subscription needs attention before you can start another checkout.</Alert>}
