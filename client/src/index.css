@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 html { scroll-behavior: smooth; }
-html, body, #root { min-height: 100%; }
+html, body, #root { min-height: 100vh; }
 html[data-theme="light"], html[data-theme="light"] body, html[data-theme="light"] #root { background: #fafbff; }
 html[data-theme="dark"], html[data-theme="dark"] body, html[data-theme="dark"] #root { background: #0b1020; }
 body { margin: 0; }
