@@ -1,11 +1,12 @@
 import { createRef } from "react";
 import { act, render, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Captcha from "../components/Captcha";
 import { ThemeModeProvider } from "../context/ThemeContext";
 
 describe("Captcha reset", () => {
     beforeEach(() => {
+        vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "test-turnstile-site-key");
         window.turnstile = {
             render: vi.fn((_container, options) => {
                 options.callback("token-1");
@@ -14,6 +15,11 @@ describe("Captcha reset", () => {
             reset: vi.fn(),
             remove: vi.fn(),
         };
+    });
+
+    afterEach(() => {
+        vi.unstubAllEnvs();
+        delete window.turnstile;
     });
 
     it("clears the consumer token when reset after a consumed request", async () => {
