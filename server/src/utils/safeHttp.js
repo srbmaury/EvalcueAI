@@ -83,7 +83,12 @@ const requestOnce = ({ url, address, family }, { method = "GET", headers = {}, b
         method,
         headers,
         servername: url.protocol === "https:" ? url.hostname : undefined,
-        lookup: (_hostname, _options, callback) => callback(null, address, family),
+        lookup: (_hostname, options, callback) => {
+            // Node's family autoselection requests all addresses on modern runtimes.
+            // Return only the validated, pinned address in the requested shape.
+            if (options?.all) callback(null, [{ address, family }]);
+            else callback(null, address, family);
+        },
     }, (response) => {
         const declared = Number(response.headers["content-length"] || 0);
         if (declared > maxBytes) {
