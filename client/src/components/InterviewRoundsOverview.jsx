@@ -1,4 +1,5 @@
-import { Box, Link, Paper, Stack, Typography } from "@mui/material";
+import { Box, Button, Link, Paper, Stack, Typography } from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
 
 import RoundList from "./RoundList";
 
@@ -29,6 +30,17 @@ const InterviewRoundsOverview = ({ interview, selectedRoundId, onSelect }) => {
                 <Typography color="text.secondary">
                     {completed} of {total} completed. Finish rounds in order; once you enter a round, the workspace stays focused on that round only.
                 </Typography>
+                {completed > 0 && (
+                    <Box sx={{ pt: 1 }}>
+                        <Button
+                            component={RouterLink}
+                            to={`/practice/interviews/${interview._id}/feedback`}
+                            variant={completed === total ? "contained" : "outlined"}
+                        >
+                            View overall interview feedback
+                        </Button>
+                    </Box>
+                )}
             </Stack>
 
             <RoundList
