@@ -25,6 +25,10 @@ const composeFeedbackAnswer = (item) => {
     return [liveDiscussion ? `Live interviewer discussion:\n${liveDiscussion}` : original, ...followUps].filter(Boolean).join("\n\n").trim();
 };
 
+const completedRoundMessage = (feedbackResult) => feedbackResult === "completed"
+    ? "Round complete. Your feedback is ready to review."
+    : "Round complete. Review the debrief or overall feedback page when you’re ready.";
+
 export const useConversational = ({
     interviewId,
     selectedRound,
@@ -135,13 +139,13 @@ export const useConversational = ({
             const { data } = await api.post(`/questions/${selectedRound._id}/answer`, { index: currentIndex, answer });
             setConvAnswer("");
             if (data?.followUp) setPendingFollowUp({ question: data.followUp, number: data.followUpNumber || 1, qIndex: currentIndex });
-            await waitForFinalFeedback(data);
+            const feedbackResult = await waitForFinalFeedback(data);
             const snapshot = await refreshInterviewAndRound();
             if (data?.done) {
                 trackEvent("round_completed");
                 if (snapshot.updated) selectRound(snapshot.updated);
                 clearDraftsForRound(selectedRound);
-                showToast("success", "Round complete. Your feedback is ready to review.");
+                if (feedbackResult !== "timeout") showToast("success", completedRoundMessage(feedbackResult));
             }
         } catch (error) {
             console.error("answer submit error", error);
@@ -167,13 +171,13 @@ export const useConversational = ({
             setConvAnswer("");
             if (data?.followUp) setPendingFollowUp({ question: data.followUp, number: data.followUpNumber || pendingFollowUp.number + 1, qIndex: pendingFollowUp.qIndex });
             else setPendingFollowUp(null);
-            await waitForFinalFeedback(data);
+            const feedbackResult = await waitForFinalFeedback(data);
             const snapshot = await refreshInterviewAndRound();
             if (data?.done) {
                 trackEvent("round_completed");
                 if (snapshot.updated) selectRound(snapshot.updated);
                 clearDraftsForRound(selectedRound);
-                showToast("success", "Round complete. Your feedback is ready to review.");
+                if (feedbackResult !== "timeout") showToast("success", completedRoundMessage(feedbackResult));
             }
         } catch (error) {
             console.error("follow-up submit error", error);
@@ -223,9 +227,10 @@ export const useConversational = ({
                 console.debug("conversational feedback deferred", error?.message || error);
             }
             await api.post(`/questions/${selectedRound._id}/complete`);
+            let feedbackResult = "skipped";
             if (feedbackJobId) {
-                const result = await settleFeedbackJob(feedbackJobId, setConvFeedbackProgress);
-                if (result !== "completed") {
+                feedbackResult = await settleFeedbackJob(feedbackJobId, setConvFeedbackProgress);
+                if (feedbackResult !== "completed") {
                     showToast("warning", "Round saved. Feedback is still being prepared and will refresh on the overall feedback page.", true);
                 }
             }
@@ -235,7 +240,7 @@ export const useConversational = ({
             const index = (data.rounds || []).findIndex((entry) => entry.round._id === selectedRound._id);
             const updatedSelf = index >= 0 ? data.rounds[index]?.round : null;
             selectRound(updatedSelf || null);
-            showToast("success", "Round complete. Your feedback is ready to review.");
+            if (feedbackResult !== "timeout") showToast("success", completedRoundMessage(feedbackResult));
         } catch (error) {
             console.error("complete round error", error);
             showToast("error", error?.response?.data?.message || "Failed to complete round.");
