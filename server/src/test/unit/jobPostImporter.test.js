@@ -35,6 +35,18 @@ describe("job-post importer", () => {
         expect(result.jobDescription).toContain("accessible React experiences");
     });
 
+    it("prefers job-specific Open Graph content over Amazon's generic careers description", () => {
+        const result = extractJobPost(`
+            <meta property="og:site_name" content="Amazon.jobs">
+            <meta name="description" content="Explore corporate jobs and career programs at Amazon, from full-time roles to internships.">
+            <meta property="og:title" content="Social &amp;amp; Video Content Lead – IMDb India, IMDb India">
+            <meta property="og:description" content="As a Social &amp;amp; Video Content Lead at IMDb, you will own IMDb India’s editorial voice and content strategy across Instagram, X &amp;amp; YouTube.">
+        `, "https://www.amazon.jobs/en/jobs/10526478/social-video-content-lead-imdb-india-imdb-india");
+
+        expect(result.jobRole).toBe("Social & Video Content Lead – IMDb India, IMDb India");
+        expect(result.jobDescription).toBe("As a Social & Video Content Lead at IMDb, you will own IMDb India’s editorial voice and content strategy across Instagram, X & YouTube.");
+    });
+
     it("rejects pages without enough useful job content", () => {
         expect(() => extractJobPost("<title>Careers</title><main>Short</main>", "https://example.com/jobs"))
             .toThrow("couldn’t extract enough job details");

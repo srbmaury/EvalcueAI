@@ -55,7 +55,8 @@ export const extractJobPost = (html, sourceUrl) => {
     const pageTitle = decodeHtml(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "").replace(/\s+/g, " ").trim();
     const company = htmlToText(posting?.hiringOrganization?.name || metaContent(html, "og:site_name")).slice(0, 120);
     const jobRole = htmlToText(posting?.title || metaContent(html, "og:title") || pageTitle.split(/\s+[|–—-]\s+/)[0]).slice(0, 120);
-    const descriptionSource = posting?.description || metaContent(html, "description") || metaContent(html, "og:description") || html.match(/<main[^>]*>([\s\S]*?)<\/main>/i)?.[1] || "";
+    // Career sites can use a site-wide SEO description but job-specific sharing metadata.
+    const descriptionSource = posting?.description || metaContent(html, "og:description") || metaContent(html, "description") || html.match(/<main[^>]*>([\s\S]*?)<\/main>/i)?.[1] || "";
     const jobDescription = htmlToText(descriptionSource).slice(0, 4_000);
     if (jobRole.length < 2 || jobDescription.length < 20) throw new Error("We couldn’t extract enough job details from this page. Enter them manually instead.");
     return { company, jobRole, jobDescription, sourceUrl, extractedAt: new Date().toISOString() };

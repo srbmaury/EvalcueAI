@@ -1,9 +1,41 @@
 import dns from "node:dns/promises";
+import https from "node:https";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isPrivateAddress, resolvePublicUrl } from "../../utils/safeHttp.js";
+import { isPrivateAddress, resolvePublicUrl, requestPublicUrl } from "../../utils/safeHttp.js";
 
 describe("DNS-pinned public HTTP validation", () => {
     afterEach(() => vi.restoreAllMocks());
+
+    it.each([true, false])("supplies the pinned DNS address in Node's requested format (all=%s)", async (all) => {
+        vi.spyOn(dns, "lookup").mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+        // Exercise the socket lookup boundary without depending on an external host.
+        vi.spyOn(https, "request").mockImplementation((options, onResponse) => {
+            const request = new EventEmitter();
+            request.setTimeout = () => request;
+            request.end = () => {
+                options.lookup("example.com", { all }, (error, addresses, family) => {
+                    expect(error).toBeNull();
+                    if (all) expect(addresses).toEqual([{ address: "93.184.216.34", family: 4 }]);
+                    else {
+                        expect(addresses).toBe("93.184.216.34");
+                        expect(family).toBe(4);
+                    }
+                    const response = new PassThrough();
+                    response.statusCode = 200;
+                    response.headers = { "content-type": "text/html" };
+                    onResponse(response);
+                    response.end("<main>Public job description</main>");
+                });
+            };
+            return request;
+        });
+
+        const result = await requestPublicUrl("https://example.com/jobs/123");
+        expect(result.status).toBe(200);
+        expect(result.body.toString()).toBe("<main>Public job description</main>");
+    });
 
     it("rejects private, link-local, documentation, and mapped-private addresses", () => {
         for (const address of [
