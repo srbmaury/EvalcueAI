@@ -57,8 +57,7 @@ const installServerTranscriptionOnly = async (page) => {
     });
 };
 
-test("losing required fullscreen during an assessment blocks the workspace until fullscreen is restored", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop-chromium", "Fullscreen behavior is desktop-only");
+test("losing required fullscreen during an assessment blocks the workspace until fullscreen is restored", { tag: "@desktop-only" }, async ({ page }) => {
     await installFullscreenMedia(page);
     await mockSignedOut(page);
     const shareToken = "share-runtime-fullscreen";
@@ -89,8 +88,7 @@ test("losing required fullscreen during an assessment blocks the workspace until
     await expect(page.getByRole("heading", { name: question })).toBeVisible();
 });
 
-test("system-design voice falls back to protected server transcription when browser SpeechRecognition is unavailable", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop-chromium", "MediaRecorder fallback is desktop-only");
+test("system-design voice falls back to protected server transcription when browser SpeechRecognition is unavailable", { tag: "@desktop-only" }, async ({ page }) => {
     await installServerTranscriptionOnly(page);
     await mockSignedOut(page);
     const shareToken = "share-server-stt-fallback";
