@@ -37,6 +37,8 @@ import { OrganizationContext } from "../context/OrganizationContext";
 import { useNotify } from "../context/NotificationContext";
 import { hiringPermissionsFor } from "../utils/hiringPermissions";
 import { trackEvent } from "../utils/analytics";
+import { buildEditableAssessmentPayload, formatLocalDateTimeInput, localDateTimeToIso } from "../utils/hiringAssessmentPayload";
+import { parseCandidateInvites } from "../utils/hiringInvites";
 
 const steps = ["Role", "Interview plan", "Questions", "Launch"];
 const experienceNames = { conversational: "Interview", "online-assessment": "Coding / written", "system-design": "System design" };
@@ -107,7 +109,6 @@ const clearLocalDraft = (key) => {
     try { window.localStorage?.removeItem(key); }
     catch { /* no-op */ }
 };
-const toLocalDateTime = (value) => value ? new Date(value).toISOString().slice(0, 16) : "";
 const normalizeLoadedRound = (round) => ({
     ...emptyRound(round.deliveryMode || "conversational"),
     ...round,
@@ -161,11 +162,13 @@ export default function AssessmentBuilderPage() {
                         return;
                     }
                     setExistingInvitationCount((assessment.invitations || []).filter((item) => item.status !== "revoked").length);
+                    const timezone = assessment.timezone || initialForm.timezone;
                     const serverForm = {
                         ...initialForm,
                         ...assessment,
-                        opensAt: toLocalDateTime(assessment.opensAt),
-                        expiresAt: toLocalDateTime(assessment.expiresAt),
+                        timezone,
+                        opensAt: formatLocalDateTimeInput(assessment.opensAt, timezone),
+                        expiresAt: formatLocalDateTimeInput(assessment.expiresAt, timezone),
                         inviteEmails: "",
                         rounds: (assessment.rounds || []).map(normalizeLoadedRound),
                     };
@@ -305,11 +308,12 @@ export default function AssessmentBuilderPage() {
             setActiveStep(2);
             return;
         }
-        if (schedule && (!form.opensAt || new Date(form.opensAt) <= new Date())) {
+        const opensAtIso = localDateTimeToIso(form.opensAt, form.timezone);
+        if (schedule && (!opensAtIso || new Date(opensAtIso) <= new Date())) {
             setError("Choose a future opening time before scheduling.");
             return;
         }
-        const candidates = form.inviteEmails.split(/[\n,;]+/).map((email) => email.trim()).filter(Boolean).map((email) => ({ email }));
+        const candidates = parseCandidateInvites(form.inviteEmails);
         if ((publishNow || schedule) && form.inviteOnly && !candidates.length && existingInvitationCount === 0) {
             setError("Add at least one candidate email for an invite-only assessment.");
             return;
@@ -318,14 +322,7 @@ export default function AssessmentBuilderPage() {
         setError("");
         try {
             const status = publishNow ? "active" : schedule ? "scheduled" : "draft";
-            const payload = {
-                ...form,
-                inviteEmails: undefined,
-                opensAt: form.opensAt ? new Date(form.opensAt).toISOString() : null,
-                expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
-                rounds,
-            };
-            delete payload.inviteEmails;
+            const payload = buildEditableAssessmentPayload(form, { rounds });
 
             let savedAssessment;
             if (isEditing) {
@@ -436,7 +433,8 @@ export default function AssessmentBuilderPage() {
                             {form.inviteOnly && <TextField multiline minRows={3} label="Candidate emails" placeholder="candidate@example.com" helperText={existingInvitationCount ? `${existingInvitationCount} existing invitation${existingInvitationCount === 1 ? "" : "s"} will remain. Add only new candidates here.` : "One per line, or separate with commas."} value={form.inviteEmails} onChange={(event) => setField("inviteEmails", event.target.value)} />}
                             <Button variant="text" sx={{ alignSelf: "flex-start" }} onClick={() => setShowAdvanced((current) => !current)}>{showAdvanced ? "Hide advanced launch settings" : "Show scheduling and integrity settings"}</Button>
                             <Collapse in={showAdvanced}><Paper variant="outlined" sx={{ p: 2 }}><Stack spacing={2}>
-                                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}><TextField fullWidth type="datetime-local" label="Opens at" value={form.opensAt} onChange={(event) => setField("opensAt", event.target.value)} InputLabelProps={{ shrink: true }} /><TextField fullWidth type="datetime-local" label="Submission deadline" value={form.expiresAt} onChange={(event) => setField("expiresAt", event.target.value)} InputLabelProps={{ shrink: true }} /></Stack>
+                                <Typography variant="caption" color="text.secondary">Scheduling uses {form.timezone}. Times are stored as UTC and shown to recruiters in this assessment timezone.</Typography>
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}><TextField fullWidth type="datetime-local" label={`Opens at (${form.timezone})`} value={form.opensAt} onChange={(event) => setField("opensAt", event.target.value)} InputLabelProps={{ shrink: true }} /><TextField fullWidth type="datetime-local" label={`Submission deadline (${form.timezone})`} value={form.expiresAt} onChange={(event) => setField("expiresAt", event.target.value)} InputLabelProps={{ shrink: true }} /></Stack>
                                 <FormControlLabel control={<Checkbox checked={form.integrity.enabled} onChange={(event) => setField("integrity", { ...form.integrity, enabled: event.target.checked })} />} label="Enable integrity monitoring" />
                                 {form.integrity.enabled && <Stack pl={2}><FormControlLabel control={<Checkbox checked={form.integrity.requireFullscreen} onChange={(event) => setField("integrity", { ...form.integrity, requireFullscreen: event.target.checked })} />} label="Require fullscreen" /><FormControlLabel control={<Checkbox checked={form.integrity.requireCamera} onChange={(event) => setField("integrity", { ...form.integrity, requireCamera: event.target.checked })} />} label="Require camera" /></Stack>}
                             </Stack></Paper></Collapse>

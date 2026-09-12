@@ -19,6 +19,9 @@ import {
     pendingFollowUpFor,
     roundComplete,
 } from "../utils/candidateAssessmentProgress";
+import { canStartHiringAssessment, integrityRecoveryReason } from "../utils/hiringIntegrityPolicy";
+import { candidateTranscriptionConfig } from "../utils/hiringVoicePolicy";
+import { formatAssessmentDateTime } from "../utils/hiringAssessmentPayload";
 
 const readSavedAttempt = (key) => { try { return JSON.parse(window.localStorage?.getItem(key) || "null"); } catch { return null; } };
 const writeSavedAttempt = (key, value) => { try { window.localStorage?.setItem(key, JSON.stringify(value)); } catch { /* local recovery is best effort */ } };
@@ -96,6 +99,12 @@ export default function CandidateAssessmentPage() {
 
     const candidateToolHeaders = useMemo(() => attemptToken ? { "X-Attempt-Token": attemptToken } : {}, [attemptToken]);
     const candidateToolBase = attempt ? `/assessments/public/${shareToken}/attempts/${attempt._id}` : "";
+    const transcriptionConfig = useMemo(() => candidateTranscriptionConfig({
+        shareToken,
+        attemptId: attempt?._id,
+        attemptToken,
+        capabilities: assessment?.capabilities || {},
+    }), [assessment?.capabilities, attempt?._id, attemptToken, shareToken]);
     const {
         listening, listeningTarget, interimText, micLevel, micPermission, micSessionActive, handsFreePaused,
         inputDevices, selectedDeviceId, setSelectedDeviceId, supportsSTT, supportsTTS,
@@ -103,9 +112,9 @@ export default function CandidateAssessmentPage() {
         startHandsFree, pauseHandsFree, resumeHandsFree, stopHandsFree,
     } = useVoiceInput({
         onTranscript,
-        transcribeEndpoint: candidateToolBase ? `${candidateToolBase}/transcribe` : "/stt/transcribe",
-        transcribeHeaders: candidateToolHeaders,
-        enableServerTranscription: assessment?.capabilities?.transcription !== false,
+        transcribeEndpoint: transcriptionConfig.endpoint || "/stt/transcribe",
+        transcribeHeaders: transcriptionConfig.headers,
+        enableServerTranscription: transcriptionConfig.enabled,
         skipAuthRedirect: true,
     });
 
@@ -186,8 +195,16 @@ export default function CandidateAssessmentPage() {
         event.preventDefault();
         setBusy(true);
         setError("");
-        const fullscreenRequest = assessment.integrity?.requireFullscreen ? enterFullscreen() : Promise.resolve(true);
         try {
+            const fullscreenReady = assessment.integrity?.requireFullscreen ? await enterFullscreen() : true;
+            if (!canStartHiringAssessment({ integrity: assessment.integrity, cameraReady, fullscreenActive: fullscreenReady })) {
+                const message = !cameraReady && assessment.integrity?.requireCamera
+                    ? "Camera access is required before this assessment can start."
+                    : "Fullscreen is required before this assessment can start.";
+                setError(message);
+                notify(message, "warning");
+                return;
+            }
             const { data } = await api.post(`/assessments/public/${shareToken}/start`, {
                 ...identity,
                 privacyConsent: consent,
@@ -200,11 +217,6 @@ export default function CandidateAssessmentPage() {
             setRoundTransition(null);
             setRestoreNotice("");
             persist(data.attempt, data.attemptToken, {});
-            if (!(await fullscreenRequest)) {
-                const message = "Assessment started, but fullscreen could not be enabled. Use Enter fullscreen before continuing.";
-                setError(message);
-                notify(message, "warning");
-            }
         } catch (err) {
             if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
             const message = err?.response?.data?.message || "We couldn’t start your assessment.";
@@ -447,6 +459,8 @@ export default function CandidateAssessmentPage() {
     const remainingSeconds = Math.max(0, durationSeconds - elapsedSeconds);
     const timerUrgent = remainingSeconds <= 300;
     const timeReached = Boolean(attempt?.startedAt) && remainingSeconds <= 0;
+    const runtimeCameraReady = !assessment?.integrity?.requireCamera || (cameraReady && faceStatus !== "camera_interrupted");
+    const integrityRecovery = attempt ? integrityRecoveryReason({ integrity: assessment?.integrity, cameraReady: runtimeCameraReady, fullscreenActive }) : "";
 
     if (loading) return <Stack minHeight="70vh" justifyContent="center" alignItems="center"><CircularProgress /></Stack>;
     if (!assessment) return <Container maxWidth="sm" sx={{ py: 8 }}><Alert severity="error">{error}</Alert></Container>;
@@ -462,7 +476,7 @@ export default function CandidateAssessmentPage() {
                     <Typography variant="overline" color="primary" fontWeight={800}>{assessment.organizationName || "Candidate assessment"}</Typography>
                     <Typography component="h1" variant="h3" sx={{ fontSize: { xs: "2.35rem", sm: "3rem" } }} fontWeight={850}>{assessment.title}</Typography>
                     <Typography color="text.secondary" mt={1}>{assessment.jobRole} · up to {plannedUnits} {plannedUnits === 1 ? "question" : "questions"} · about {assessment.durationMinutes || 30} minutes</Typography>
-                    {assessment.expiresAt && <Typography variant="body2" color="text.secondary" mt={1}>Submit by {new Date(assessment.expiresAt).toLocaleString()}</Typography>}
+                    {assessment.expiresAt && <Typography variant="body2" color="text.secondary" mt={1}>Submit by {formatAssessmentDateTime(assessment.expiresAt, assessment.timezone || "UTC")}</Typography>}
                     {assessment.candidateInstructions && <Alert severity="info" sx={{ mt: 3 }}>{assessment.candidateInstructions}</Alert>}
                     {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
@@ -506,12 +520,19 @@ export default function CandidateAssessmentPage() {
                     </Paper>
 
                     {restoreNotice && <Alert severity="info" sx={{ mb: 2 }} action={<Stack direction="row" spacing={1}><Button color="inherit" size="small" onClick={() => setRestoreNotice("")}>Continue</Button><Button color="inherit" size="small" onClick={() => { removeSavedAttempt(storageKey); setAttempt(null); setAttemptToken(""); setDirty({}); setRestoreNotice(""); }}>Start over</Button></Stack>}>{restoreNotice}</Alert>}
-                    {assessment.integrity?.requireFullscreen && !fullscreenActive && <Alert severity="warning" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={enterFullscreen}>Enter fullscreen</Button>}>Fullscreen is required for this assessment.</Alert>}
                     {timeReached && <Alert severity="warning" sx={{ mb: 2 }}>The suggested interview time has been reached. Finish the current response and submit when ready; your attempt is not automatically ended.</Alert>}
                     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
                     <Box sx={{ minWidth: 0 }}>
-                        {roundTransition ? (
+                        {integrityRecovery ? (
+                            <Paper variant="outlined" sx={{ p: { xs: 3, md: 5 }, minHeight: 320, display: "grid", alignContent: "center", borderRadius: 3 }}>
+                                <Stack spacing={2} alignItems="flex-start">
+                                    <Typography component="h2" variant="h5" fontWeight={850}>Restore required assessment conditions</Typography>
+                                    <Alert severity="warning">{integrityRecovery === "fullscreen" ? "Fullscreen is required to continue this assessment." : "Camera access is required to continue this assessment."}</Alert>
+                                    {integrityRecovery === "fullscreen" ? <Button variant="contained" onClick={enterFullscreen}>Enter fullscreen</Button> : <Button variant="contained" onClick={checkCamera}>Restore camera</Button>}
+                                </Stack>
+                            </Paper>
+                        ) : roundTransition ? (
                             <Paper variant="outlined" sx={{ p: { xs: 3, md: 5 }, minHeight: 340, display: "grid", alignContent: "center", borderRadius: 3 }}>
                                 <Stack spacing={2} alignItems="flex-start">
                                     <Typography variant="overline" color="primary.main" fontWeight={800}>Interviewer</Typography>
