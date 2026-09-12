@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEditableAssessmentPayload, formatLocalDateTimeInput } from "../utils/hiringAssessmentPayload";
+import { buildEditableAssessmentPayload, formatLocalDateTimeInput, localDateTimeToIso } from "../utils/hiringAssessmentPayload";
 
 describe("hiring assessment payload helpers", () => {
     it("strips server-managed fields and draft status from edit payloads", () => {
@@ -27,13 +27,13 @@ describe("hiring assessment payload helpers", () => {
         expect(payload.expiresAt).toBe("2026-09-15T12:30:00.000Z");
     });
 
-    it("formats stored instants for datetime-local without using UTC clock fields", () => {
-        const original = process.env.TZ;
-        process.env.TZ = "Asia/Kolkata";
-        try {
-            expect(formatLocalDateTimeInput("2026-09-15T12:30:00.000Z")).toBe("2026-09-15T18:00");
-        } finally {
-            process.env.TZ = original;
-        }
+    it("formats stored instants using the assessment timezone", () => {
+        expect(formatLocalDateTimeInput("2026-09-15T12:30:00.000Z", "Asia/Kolkata")).toBe("2026-09-15T18:00");
+        expect(formatLocalDateTimeInput("2026-09-15T12:30:00.000Z", "America/New_York")).toBe("2026-09-15T08:30");
+    });
+
+    it("converts assessment-local wall clock values to UTC", () => {
+        expect(localDateTimeToIso("2026-09-15T18:00", "Asia/Kolkata")).toBe("2026-09-15T12:30:00.000Z");
+        expect(localDateTimeToIso("2026-09-15T08:30", "America/New_York")).toBe("2026-09-15T12:30:00.000Z");
     });
 });
