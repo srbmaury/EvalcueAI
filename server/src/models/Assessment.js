@@ -8,23 +8,22 @@ const assessmentQuestionSchema = new mongoose.Schema({
     required: { type: Boolean, default: false },
 }, { _id: true });
 
-const debuggingTestSchema = new mongoose.Schema({
-    name: { type: String, required: true, maxlength: 120 },
-    stdin: { type: String, maxlength: 20000, default: "" },
-    expectedOutput: { type: String, maxlength: 20000, default: "" },
-    hidden: { type: Boolean, default: false },
-}, { _id: true });
+const debuggingProjectFileSchema = new mongoose.Schema({
+    path: { type: String, required: true, maxlength: 500 },
+    content: { type: String, default: "", maxlength: 262144 },
+    kind: { type: String, enum: ["source", "visible_test", "hidden_test"], required: true },
+}, { _id: false });
 
 const debuggingRoundSchema = new mongoose.Schema({
     responseMode: { type: String, enum: ["code_fix", "findings"], required: true },
-    language: { type: String, enum: ["javascript", "python", "cpp", "java"], required: true },
-    starterCode: { type: String, required: true, maxlength: 20000 },
-    tests: {
-        type: [debuggingTestSchema],
+    runtime: { type: String, enum: ["java-21", "node-22", "python-3", "cpp-20"], required: true },
+    entryFile: { type: String, maxlength: 500, default: "" },
+    files: {
+        type: [debuggingProjectFileSchema],
         default: [],
         validate: {
-            validator(value) { return Array.isArray(value) && value.length <= 12; },
-            message: "Debugging rounds support at most 12 tests",
+            validator(value) { return Array.isArray(value) && value.length >= 1 && value.length <= 100; },
+            message: "Debugging projects require 1 to 100 files",
         },
     },
 }, { _id: false });
@@ -54,11 +53,14 @@ const assessmentRoundSchema = new mongoose.Schema({
         validate: {
             validator(value) {
                 if (this.deliveryMode !== "debugging") return true;
-                if (!value) return false;
-                if (value.responseMode === "code_fix") return Array.isArray(value.tests) && value.tests.length >= 1;
-                return true;
+                if (!value || !Array.isArray(value.files) || value.files.length < 1) return false;
+                if (value.responseMode === "code_fix") {
+                    return value.files.some((file) => file.kind === "source") &&
+                        value.files.some((file) => file.kind === "visible_test" || file.kind === "hidden_test");
+                }
+                return value.files.some((file) => file.kind === "source");
             },
-            message: "Code-fix debugging rounds require at least one test",
+            message: "Debugging rounds require project source files and code-fix rounds require at least one test file",
         },
     },
 }, { _id: true });
