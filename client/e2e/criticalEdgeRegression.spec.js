@@ -189,7 +189,7 @@ test("saved candidate attempt resumes without creating a second attempt", async 
     const saved = attemptPayload({ question: "Resume this reliability question." });
     const storageKey = `assessment-attempt:${token}:open`;
     await page.addInitScript(({ key, value }) => {
-        window.localStorage.setItem(key, JSON.stringify(value));
+        window.sessionStorage.setItem(key, JSON.stringify(value));
     }, {
         key: storageKey,
         value: {
