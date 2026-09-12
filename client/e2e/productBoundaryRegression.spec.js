@@ -6,8 +6,6 @@ const json = (route, body, status = 200) => route.fulfill({
     body: JSON.stringify(body),
 });
 
-const desktopOnly = (testInfo) => test.skip(testInfo.project.name !== "desktop-chromium", "Product boundary regression test");
-
 const mockSignedOut = async (page) => {
     await page.route("**/api/auth/refresh", (route) => json(route, { message: "Unauthenticated" }, 401));
 };
@@ -27,8 +25,7 @@ const mockSignedIn = async (page) => {
     }));
 };
 
-test("canonical Practice and Hiring auth routes override a contradictory workspace query", async ({ page }, testInfo) => {
-    desktopOnly(testInfo);
+test("canonical Practice and Hiring auth routes override a contradictory workspace query", { tag: "@desktop-only" }, async ({ page }) => {
     await mockSignedOut(page);
 
     await page.goto("/practice/login?workspace=hiring");
@@ -45,8 +42,7 @@ test("canonical Practice and Hiring auth routes override a contradictory workspa
     await expect(page.getByRole("heading", { name: /Evalcue AI Hire/i })).toBeVisible();
 });
 
-test("canonical billing-success route overrides a contradictory product query", async ({ page }, testInfo) => {
-    desktopOnly(testInfo);
+test("canonical billing-success route overrides a contradictory product query", { tag: "@desktop-only" }, async ({ page }) => {
     await mockSignedIn(page);
 
     const calls = [];
