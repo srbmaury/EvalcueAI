@@ -76,8 +76,9 @@ const openRound = async (page) => {
     await expect(page.getByRole("heading", { name: questionText })).toBeVisible();
 };
 
-test("follow-up TTS speaks only the follow-up and does not reread the original question", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop-chromium", "Voice timing regression runs once");
+const originalQuestionSpeechCount = (spoken) => spoken.filter((text) => text.includes("Tell me about a production incident")).length;
+
+test("follow-up TTS speaks only the follow-up and does not reread the original question", { tag: "@desktop-only" }, async ({ page }) => {
     await installVoiceHarness(page);
     await mockAuth(page);
     let state = makeInterview();
@@ -89,20 +90,34 @@ test("follow-up TTS speaks only the follow-up and does not reread the original q
     });
 
     await openRound(page);
-    await expect.poll(() => page.evaluate(() => window.__spoken.some((text) => text.includes("Tell me about a production incident")))).toBe(true);
+
+    // The regression under test is the transition to the follow-up. Establish a
+    // deterministic pre-follow-up TTS baseline instead of depending on the
+    // opening auto-speak timer, which intentionally waits for microphone setup.
+    await page.waitForTimeout(500);
+    let spokenBeforeFollowUp = await page.evaluate(() => window.__spoken);
+    if (originalQuestionSpeechCount(spokenBeforeFollowUp) === 0) {
+        await page.getByRole("button", { name: "Replay" }).click();
+        await expect.poll(() => page.evaluate(() => window.__spoken.filter((text) => text.includes("Tell me about a production incident")).length)).toBeGreaterThan(0);
+        await page.waitForTimeout(150);
+        spokenBeforeFollowUp = await page.evaluate(() => window.__spoken);
+    }
+    const originalCountBeforeFollowUp = originalQuestionSpeechCount(spokenBeforeFollowUp);
+    expect(originalCountBeforeFollowUp).toBeGreaterThan(0);
+
     await page.getByRole("button", { name: "Type / code" }).click();
     await page.getByPlaceholder("Answer by typing or speaking...").fill("I coordinated a rollback and added missing alerts.");
     await page.getByRole("button", { name: "Submit now" }).click();
     await expect(page.getByText(followUpText, { exact: true })).toBeVisible();
     await expect.poll(() => page.evaluate((followUp) => window.__spoken.filter((text) => text === followUp).length, followUpText)).toBe(1);
+    await page.waitForTimeout(500);
 
     const spoken = await page.evaluate(() => window.__spoken);
-    expect(spoken.filter((text) => text.includes("Tell me about a production incident")).length).toBe(1);
+    expect(originalQuestionSpeechCount(spoken)).toBe(originalCountBeforeFollowUp);
     expect(spoken.at(-1)).toBe(followUpText);
 });
 
-test("overlapping browser speech finals are merged without duplicating transcript text", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop-chromium", "Speech recognition regression runs once");
+test("overlapping browser speech finals are merged without duplicating transcript text", { tag: "@desktop-only" }, async ({ page }) => {
     await installVoiceHarness(page);
     await mockAuth(page);
     await page.route("**/api/interviews/interview-regression", (route) => json(route, makeInterview()));
@@ -116,8 +131,7 @@ test("overlapping browser speech finals are merged without duplicating transcrip
     await expect(page.getByText("I would use Redis Redis for caching", { exact: true })).toHaveCount(0);
 });
 
-test("manual Submit now sends one answer and does not fire a second silence submission", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop-chromium", "Voice timing regression runs once");
+test("manual Submit now sends one answer and does not fire a second silence submission", { tag: "@desktop-only" }, async ({ page }) => {
     await installVoiceHarness(page);
     await mockAuth(page);
     let answerPosts = 0;
