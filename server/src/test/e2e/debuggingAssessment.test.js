@@ -104,7 +104,7 @@ describe("debugging assessment API", () => {
         expect(response.body.message).toMatch(/feature disabled/i);
     });
 
-    it("publishes only safe debugging configuration and initializes candidate code", async () => {
+    it("publishes only safe immutable debugging configuration", async () => {
         process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
 
         const capabilities = await agent.get("/api/assessments/capabilities").set(ownerAuth).expect(200);
@@ -128,7 +128,7 @@ describe("debugging assessment API", () => {
 
         const started = await startCandidate(created.body.shareToken);
         expect(started.body.attempt.rounds[0].deliveryMode).toBe("debugging");
-        expect(started.body.attempt.rounds[0].questions[0].debugCode).toContain("const solve");
+        expect(started.body.attempt.rounds[0].questions[0].text).toBe("Fix duplicate charging");
         expect(JSON.stringify(started.body)).not.toContain("42-SECRET");
     });
 
