@@ -22,8 +22,16 @@ export default defineConfig({
         video: "retain-on-failure",
     },
     projects: [
-        { name: "desktop-chromium", use: { ...devices["Desktop Chrome"] } },
-        { name: "mobile-chromium", use: { ...devices["Pixel 7"] } },
+        {
+            name: "desktop-chromium",
+            grepInvert: /@mobile-only/,
+            use: { ...devices["Desktop Chrome"] },
+        },
+        {
+            name: "mobile-chromium",
+            grepInvert: /@desktop-only/,
+            use: { ...devices["Pixel 7"] },
+        },
     ],
     webServer: {
         // CI already builds immediately before Playwright. Serving that optimized
