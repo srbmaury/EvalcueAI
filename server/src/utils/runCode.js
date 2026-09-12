@@ -18,8 +18,8 @@ const executionError = (message, statusCode = 502) => {
     return error;
 };
 
-export const executeCode = async ({ language, code, stdin = "" }) => {
-    if (!language || !code) throw executionError("Missing language or code", 400);
+export const executeJudge0Submission = async (payload, { metricLanguage = "judge0" } = {}) => {
+    if (!payload || typeof payload !== "object") throw executionError("Missing Judge0 submission payload", 400);
     if (!process.env.JUDGE0_URL || !process.env.JUDGE0_KEY) {
         throw executionError("Code execution is temporarily unavailable", 503);
     }
@@ -36,23 +36,19 @@ export const executeCode = async ({ language, code, stdin = "" }) => {
                 "X-RapidAPI-Key": process.env.JUDGE0_KEY,
                 ...(process.env.JUDGE0_HOST ? { "X-RapidAPI-Host": process.env.JUDGE0_HOST } : {}),
             },
-            body: JSON.stringify({
-                language_id: getLanguageId(language),
-                source_code: code,
-                stdin: stdin || "",
-            }),
+            body: JSON.stringify(payload),
             signal: controller ? controller.signal : undefined,
         });
 
         if (!response.ok) {
             const text = await response.text();
-            try { metrics.runCodeTotal.labels(language, "failure", "remote").inc(); } catch {}
+            try { metrics.runCodeTotal.labels(metricLanguage, "failure", "remote").inc(); } catch {}
             throw executionError(text || "Judge0 error", response.status);
         }
 
         const data = await response.json();
         if (data?.token && !data?.status) {
-            try { metrics.runCodeTotal.labels(language, "failure", "remote").inc(); } catch {}
+            try { metrics.runCodeTotal.labels(metricLanguage, "failure", "remote").inc(); } catch {}
             throw executionError("Execution provider returned before the result was ready. Please run again.", 502);
         }
 
@@ -72,7 +68,7 @@ export const executeCode = async ({ language, code, stdin = "" }) => {
         else if (isRuntimeError) preferredOutput = stderr || message || stdout || "";
         else preferredOutput = stdout || message || statusDescription || "Execution completed";
 
-        try { metrics.runCodeTotal.labels(language, isError ? "failure" : "success", errorType).inc(); } catch {}
+        try { metrics.runCodeTotal.labels(metricLanguage, isError ? "failure" : "success", errorType).inc(); } catch {}
         return {
             output: preferredOutput,
             stdout,
@@ -87,12 +83,21 @@ export const executeCode = async ({ language, code, stdin = "" }) => {
         };
     } catch (error) {
         if (error?.statusCode) throw error;
-        try { metrics.runCodeTotal.labels(language || "unknown", "failure", "exception").inc(); } catch {}
+        try { metrics.runCodeTotal.labels(metricLanguage || "unknown", "failure", "exception").inc(); } catch {}
         const isAbort = error && (error.name === "AbortError" || /aborted|timeout/i.test(error.message));
         throw executionError(isAbort ? "Execution timed out" : (error?.message || "Code execution failed"), isAbort ? 504 : 502);
     } finally {
         if (timer) clearTimeout(timer);
     }
+};
+
+export const executeCode = async ({ language, code, stdin = "" }) => {
+    if (!language || !code) throw executionError("Missing language or code", 400);
+    return executeJudge0Submission({
+        language_id: getLanguageId(language),
+        source_code: code,
+        stdin: stdin || "",
+    }, { metricLanguage: language });
 };
 
 const runCode = async (req, res) => {
