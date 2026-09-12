@@ -1,4 +1,3 @@
-const pad = (value) => String(value).padStart(2, "0");
 const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 const safeTimeZone = (value) => {
     const candidate = value || browserTimeZone();
