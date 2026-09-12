@@ -1,5 +1,4 @@
 import { Box, Button, Link, Paper, Stack, Typography } from "@mui/material";
-import { Link as RouterLink } from "react-router-dom";
 
 import RoundList from "./RoundList";
 
@@ -33,8 +32,7 @@ const InterviewRoundsOverview = ({ interview, selectedRoundId, onSelect }) => {
                 {completed > 0 && (
                     <Box sx={{ pt: 1 }}>
                         <Button
-                            component={RouterLink}
-                            to={`/practice/interviews/${interview._id}/feedback`}
+                            href={`/practice/interviews/${interview._id}/feedback`}
                             variant={completed === total ? "contained" : "outlined"}
                         >
                             View overall interview feedback
