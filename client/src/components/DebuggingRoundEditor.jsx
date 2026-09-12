@@ -52,18 +52,10 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
                 </Typography>
             </Box>
 
-            <TextField
-                required
-                multiline
-                minRows={3}
-                label="Assignment instructions"
-                helperText="Describe the observed bug, constraints, and expected outcome without revealing the root cause."
-                value={instruction}
-                onChange={(event) => emit({
-                    questionCount: 1,
-                    questions: [{ ...(round?.questions?.[0] || {}), text: event.target.value, required: true }],
-                })}
-            />
+            <TextField required multiline minRows={3} label="Assignment instructions" helperText="Describe the observed bug, constraints, and expected outcome without revealing the root cause." value={instruction} onChange={(event) => emit({
+                questionCount: 1,
+                questions: [{ ...(round?.questions?.[0] || {}), text: event.target.value, required: true }],
+            })} />
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <TextField select fullWidth label="Candidate response" value={debugging.responseMode} onChange={(event) => updateDebugging({ responseMode: event.target.value })}>
@@ -92,11 +84,13 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
                 <DebuggingProjectWorkspace files={debugging.files} runtime={debugging.runtime} onFilesChange={(files) => updateDebugging({ files })} allowClassification />
             </Box>
 
-            {debugging.responseMode === "findings" && (
-                <Alert severity="info">Candidates receive this project read-only and submit root cause, evidence, proposed fix, impact/risk, and testing strategy. No code execution is required.</Alert>
-            )}
+            {debugging.responseMode === "findings" && <Alert severity="info">Candidates receive this project read-only and submit root cause, evidence, proposed fix, impact/risk, and testing strategy. No code execution is required.</Alert>}
             {validation?.valid && <Alert severity="success">{validation.message || "Assignment validated. The project can be published."}</Alert>}
             {(validationError || validation?.valid === false) && <Alert severity="error">{validationError || validation.message || "Assignment validation failed."}</Alert>}
         </Stack>
     );
 }
+
+// Compatibility while the assessment builder import is migrated to the utility module.
+// eslint-disable-next-line react-refresh/only-export-components
+export { createDebuggingRound };
