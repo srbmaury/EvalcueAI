@@ -19,9 +19,11 @@ test("public header navigation renders while session restoration is still pendin
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByRole("link", { name: "Practice", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Hire", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Toggle theme" })).toBeVisible();
-
-    releaseRefresh();
+    try {
+        await expect(page.getByRole("link", { name: "Practice", exact: true })).toBeVisible({ timeout: 1000 });
+        await expect(page.getByRole("link", { name: "Hire", exact: true })).toBeVisible({ timeout: 1000 });
+        await expect(page.getByRole("button", { name: "Toggle theme" })).toBeVisible({ timeout: 1000 });
+    } finally {
+        releaseRefresh();
+    }
 });
