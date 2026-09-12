@@ -171,7 +171,12 @@ test("mock interview refreshes completed-round feedback after the background job
     await page.getByRole("button", { name: "End round" }).click();
     await page.getByRole("button", { name: "End round" }).last().click();
 
-    await expect(page.getByRole("heading", { name: "Overall feedback" })).toBeVisible();
+    await expect(page.getByText("Round feedback", { exact: true })).toBeVisible();
     await expect(page.getByText("Well structured answer with clear ownership.")).toBeVisible();
     await expect(page.getByText(/Generating interview feedback/i)).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Back to rounds" }).click();
+    await page.getByRole("link", { name: "View overall interview feedback" }).click();
+    await expect(page.getByRole("heading", { name: "Overall interview feedback" })).toBeVisible();
+    await expect(page.getByText("Well structured answer with clear ownership.")).toBeVisible();
 });
