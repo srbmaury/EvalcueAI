@@ -80,24 +80,30 @@ const systemDesignCandidateBody = z.object({
     forceInteraction: z.boolean().optional().default(false),
     candidateAskedQuestion: z.boolean().optional().default(false),
 });
-const debuggingCandidateBody = z.object({
+const debuggingFindingsInput = z.object({
+    rootCause: z.string().max(10000).optional().default(""),
+    evidence: z.string().max(10000).optional().default(""),
+    proposedFix: z.string().max(10000).optional().default(""),
+    testingStrategy: z.string().max(10000).optional().default(""),
+});
+const debuggingSaveBody = z.object({
     roundIndex: z.number().int().min(0).max(4),
     questionIndex: z.number().int().min(0).max(9),
     code: z.string().max(20000).optional(),
-    findings: z.object({
-        rootCause: z.string().max(10000).optional().default(""),
-        evidence: z.string().max(10000).optional().default(""),
-        proposedFix: z.string().max(10000).optional().default(""),
-        testingStrategy: z.string().max(10000).optional().default(""),
-    }).optional(),
+    findings: debuggingFindingsInput.optional(),
 }).refine((body) => body.code !== undefined || body.findings !== undefined, { message: "Code or findings are required" });
+const debuggingRunBody = z.object({
+    roundIndex: z.number().int().min(0).max(4),
+    questionIndex: z.number().int().min(0).max(9),
+    code: z.string().min(1).max(20000),
+});
 
 router.get("/public/:shareToken/invitation/:invitationId", validate(z.object({ shareToken: z.string().min(20).max(100), invitationId: ObjectIdString }), "params"), getCandidateInvitationPrefill);
 router.get("/public/:shareToken", validate(z.object({ shareToken: z.string().min(20).max(100) }), "params"), validate(z.object({ invite: ObjectIdString.optional() }), "query"), getPublicAssessmentWithDebugging);
 router.post("/public/:shareToken/start", quotas({ key: (req) => `assessment-start:${req.params.shareToken}:${req.ip}`, metricKey: "assessment_start", windowSeconds: 3600, maxPerWindow: 10 }), validate(z.object({ shareToken: z.string().min(20).max(100) }), "params"), validate(z.object({ name: z.string().trim().min(1).max(120), email: z.string().trim().email().max(254), privacyConsent: z.literal(true), integrityConsent: z.boolean().optional().default(false), invitationId: ObjectIdString.optional() })), startAdaptiveCandidateAttempt);
 router.put("/public/:shareToken/attempts/:attemptId/answer", quotas({ key: (req) => `assessment-answer:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_answer", windowSeconds: 3600, maxPerWindow: 120 }), validate(attemptParams, "params"), validate(z.object({ roundIndex: z.number().int().min(0).max(4), questionIndex: z.number().int().min(0).max(9), answer: z.string().max(20000).optional(), spokenExplanation: z.string().max(5000).optional(), followUpAnswer: z.string().max(5000).optional(), diagramData: z.string().max(500000).optional() }).refine((body) => body.answer !== undefined || body.spokenExplanation !== undefined || body.followUpAnswer !== undefined || body.diagramData !== undefined)), requireCandidateRoundSequence, saveAdaptiveCandidateAnswer);
-router.put("/public/:shareToken/attempts/:attemptId/debugging", requireFeature("ENABLE_DEBUGGING_ASSESSMENTS"), validate(attemptParams, "params"), validate(debuggingCandidateBody), protectCandidateTool, requireCandidateRoundSequence, quotas({ key: (req) => `assessment-debug-save:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_debug_save", windowSeconds: 3600, maxPerWindow: 240 }), saveCandidateDebuggingResponse);
-router.post("/public/:shareToken/attempts/:attemptId/debugging/run-tests", requireFeature("ENABLE_DEBUGGING_ASSESSMENTS"), requireFeature("ENABLE_CODE_EXEC"), validate(attemptParams, "params"), validate(debuggingCandidateBody.extend({ code: z.string().min(1).max(20000), findings: z.never().optional() })), protectCandidateTool, requireCandidateRoundSequence, quotas({ key: (req) => `assessment-debug-run:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_debug_run", windowSeconds: 3600, maxPerWindow: 120 }), runCandidateDebuggingTests);
+router.put("/public/:shareToken/attempts/:attemptId/debugging", requireFeature("ENABLE_DEBUGGING_ASSESSMENTS"), validate(attemptParams, "params"), validate(debuggingSaveBody), protectCandidateTool, requireCandidateRoundSequence, quotas({ key: (req) => `assessment-debug-save:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_debug_save", windowSeconds: 3600, maxPerWindow: 240 }), saveCandidateDebuggingResponse);
+router.post("/public/:shareToken/attempts/:attemptId/debugging/run-tests", requireFeature("ENABLE_DEBUGGING_ASSESSMENTS"), requireFeature("ENABLE_CODE_EXEC"), validate(attemptParams, "params"), validate(debuggingRunBody), protectCandidateTool, requireCandidateRoundSequence, quotas({ key: (req) => `assessment-debug-run:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_debug_run", windowSeconds: 3600, maxPerWindow: 120 }), runCandidateDebuggingTests);
 router.post("/public/:shareToken/attempts/:attemptId/system-design/checkpoint", quotas({ key: (req) => `assessment-system-design:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_system_design_checkpoint", windowSeconds: 3600, maxPerWindow: 240 }), validate(attemptParams, "params"), validate(systemDesignCandidateBody), requireCandidateRoundSequence, checkpointCandidateSystemDesign);
 router.put("/public/:shareToken/attempts/:attemptId/system-design/complete", quotas({ key: (req) => `assessment-system-design-complete:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_system_design_complete", windowSeconds: 3600, maxPerWindow: 20 }), validate(attemptParams, "params"), validate(systemDesignCandidateBody.extend({ transcript: z.string().trim().min(1).max(20000) })), requireCandidateRoundSequence, saveCandidateSystemDesign);
 router.post("/public/:shareToken/attempts/:attemptId/submit", quotas({ key: (req) => `assessment-submit:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_submit", windowSeconds: 3600, maxPerWindow: 5 }), validate(attemptParams, "params"), submitCandidateAttempt);
