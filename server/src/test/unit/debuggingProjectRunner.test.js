@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const executeJudge0Submission = vi.fn();
+const { executeJudge0Submission } = vi.hoisted(() => ({ executeJudge0Submission: vi.fn() }));
 vi.mock("../../utils/runCode.js", () => ({ executeJudge0Submission }));
 
 import { buildDebuggingArchive, runDebuggingProject } from "../../services/debuggingProjectRunner.js";
