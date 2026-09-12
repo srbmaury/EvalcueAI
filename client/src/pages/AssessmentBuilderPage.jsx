@@ -32,6 +32,7 @@ import {
     Typography,
 } from "@mui/material";
 import api from "../api/axios";
+import DebuggingRoundEditor, { createDebuggingRound } from "../components/DebuggingRoundEditor";
 import JobPostImporter from "../components/JobPostImporter";
 import { OrganizationContext } from "../context/OrganizationContext";
 import { useNotify } from "../context/NotificationContext";
@@ -41,16 +42,24 @@ import { buildEditableAssessmentPayload, formatLocalDateTimeInput, localDateTime
 import { parseCandidateInvites } from "../utils/hiringInvites";
 
 const steps = ["Role", "Interview plan", "Questions", "Launch"];
-const experienceNames = { conversational: "Interview", "online-assessment": "Coding / written", "system-design": "System design" };
-const emptyRound = (deliveryMode = "conversational") => ({
-    name: deliveryMode === "system-design" ? "System design" : deliveryMode === "online-assessment" ? "Coding" : "Interview",
-    description: "Role-specific knowledge and practical judgment",
-    deliveryMode,
-    adaptive: deliveryMode === "conversational",
-    questionCount: deliveryMode === "system-design" ? 1 : 3,
-    aiPrompt: "",
-    questions: [],
-});
+const experienceNames = {
+    conversational: "Interview",
+    "online-assessment": "Coding / written",
+    "system-design": "System design",
+    debugging: "Debugging assignment",
+};
+const emptyRound = (deliveryMode = "conversational") => {
+    if (deliveryMode === "debugging") return createDebuggingRound();
+    return {
+        name: deliveryMode === "system-design" ? "System design" : deliveryMode === "online-assessment" ? "Coding" : "Interview",
+        description: "Role-specific knowledge and practical judgment",
+        deliveryMode,
+        adaptive: deliveryMode === "conversational",
+        questionCount: deliveryMode === "system-design" ? 1 : 3,
+        aiPrompt: "",
+        questions: [],
+    };
+};
 
 const initialForm = {
     title: "",
@@ -113,7 +122,7 @@ const normalizeLoadedRound = (round) => ({
     ...emptyRound(round.deliveryMode || "conversational"),
     ...round,
     adaptive: round.deliveryMode === "conversational" ? round.adaptive !== false : false,
-    questionCount: round.deliveryMode === "system-design" ? 1 : Number(round.questionCount) || round.questions?.length || 3,
+    questionCount: round.deliveryMode === "system-design" || round.deliveryMode === "debugging" ? 1 : Number(round.questionCount) || round.questions?.length || 3,
     aiPrompt: "",
     questions: (round.questions || []).map((question) => ({ ...question, text: question.text || "", required: Boolean(question.required) })),
 });
@@ -136,9 +145,26 @@ export default function AssessmentBuilderPage() {
     const [hydrated, setHydrated] = useState(false);
     const [draftSavedAt, setDraftSavedAt] = useState(null);
     const [existingInvitationCount, setExistingInvitationCount] = useState(0);
+    const [debuggingAssessmentsEnabled, setDebuggingAssessmentsEnabled] = useState(false);
     const hydrationKeyRef = useRef("");
 
     const draftKey = useMemo(() => draftKeyFor(activeOrganization?._id, editId), [activeOrganization?._id, editId]);
+
+    useEffect(() => {
+        let active = true;
+        if (!activeOrganization?._id) {
+            setDebuggingAssessmentsEnabled(false);
+            return () => { active = false; };
+        }
+        api.get("/assessments/capabilities")
+            .then(({ data }) => {
+                if (active) setDebuggingAssessmentsEnabled(Boolean(data?.debuggingAssessments));
+            })
+            .catch(() => {
+                if (active) setDebuggingAssessmentsEnabled(false);
+            });
+        return () => { active = false; };
+    }, [activeOrganization?._id]);
 
     useEffect(() => {
         if (!activeOrganization?._id) return;
@@ -221,6 +247,10 @@ export default function AssessmentBuilderPage() {
         ...current,
         rounds: current.rounds.map((round, position) => position === index ? { ...round, ...patch } : round),
     }));
+    const replaceRound = (index, nextRound) => setForm((current) => ({
+        ...current,
+        rounds: current.rounds.map((round, position) => position === index ? nextRound : round),
+    }));
 
     const applyStarter = (kind) => {
         const starter = starterPresets[kind];
@@ -234,12 +264,21 @@ export default function AssessmentBuilderPage() {
     const stepValid = useMemo(() => {
         if (activeStep === 0) return Boolean(form.jobRole.trim() && form.title.trim() && form.jobDescription.trim().length >= 20);
         if (activeStep === 1) return form.rounds.length > 0 && form.rounds.every((round) => round.name.trim() && round.description.trim());
-        if (activeStep === 2) return form.rounds.every((round) => round.questions.some((question) => question.text?.trim()));
+        if (activeStep === 2) return form.rounds.every((round) => {
+            if (round.deliveryMode !== "debugging") return round.questions.some((question) => question.text?.trim());
+            const instruction = round.questions?.[0]?.text?.trim();
+            const starterCode = round.debugging?.starterCode?.trim();
+            if (!instruction || !starterCode) return false;
+            if (round.debugging?.responseMode === "findings") return true;
+            const tests = Array.isArray(round.debugging?.tests) ? round.debugging.tests : [];
+            return tests.length > 0 && tests.every((test) => test.name?.trim() && test.expectedOutput !== undefined && String(test.expectedOutput).length > 0);
+        });
         return true;
     }, [activeStep, form]);
 
     const generateQuestions = async (roundIndex) => {
         const round = form.rounds[roundIndex];
+        if (round.deliveryMode === "debugging") return;
         if (!form.jobRole.trim() || form.jobDescription.trim().length < 20) {
             setError("Finish the role step before generating questions.");
             return;
@@ -404,10 +443,24 @@ export default function AssessmentBuilderPage() {
                             <Box><Typography variant="overline" color="primary.main" fontWeight={850}>Step 2 of 4</Typography><Typography variant="h5" fontWeight={850}>Choose the candidate experience</Typography><Typography color="text.secondary" variant="body2" mt={.5}>Start simple. Add another round only when it measures something meaningfully different.</Typography></Box>
                             {form.rounds.map((round, index) => <Card variant="outlined" key={index}><CardContent><Stack spacing={2}>
                                 <Stack direction="row" justifyContent="space-between" alignItems="center"><Box><Typography fontWeight={850}>Round {index + 1}</Typography><Typography variant="body2" color="text.secondary">{experienceNames[round.deliveryMode]}</Typography></Box>{form.rounds.length > 1 && <IconButton aria-label={`Remove round ${index + 1}`} onClick={() => setField("rounds", form.rounds.filter((_, position) => position !== index))}><DeleteOutlineRounded /></IconButton>}</Stack>
-                                <TextField select label="Format" value={round.deliveryMode} onChange={(event) => { const deliveryMode = event.target.value; updateRound(index, { deliveryMode, name: deliveryMode === "system-design" ? "System design" : deliveryMode === "online-assessment" ? "Coding" : "Interview", adaptive: deliveryMode === "conversational", questionCount: deliveryMode === "system-design" ? 1 : Math.max(Number(round.questionCount) || 3, 1) }); }}><MenuItem value="conversational">Conversational interview</MenuItem><MenuItem value="online-assessment">Coding / written assessment</MenuItem><MenuItem value="system-design">System design</MenuItem></TextField>
+                                <TextField select label="Format" value={round.deliveryMode} onChange={(event) => {
+                                    const deliveryMode = event.target.value;
+                                    if (deliveryMode === "debugging") {
+                                        replaceRound(index, createDebuggingRound());
+                                        return;
+                                    }
+                                    const { debugging: _debugging, ...rest } = round;
+                                    replaceRound(index, {
+                                        ...rest,
+                                        deliveryMode,
+                                        name: deliveryMode === "system-design" ? "System design" : deliveryMode === "online-assessment" ? "Coding" : "Interview",
+                                        adaptive: deliveryMode === "conversational",
+                                        questionCount: deliveryMode === "system-design" ? 1 : Math.max(Number(round.questionCount) || 3, 1),
+                                    });
+                                }}><MenuItem value="conversational">Conversational interview</MenuItem><MenuItem value="online-assessment">Coding / written assessment</MenuItem><MenuItem value="system-design">System design</MenuItem>{debuggingAssessmentsEnabled && <MenuItem value="debugging">Debugging assignment</MenuItem>}</TextField>
                                 <TextField label="Round name" value={round.name} onChange={(event) => updateRound(index, { name: event.target.value })} />
                                 <TextField multiline minRows={2} label="What should this round evaluate?" value={round.description} onChange={(event) => updateRound(index, { description: event.target.value })} />
-                                {round.deliveryMode !== "system-design" && <TextField type="number" label={round.adaptive ? "Maximum primary questions" : "Question count"} value={round.questionCount} onChange={(event) => updateRound(index, { questionCount: Math.max(1, Math.min(10, Number(event.target.value) || 1)) })} inputProps={{ min: 1, max: 10 }} />}
+                                {round.deliveryMode !== "system-design" && round.deliveryMode !== "debugging" && <TextField type="number" label={round.adaptive ? "Maximum primary questions" : "Question count"} value={round.questionCount} onChange={(event) => updateRound(index, { questionCount: Math.max(1, Math.min(10, Number(event.target.value) || 1)) })} inputProps={{ min: 1, max: 10 }} />}
                                 {round.deliveryMode === "conversational" && <FormControlLabel control={<Checkbox checked={round.adaptive !== false} onChange={(event) => updateRound(index, { adaptive: event.target.checked })} />} label="Let AI adapt the remaining primary questions to the candidate" />}
                             </Stack></CardContent></Card>)}
                             <Button startIcon={<AddRounded />} variant="outlined" onClick={() => setField("rounds", [...form.rounds, emptyRound()])}>Add another round</Button>
@@ -415,13 +468,19 @@ export default function AssessmentBuilderPage() {
 
                         {activeStep === 2 && <Stack spacing={2.5}>
                             <Box><Typography variant="overline" color="primary.main" fontWeight={850}>Step 3 of 4</Typography><Typography variant="h5" fontWeight={850}>Define the evidence you need</Typography><Typography color="text.secondary" variant="body2" mt={.5}>Generate a starting set, then keep only questions you would actually use to make a hiring decision.</Typography></Box>
-                            {form.rounds.map((round, roundIndex) => <Card variant="outlined" key={roundIndex}><CardContent><Stack spacing={2}>
-                                <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1}><Box><Typography fontWeight={850}>{round.name}</Typography><Typography variant="body2" color="text.secondary">{experienceNames[round.deliveryMode]} · target {round.questionCount} question{Number(round.questionCount) === 1 ? "" : "s"}</Typography></Box><Button startIcon={generatingRound === roundIndex ? <CircularProgress size={18} /> : <AutoAwesomeRounded />} variant="outlined" disabled={generatingRound !== null} onClick={() => generateQuestions(roundIndex)}>{generatingRound === roundIndex ? "Generating…" : "Generate with AI"}</Button></Stack>
-                                <TextField multiline minRows={2} label="Optional AI brief" placeholder="Focus on debugging, API design, trade-offs, and seniority-appropriate judgment." value={round.aiPrompt} onChange={(event) => updateRound(roundIndex, { aiPrompt: event.target.value })} />
-                                <Divider />
-                                {round.questions.map((question, questionIndex) => <Stack key={questionIndex} direction={{ xs: "column", sm: "row" }} gap={1} alignItems={{ sm: "flex-start" }}><TextField fullWidth multiline minRows={2} label={`Question ${questionIndex + 1}`} value={question.text} onChange={(event) => updateQuestion(roundIndex, questionIndex, { text: event.target.value })} /><FormControlLabel control={<Checkbox checked={Boolean(question.required)} onChange={(event) => updateQuestion(roundIndex, questionIndex, { required: event.target.checked })} />} label="Must ask" /><IconButton aria-label={`Remove question ${questionIndex + 1}`} onClick={() => removeQuestion(roundIndex, questionIndex)}><DeleteOutlineRounded /></IconButton></Stack>)}
-                                <Button size="small" startIcon={<AddRounded />} onClick={() => addQuestion(roundIndex)}>Add question</Button>
-                            </Stack></CardContent></Card>)}
+                            {form.rounds.map((round, roundIndex) => <Card variant="outlined" key={roundIndex}><CardContent>
+                                {round.deliveryMode === "debugging" ? (
+                                    <DebuggingRoundEditor round={round} onChange={(nextRound) => replaceRound(roundIndex, nextRound)} />
+                                ) : (
+                                    <Stack spacing={2}>
+                                        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1}><Box><Typography fontWeight={850}>{round.name}</Typography><Typography variant="body2" color="text.secondary">{experienceNames[round.deliveryMode]} · target {round.questionCount} question{Number(round.questionCount) === 1 ? "" : "s"}</Typography></Box><Button startIcon={generatingRound === roundIndex ? <CircularProgress size={18} /> : <AutoAwesomeRounded />} variant="outlined" disabled={generatingRound !== null} onClick={() => generateQuestions(roundIndex)}>{generatingRound === roundIndex ? "Generating…" : "Generate with AI"}</Button></Stack>
+                                        <TextField multiline minRows={2} label="Optional AI brief" placeholder="Focus on debugging, API design, trade-offs, and seniority-appropriate judgment." value={round.aiPrompt} onChange={(event) => updateRound(roundIndex, { aiPrompt: event.target.value })} />
+                                        <Divider />
+                                        {round.questions.map((question, questionIndex) => <Stack key={questionIndex} direction={{ xs: "column", sm: "row" }} gap={1} alignItems={{ sm: "flex-start" }}><TextField fullWidth multiline minRows={2} label={`Question ${questionIndex + 1}`} value={question.text} onChange={(event) => updateQuestion(roundIndex, questionIndex, { text: event.target.value })} /><FormControlLabel control={<Checkbox checked={Boolean(question.required)} onChange={(event) => updateQuestion(roundIndex, questionIndex, { required: event.target.checked })} />} label="Must ask" /><IconButton aria-label={`Remove question ${questionIndex + 1}`} onClick={() => removeQuestion(roundIndex, questionIndex)}><DeleteOutlineRounded /></IconButton></Stack>)}
+                                        <Button size="small" startIcon={<AddRounded />} onClick={() => addQuestion(roundIndex)}>Add question</Button>
+                                    </Stack>
+                                )}
+                            </CardContent></Card>)}
                         </Stack>}
 
                         {activeStep === 3 && <Stack spacing={2.25}>
