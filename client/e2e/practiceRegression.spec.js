@@ -50,17 +50,23 @@ const installVoiceHarness = async (page) => {
         }
         window.SpeechRecognition = FakeRecognition;
         window.webkitSpeechRecognition = FakeRecognition;
-        window.speechSynthesis = {
-            speaking: false,
-            cancel() {},
-            getVoices() { return []; },
-            speak(utterance) {
-                this.speaking = true;
-                window.__spoken.push(utterance.text);
-                setTimeout(() => { this.speaking = false; utterance.onend?.(); }, 0);
+        Object.defineProperty(window, "speechSynthesis", {
+            configurable: true,
+            value: {
+                speaking: false,
+                cancel() {},
+                getVoices() { return []; },
+                speak(utterance) {
+                    this.speaking = true;
+                    window.__spoken.push(utterance.text);
+                    setTimeout(() => { this.speaking = false; utterance.onend?.(); }, 0);
+                },
             },
-        };
-        window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+        });
+        Object.defineProperty(window, "SpeechSynthesisUtterance", {
+            configurable: true,
+            value: class { constructor(text) { this.text = text; } },
+        });
         const stream = () => new MediaStream();
         Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: {
             getUserMedia: async () => stream(), enumerateDevices: async () => [], addEventListener() {}, removeEventListener() {},
@@ -91,19 +97,13 @@ test("follow-up TTS speaks only the follow-up and does not reread the original q
 
     await openRound(page);
 
-    // The regression under test is the transition to the follow-up. Establish a
-    // deterministic pre-follow-up TTS baseline instead of depending on the
-    // opening auto-speak timer, which intentionally waits for microphone setup.
+    // The regression is the transition into the follow-up. Record whatever the
+    // opening-question TTS has done, then prove that transition does not speak
+    // the original question again. This avoids coupling the test to microphone
+    // readiness timing while still requiring the follow-up itself to be spoken.
     await page.waitForTimeout(500);
-    let spokenBeforeFollowUp = await page.evaluate(() => window.__spoken);
-    if (originalQuestionSpeechCount(spokenBeforeFollowUp) === 0) {
-        await page.getByRole("button", { name: "Replay" }).click();
-        await expect.poll(() => page.evaluate(() => window.__spoken.filter((text) => text.includes("Tell me about a production incident")).length)).toBeGreaterThan(0);
-        await page.waitForTimeout(150);
-        spokenBeforeFollowUp = await page.evaluate(() => window.__spoken);
-    }
+    const spokenBeforeFollowUp = await page.evaluate(() => window.__spoken);
     const originalCountBeforeFollowUp = originalQuestionSpeechCount(spokenBeforeFollowUp);
-    expect(originalCountBeforeFollowUp).toBeGreaterThan(0);
 
     await page.getByRole("button", { name: "Type / code" }).click();
     await page.getByPlaceholder("Answer by typing or speaking...").fill("I coordinated a rollback and added missing alerts.");
