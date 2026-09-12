@@ -7,11 +7,17 @@ const { processAssessmentLifecycle } = await import("../../services/assessmentLi
 
 const originalClientOrigin = process.env.CLIENT_ORIGIN;
 
+const mockFind = (items) => {
+    const query = { populate: vi.fn().mockResolvedValue(items) };
+    find.mockReturnValue(query);
+    return query;
+};
+
 describe("assessment lifecycle processing", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         updateMany.mockResolvedValue({ modifiedCount: 1 });
-        find.mockResolvedValue([]);
+        mockFind([]);
         process.env.CLIENT_ORIGIN = "https://app.evalcue.example/";
     });
 
@@ -26,18 +32,43 @@ describe("assessment lifecycle processing", () => {
         expect(result).toMatchObject({ opened: 1, closed: 1 });
     });
 
-    it("delivers queued invitations using the documented client origin", async () => {
+    it("delivers queued invitations using the shared structured email and assessment timezone", async () => {
         const invitation = { _id: "invite-1", email: "candidate@example.com", name: "Candidate", status: "queued", attempts: 0 };
-        const assessment = { title: "Backend", jobRole: "Engineer", shareToken: "token", timezone: "UTC", invitations: [invitation], save: vi.fn() };
-        find.mockResolvedValue([assessment]); sendMail.mockResolvedValue({ messageId: "provider-1" });
+        const assessment = {
+            title: "Backend",
+            jobRole: "Engineer",
+            shareToken: "token",
+            timezone: "Asia/Kolkata",
+            durationMinutes: 45,
+            expiresAt: new Date("2026-09-15T12:30:00.000Z"),
+            contactEmail: "recruiting@example.com",
+            inviteOnly: true,
+            integrity: { enabled: true, requireCamera: true, requireFullscreen: true },
+            organization: { name: "Acme Labs" },
+            invitations: [invitation],
+            save: vi.fn(),
+        };
+        mockFind([assessment]);
+        sendMail.mockResolvedValue({ messageId: "provider-1" });
+
         const result = await processAssessmentLifecycle(new Date("2026-08-12T12:00:00Z"));
+
         expect(result.sent).toBe(1);
         expect(invitation).toMatchObject({ status: "sent", attempts: 1, providerMessageId: "provider-1" });
         expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({
+            to: "candidate@example.com",
+            replyTo: "recruiting@example.com",
             text: expect.stringContaining("https://app.evalcue.example/assessment/token?invite=invite-1"),
-            html: expect.stringContaining("https://app.evalcue.example/assessment/token?invite=invite-1"),
+            html: expect.stringContaining("Start assessment"),
         }));
-        expect(sendMail.mock.calls[0][0].text).not.toContain("localhost");
+        const mail = sendMail.mock.calls[0][0];
+        expect(mail.text).toContain("Acme Labs");
+        expect(mail.text).toContain("45 minutes");
+        expect(mail.text).toContain("6:00 PM");
+        expect(mail.text).toContain("Asia/Kolkata");
+        expect(mail.text).toContain("Camera required");
+        expect(mail.text).toContain("Fullscreen required");
+        expect(mail.text).not.toContain("localhost");
         expect(assessment.save).toHaveBeenCalledOnce();
     });
 });
