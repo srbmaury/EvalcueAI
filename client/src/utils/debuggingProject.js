@@ -30,12 +30,7 @@ export const createDebuggingRound = (runtime = "node-22") => {
         questionCount: 1,
         aiPrompt: "",
         questions: [{ text: "", required: true }],
-        debugging: {
-            responseMode: "code_fix",
-            runtime,
-            entryFile: starter.path,
-            files: [{ ...starter, kind: "source" }],
-        },
+        debugging: { responseMode: "code_fix", runtime, entryFile: starter.path, files: [{ ...starter, kind: "source" }] },
     };
 };
 
@@ -45,10 +40,7 @@ export const projectFolders = (files = []) => {
         const parts = String(file.path || "").split("/");
         parts.pop();
         let current = "";
-        for (const part of parts) {
-            current = current ? `${current}/${part}` : part;
-            folders.add(current);
-        }
+        for (const part of parts) { current = current ? `${current}/${part}` : part; folders.add(current); }
     }
     return [...folders].sort();
 };
@@ -74,10 +66,7 @@ export const renameProjectPath = (files, rawFrom, rawTo) => {
     const isFolder = projectFolders(files).includes(from);
     const matches = files.filter((file) => file.path === from || (isFolder && file.path.startsWith(`${from}/`)));
     if (!matches.length) throw new Error("Project path was not found");
-    const replacements = new Map(matches.map((file) => [
-        file.path,
-        isFolder ? `${to}${file.path.slice(from.length)}` : to,
-    ]));
+    const replacements = new Map(matches.map((file) => [file.path, isFolder ? `${to}${file.path.slice(from.length)}` : to]));
     const result = files.map((file) => replacements.has(file.path) ? { ...file, path: replacements.get(file.path) } : file);
     const paths = result.map((file) => normalizeProjectPath(file.path));
     if (new Set(paths).size !== paths.length || paths.some((path) => !path)) throw new Error("Rename would create an invalid or duplicate path");
@@ -92,6 +81,26 @@ export const deleteProjectPath = (files, rawPath) => {
 };
 
 export const updateProjectFile = (files, path, patch) => files.map((file) => file.path === path ? { ...file, ...patch } : file);
+
+export const deriveDebuggingOverlay = (baseFiles = [], currentFiles = []) => {
+    const baseByPath = new Map(baseFiles.map((file) => [file.path, file]));
+    const currentByPath = new Map(currentFiles.map((file) => [file.path, file]));
+    const changedFiles = [];
+    const createdFiles = [];
+    const deletedFiles = [];
+
+    for (const base of baseFiles) {
+        if (base.kind !== "source") continue;
+        const current = currentByPath.get(base.path);
+        if (!current) { deletedFiles.push(base.path); continue; }
+        if (String(current.content || "") !== String(base.content || "")) changedFiles.push({ path: base.path, content: current.content || "" });
+    }
+    for (const current of currentFiles) {
+        if (baseByPath.has(current.path) || current.kind !== "source") continue;
+        createdFiles.push({ path: current.path, content: current.content || "" });
+    }
+    return { changedFiles, createdFiles, deletedFiles };
+};
 
 export const languageForPath = (path, runtime = "node-22") => {
     const lower = String(path || "").toLowerCase();
