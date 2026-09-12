@@ -25,8 +25,7 @@ const closeMenu = async (page) => {
     await page.keyboard.press("Escape");
 };
 
-test("mobile navigation exposes product destinations once without duplicate billing", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "mobile-chromium", "Mobile navigation regression test");
+test("mobile navigation exposes product destinations once without duplicate billing", { tag: "@mobile-only" }, async ({ page }) => {
     await mockSignedIn(page);
 
     await page.goto("/hire");
