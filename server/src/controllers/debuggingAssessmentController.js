@@ -32,21 +32,13 @@ export const getDebuggingAssessmentCapabilities = (_req, res) => res.json({
 });
 
 const normalizeDebuggingConfig = (debugging) => {
-    if (!debugging) {
-        const error = new Error("Debugging configuration is required"); error.statusCode = 400; throw error;
-    }
+    if (!debugging) { const error = new Error("Debugging configuration is required"); error.statusCode = 400; throw error; }
     getDebuggingRuntimeProfile(debugging.runtime);
     const { files } = validateDebuggingProject(debugging.files || []);
     const responseMode = debugging.responseMode;
-    if (!["code_fix", "findings"].includes(responseMode)) {
-        const error = new Error("Choose a supported debugging response mode"); error.statusCode = 400; throw error;
-    }
-    if (!files.some((file) => file.kind === "source")) {
-        const error = new Error("Debugging assignments require at least one source file"); error.statusCode = 400; throw error;
-    }
-    if (responseMode === "code_fix" && !files.some((file) => file.kind === "visible_test" || file.kind === "hidden_test")) {
-        const error = new Error("Code-fix debugging assignments require at least one test file"); error.statusCode = 400; throw error;
-    }
+    if (!["code_fix", "findings"].includes(responseMode)) { const error = new Error("Choose a supported debugging response mode"); error.statusCode = 400; throw error; }
+    if (!files.some((file) => file.kind === "source")) { const error = new Error("Debugging assignments require at least one source file"); error.statusCode = 400; throw error; }
+    if (responseMode === "code_fix" && !files.some((file) => file.kind === "visible_test" || file.kind === "hidden_test")) { const error = new Error("Code-fix debugging assignments require at least one test file"); error.statusCode = 400; throw error; }
     return { responseMode, runtime: debugging.runtime, entryFile: cleanText(debugging.entryFile, 500), files };
 };
 
@@ -81,7 +73,9 @@ const safePublicAssessment = (assessment, organizationName = "") => ({
         debuggingAssessments: debuggingAssessmentsEnabled(),
     },
     rounds: assessment.rounds.map((round) => ({
-        name: round.name, description: round.description, deliveryMode: round.deliveryMode || "conversational",
+        name: round.name,
+        description: round.description,
+        deliveryMode: round.deliveryMode || "conversational",
         questionCount: round.questions.length,
         ...(round.deliveryMode === "debugging" ? { debugging: safeDebuggingConfig(round) } : {}),
     })),
@@ -134,7 +128,17 @@ const createRoundsIncludingDebugging = async ({ rounds, req, jobRole, jobDescrip
         let generated = [];
         if (planned.length < count) {
             try {
-                generated = await generateQuestionsForRound({ company: req.organization?.name || "", jobRole, jobDescription, resumeText: "", roundName: input.name, roundDescription: [input.description, input.aiPrompt ? `Interviewer generation request: ${input.aiPrompt}` : ""].filter(Boolean).join("\n"), deliveryMode, count: count - planned.length, excludeTexts: [...excludeTexts, ...planned.map((item) => item.text)] });
+                generated = await generateQuestionsForRound({
+                    company: req.organization?.name || "",
+                    jobRole,
+                    jobDescription,
+                    resumeText: "",
+                    roundName: input.name,
+                    roundDescription: [input.description, input.aiPrompt ? `Interviewer generation request: ${input.aiPrompt}` : ""].filter(Boolean).join("\n"),
+                    deliveryMode,
+                    count: count - planned.length,
+                    excludeTexts: [...excludeTexts, ...planned.map((item) => item.text)],
+                });
             } catch { /* deterministic fallback below */ }
         }
         const generatedItems = (Array.isArray(generated) ? generated : []).map((item) => ({ text: typeof item === "string" ? item : item?.text, required: false })).filter((item) => item.text?.trim());
@@ -191,7 +195,12 @@ export const enforceDebuggingPublishValidation = async (req, res, next) => {
 
 const candidateAttemptPayload = (attempt) => {
     const value = attempt.toObject ? attempt.toObject() : structuredClone(attempt);
-    delete value.accessTokenHash; delete value.reviewerScore; delete value.reviewerDecision; delete value.reviewerNotes; delete value.reviewerRatings; delete value.reviewedAt;
+    delete value.accessTokenHash;
+    delete value.reviewerScore;
+    delete value.reviewerDecision;
+    delete value.reviewerNotes;
+    delete value.reviewerRatings;
+    delete value.reviewedAt;
     value.debuggingResponses = (value.debuggingResponses || []).map((response) => ({ roundIndex: response.roundIndex, responseMode: response.responseMode, changedFiles: response.changedFiles || [], createdFiles: response.createdFiles || [], deletedFiles: response.deletedFiles || [], findings: response.findings, visibleTestRuns: response.visibleTestRuns || [], finalEvaluation: response.finalEvaluation, submittedAt: response.submittedAt }));
     return value;
 };
@@ -207,7 +216,10 @@ const loadDebuggingContext = async (req, res) => {
     if (!Number.isInteger(roundIndex) || !assessmentRound || !attemptRound || assessmentRound.deliveryMode !== "debugging") { res.status(400).json({ message: "Invalid debugging assignment" }); return null; }
     const config = normalizeDebuggingConfig(assessmentRound.debugging);
     let response = attempt.debuggingResponses?.find((item) => Number(item.roundIndex) === roundIndex);
-    if (!response) { attempt.debuggingResponses.push({ roundIndex, responseMode: config.responseMode, baseProjectFingerprint: fingerprintDebuggingProject(config.files) }); response = attempt.debuggingResponses[attempt.debuggingResponses.length - 1]; }
+    if (!response) {
+        attempt.debuggingResponses.push({ roundIndex, responseMode: config.responseMode, baseProjectFingerprint: fingerprintDebuggingProject(config.files) });
+        response = attempt.debuggingResponses[attempt.debuggingResponses.length - 1];
+    }
     return { assessment, attempt, assessmentRound, attemptRound, roundIndex, config, response };
 };
 
@@ -217,6 +229,7 @@ const workspacePayload = ({ assessmentRound, config, response, roundIndex }) => 
     runtime: config.runtime,
     entryFile: config.entryFile || "",
     instructions: assessmentRound.questions?.[0]?.text || "",
+    baseFiles: sanitizeProjectForCandidate(config.files),
     files: sanitizeProjectForCandidate(applyDebuggingOverlay(config.files, response)),
     findings: response.findings || { rootCause: "", evidence: "", proposedFix: "", impact: "", testingStrategy: "" },
     visibleTestRuns: response.visibleTestRuns || [],
@@ -225,19 +238,26 @@ const workspacePayload = ({ assessmentRound, config, response, roundIndex }) => 
 });
 
 export const getCandidateDebuggingWorkspace = async (req, res, next) => {
-    try { const context = await loadDebuggingContext(req, res); if (!context) return; await context.attempt.save(); return res.json(workspacePayload(context)); }
-    catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }
+    try {
+        const context = await loadDebuggingContext(req, res);
+        if (!context) return;
+        await context.attempt.save();
+        return res.json(workspacePayload(context));
+    } catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }
 };
 
 export const saveCandidateDebuggingWorkspace = async (req, res, next) => {
     try {
-        const context = await loadDebuggingContext(req, res); if (!context) return;
+        const context = await loadDebuggingContext(req, res);
+        if (!context) return;
         const { attempt, config, response } = context;
         if (response.submittedAt) return res.status(409).json({ message: "This debugging round has already been submitted" });
         if (config.responseMode === "code_fix") {
             const overlay = { changedFiles: req.body.changedFiles || [], createdFiles: req.body.createdFiles || [], deletedFiles: req.body.deletedFiles || [] };
             applyDebuggingOverlay(config.files, overlay);
-            response.changedFiles = overlay.changedFiles; response.createdFiles = overlay.createdFiles; response.deletedFiles = overlay.deletedFiles;
+            response.changedFiles = overlay.changedFiles;
+            response.createdFiles = overlay.createdFiles;
+            response.deletedFiles = overlay.deletedFiles;
         } else {
             const findings = req.body.findings || {};
             response.findings = { rootCause: cleanText(findings.rootCause), evidence: cleanText(findings.evidence), proposedFix: cleanText(findings.proposedFix), impact: cleanText(findings.impact), testingStrategy: cleanText(findings.testingStrategy) };
@@ -249,7 +269,8 @@ export const saveCandidateDebuggingWorkspace = async (req, res, next) => {
 
 export const runCandidateDebuggingProjectTests = async (req, res, next) => {
     try {
-        const context = await loadDebuggingContext(req, res); if (!context) return;
+        const context = await loadDebuggingContext(req, res);
+        if (!context) return;
         const { attempt, config, response } = context;
         if (config.responseMode !== "code_fix") return res.status(409).json({ message: "This assignment collects findings and does not execute candidate code" });
         if (response.submittedAt) return res.status(409).json({ message: "This debugging round has already been submitted" });
@@ -261,11 +282,18 @@ export const runCandidateDebuggingProjectTests = async (req, res, next) => {
     } catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }
 };
 
-const findingsAnswer = (findings) => [`Root cause:\n${findings.rootCause || ""}`, `Evidence:\n${findings.evidence || ""}`, `Proposed fix:\n${findings.proposedFix || ""}`, `Impact / risk:\n${findings.impact || ""}`, `Testing strategy:\n${findings.testingStrategy || ""}`].join("\n\n");
+const findingsAnswer = (findings) => [
+    `Root cause:\n${findings.rootCause || ""}`,
+    `Evidence:\n${findings.evidence || ""}`,
+    `Proposed fix:\n${findings.proposedFix || ""}`,
+    `Impact / risk:\n${findings.impact || ""}`,
+    `Testing strategy:\n${findings.testingStrategy || ""}`,
+].join("\n\n");
 
 export const submitCandidateDebuggingRound = async (req, res, next) => {
     try {
-        const context = await loadDebuggingContext(req, res); if (!context) return;
+        const context = await loadDebuggingContext(req, res);
+        if (!context) return;
         const { attempt, attemptRound, config, response } = context;
         if (response.submittedAt) return res.status(409).json({ message: "This debugging round has already been submitted" });
         let summary;
