@@ -109,7 +109,7 @@ test("shareable hiring link enforces camera and fullscreen before creating an at
     await page.getByRole("button", { name: "Start assessment" }).click();
 
     await expect.poll(() => startCalls).toBe(0);
-    await expect(page.getByText("Fullscreen is required before this assessment can start.", { exact: true })).toBeVisible();
+    await expect(page.locator("#main-content").getByText("Fullscreen is required before this assessment can start.", { exact: true })).toBeVisible();
 
     await page.evaluate(() => { window.__allowFullscreen = true; });
     await page.getByRole("button", { name: "Start assessment" }).click();
