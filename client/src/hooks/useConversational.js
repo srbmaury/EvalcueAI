@@ -111,6 +111,20 @@ export const useConversational = ({
             });
     }, []);
 
+    const waitForFinalFeedback = useCallback(async (data) => {
+        if (!data?.done || !data?.feedbackJobId) {
+            if (data?.feedbackJobId) void settleFeedbackJob(data.feedbackJobId);
+            return "skipped";
+        }
+        setConvRoundSubmitting(true);
+        setConvFeedbackProgress(8);
+        const result = await settleFeedbackJob(data.feedbackJobId, setConvFeedbackProgress);
+        if (result !== "completed") {
+            showToast("warning", "Round saved. Feedback is still being prepared and will refresh on the overall feedback page.", true);
+        }
+        return result;
+    }, [settleFeedbackJob, showToast]);
+
     const handleSubmitAnswer = useCallback(async (answer) => {
         if (!selectedRound || !isConversational || pendingFollowUp) return;
         const currentIndex = convState.index;
@@ -121,20 +135,23 @@ export const useConversational = ({
             const { data } = await api.post(`/questions/${selectedRound._id}/answer`, { index: currentIndex, answer });
             setConvAnswer("");
             if (data?.followUp) setPendingFollowUp({ question: data.followUp, number: data.followUpNumber || 1, qIndex: currentIndex });
-            if (data?.feedbackJobId) settleFeedbackJob(data.feedbackJobId);
+            await waitForFinalFeedback(data);
             const snapshot = await refreshInterviewAndRound();
             if (data?.done) {
                 trackEvent("round_completed");
                 if (snapshot.updated) selectRound(snapshot.updated);
-                showToast("success", "Round complete. Review your debrief, then use Rounds when you’re ready to continue.");
+                clearDraftsForRound(selectedRound);
+                showToast("success", "Round complete. Your feedback is ready to review.");
             }
         } catch (error) {
             console.error("answer submit error", error);
             showToast("error", error?.response?.data?.message || "Failed to save your answer.");
         } finally {
             setConvSubmitting(false);
+            setConvRoundSubmitting(false);
+            setConvFeedbackProgress(0);
         }
-    }, [selectedRound, isConversational, pendingFollowUp, convState.index, interviewId, refreshInterviewAndRound, settleFeedbackJob, showToast, selectRound]);
+    }, [selectedRound, isConversational, pendingFollowUp, convState.index, interviewId, waitForFinalFeedback, refreshInterviewAndRound, showToast, selectRound, clearDraftsForRound]);
 
     const handleFollowUpDone = useCallback(async (followUpAnswer = "") => {
         if (!pendingFollowUp || !selectedRound) return;
@@ -150,20 +167,23 @@ export const useConversational = ({
             setConvAnswer("");
             if (data?.followUp) setPendingFollowUp({ question: data.followUp, number: data.followUpNumber || pendingFollowUp.number + 1, qIndex: pendingFollowUp.qIndex });
             else setPendingFollowUp(null);
-            if (data?.feedbackJobId) settleFeedbackJob(data.feedbackJobId);
+            await waitForFinalFeedback(data);
             const snapshot = await refreshInterviewAndRound();
             if (data?.done) {
                 trackEvent("round_completed");
                 if (snapshot.updated) selectRound(snapshot.updated);
-                showToast("success", "Round complete. Review your debrief, then use Rounds when you’re ready to continue.");
+                clearDraftsForRound(selectedRound);
+                showToast("success", "Round complete. Your feedback is ready to review.");
             }
         } catch (error) {
             console.error("follow-up submit error", error);
             showToast("warning", error?.response?.data?.message || "Follow-up answer could not be saved.");
         } finally {
             setConvSubmitting(false);
+            setConvRoundSubmitting(false);
+            setConvFeedbackProgress(0);
         }
-    }, [pendingFollowUp, selectedRound, interviewId, refreshInterviewAndRound, settleFeedbackJob, showToast, selectRound]);
+    }, [pendingFollowUp, selectedRound, interviewId, waitForFinalFeedback, refreshInterviewAndRound, showToast, selectRound, clearDraftsForRound]);
 
     const handleClarify = useCallback(async (message) => {
         if (!selectedRound || !isConversational) return "";
@@ -206,7 +226,7 @@ export const useConversational = ({
             if (feedbackJobId) {
                 const result = await settleFeedbackJob(feedbackJobId, setConvFeedbackProgress);
                 if (result !== "completed") {
-                    showToast("warning", "Round saved. Feedback is still being prepared; reopen this round in a moment if it is not visible yet.", true);
+                    showToast("warning", "Round saved. Feedback is still being prepared and will refresh on the overall feedback page.", true);
                 }
             }
             const { data } = await api.get(`/interviews/${interviewId}`);
@@ -215,7 +235,7 @@ export const useConversational = ({
             const index = (data.rounds || []).findIndex((entry) => entry.round._id === selectedRound._id);
             const updatedSelf = index >= 0 ? data.rounds[index]?.round : null;
             selectRound(updatedSelf || null);
-            showToast("success", "Round complete. Review your debrief, then use Rounds when you’re ready to continue.");
+            showToast("success", "Round complete. Your feedback is ready to review.");
         } catch (error) {
             console.error("complete round error", error);
             showToast("error", error?.response?.data?.message || "Failed to complete round.");
