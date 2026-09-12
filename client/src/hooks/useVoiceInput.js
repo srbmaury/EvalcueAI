@@ -2,7 +2,7 @@ import { useState, useCallback, useContext, useEffect, useRef } from "react";
 import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
 import { chooseInterviewerGender, interviewerPitchForGender, selectInterviewerVoice } from "../utils/interviewerVoice";
-import { sanitizeTranscriptSegment } from "../utils/transcriptSanitizer";
+import { mergeTranscriptText, sanitizeTranscriptSegment } from "../utils/transcriptSanitizer";
 
 const SpeechRecognitionCtor =
     typeof window !== "undefined"
@@ -10,6 +10,7 @@ const SpeechRecognitionCtor =
         : null;
 
 const HANDS_FREE_SEGMENT_MS = 20000;
+const TRANSCRIPT_OVERLAP_WINDOW_MS = 2500;
 
 export const composeLiveTranscript = (finalText, interimText) => `${finalText || ""} ${interimText || ""}`.trim();
 
@@ -54,8 +55,31 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     const rafRef = useRef(null);
     const interviewerGenderRef = useRef(null);
     const interviewerVoiceRef = useRef(null);
+    const recentTranscriptRef = useRef({ target: null, text: "", at: 0 });
+    const rawOnTranscriptRef = useRef(onTranscript);
     const onTranscriptRef = useRef(onTranscript);
-    useEffect(() => { onTranscriptRef.current = onTranscript; }, [onTranscript]);
+
+    useEffect(() => {
+        rawOnTranscriptRef.current = onTranscript;
+        onTranscriptRef.current = (target, value) => {
+            const cleaned = safeTranscript(value);
+            if (!cleaned) return;
+            const now = Date.now();
+            const previous = recentTranscriptRef.current;
+            if (previous.target === target && previous.text && now - previous.at <= TRANSCRIPT_OVERLAP_WINDOW_MS) {
+                const merged = mergeTranscriptText(previous.text, cleaned);
+                const delta = merged.startsWith(previous.text)
+                    ? merged.slice(previous.text.length).trim()
+                    : cleaned;
+                recentTranscriptRef.current = { target, text: merged, at: now };
+                if (!delta) return;
+                rawOnTranscriptRef.current?.(target, delta);
+                return;
+            }
+            recentTranscriptRef.current = { target, text: cleaned, at: now };
+            rawOnTranscriptRef.current?.(target, cleaned);
+        };
+    }, [onTranscript]);
 
     const supportsTTS = typeof window !== "undefined" && "speechSynthesis" in window;
     const supportsSTT = enableServerTranscription || Boolean(SpeechRecognitionCtor);

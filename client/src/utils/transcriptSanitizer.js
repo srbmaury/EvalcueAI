@@ -11,6 +11,8 @@ const normalize = (value = "") => value
     .replace(/\s+/g, " ")
     .trim();
 
+const comparableToken = (value = "") => value.toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, "");
+
 const repeatedOutroOnly = (text) => {
     const cleaned = text
         .toLowerCase()
@@ -49,4 +51,34 @@ export const sanitizeTranscriptSegment = (value = "") => {
     const text = normalize(value);
     if (looksLikeSilenceHallucination(text)) return "";
     return text;
+};
+
+/**
+ * Browser speech recognition can commit overlapping final segments when it
+ * restarts or rotates recorders. Merge the longest token overlap at the
+ * boundary instead of blindly concatenating, while leaving the rest of the
+ * candidate's wording untouched.
+ */
+export const mergeTranscriptText = (existing = "", incoming = "") => {
+    const left = normalize(existing);
+    const right = normalize(incoming);
+    if (!right) return left;
+    if (!left) return right;
+
+    const leftTokens = left.split(" ");
+    const rightTokens = right.split(" ");
+    const maxOverlap = Math.min(leftTokens.length, rightTokens.length, 24);
+    let overlap = 0;
+    for (let size = maxOverlap; size >= 1; size -= 1) {
+        const matches = leftTokens.slice(-size).every((token, index) => (
+            comparableToken(token) === comparableToken(rightTokens[index])
+        ));
+        if (matches) {
+            overlap = size;
+            break;
+        }
+    }
+
+    const remainder = rightTokens.slice(overlap).join(" ").trim();
+    return remainder ? `${left} ${remainder}` : left;
 };

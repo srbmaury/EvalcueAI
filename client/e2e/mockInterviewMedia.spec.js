@@ -98,7 +98,7 @@ const installBlockedMedia = async (page) => {
     });
 };
 
-test("mock interview asks for mic and camera before revealing the first question", async ({ page }) => {
+test("mock interview requires mic but keeps camera optional before revealing the first question", async ({ page }) => {
     await installBlockedMedia(page);
     await mockAuth(page);
     await page.route("**/api/interviews/interview-voice", (route) => json(route, interviewPayload()));
@@ -106,7 +106,9 @@ test("mock interview asks for mic and camera before revealing the first question
     await openVoiceRound(page);
 
     await expect(page.getByText("Before we start", { exact: true })).toBeVisible();
-    await expect(page.getByText(/turn on your microphone and camera/i)).toBeVisible();
+    await expect(page.getByText(/turn on your microphone before i ask the first question/i)).toBeVisible();
+    await expect(page.getByText(/turn on your microphone and camera/i)).toHaveCount(0);
+    await expect(page.getByText("Camera needed", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Turn on mic" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Turn on camera" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Tell me about a production incident you handled." })).toHaveCount(0);
@@ -163,13 +165,18 @@ test("mock interview refreshes completed-round feedback after the background job
     await expect(page.getByRole("heading", { name: "Tell me about a production incident you handled." })).toBeVisible();
     await page.getByRole("button", { name: "Type / code" }).click();
     await page.getByPlaceholder("Answer by typing or speaking...").fill("I coordinated rollback, added alerts, and wrote the postmortem.");
-    await page.getByRole("button", { name: "I’m done" }).click();
+    await page.getByRole("button", { name: "Submit now" }).click();
     await expect.poll(() => answerText).toContain("coordinated rollback");
 
     await page.getByRole("button", { name: "End round" }).click();
     await page.getByRole("button", { name: "End round" }).last().click();
 
-    await expect(page.getByRole("heading", { name: "Overall feedback" })).toBeVisible();
+    await expect(page.getByText("Round feedback", { exact: true })).toBeVisible();
     await expect(page.getByText("Well structured answer with clear ownership.")).toBeVisible();
     await expect(page.getByText(/Generating interview feedback/i)).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Back to rounds" }).click();
+    await page.getByRole("link", { name: "View overall interview feedback" }).click();
+    await expect(page.getByRole("heading", { name: "Overall interview feedback" })).toBeVisible();
+    await expect(page.getByText("Well structured answer with clear ownership.")).toBeVisible();
 });

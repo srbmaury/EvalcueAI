@@ -158,7 +158,7 @@ const FeedbackPanel = ({ round }) => {
                 <CardContent>
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "flex-start", sm: "center" }} justifyContent="space-between">
                         <Stack spacing={0.5}>
-                            <Typography variant="subtitle1">Overall feedback</Typography>
+                            <Typography variant="subtitle1">Round feedback</Typography>
                             <Typography variant="body2" color="text.secondary">Based on {scoreCount} answered question{scoreCount === 1 ? "" : "s"} with feedback</Typography>
                             {round?.adaptiveState?.completedReason && (
                                 <Typography variant="caption" color="text.secondary">Adaptive round: {round.adaptiveState.completedReason}</Typography>

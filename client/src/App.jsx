@@ -21,6 +21,7 @@ const WeeklyPlanSessionPage = lazy(() => import("./pages/WeeklyPlanSessionPage.j
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage.jsx"));
 const InterviewPage = lazy(() => import("./pages/InterviewPage"));
+const InterviewFeedbackPage = lazy(() => import("./pages/InterviewFeedbackPage.jsx"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const ProfilePage = lazy(() => import("./pages/ProfileSettingsPage.jsx"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
@@ -135,6 +136,7 @@ function App() {
                 <Route path="/practice/weekly-plan" element={<ProtectedRoute><WeeklyPlanSessionPage /></ProtectedRoute>} />
                 <Route path="/practice/new" element={<ProtectedRoute><CreateInterviewPage /></ProtectedRoute>} />
                 <Route path="/practice/resume-review" element={<ProtectedRoute><ResumeReviewPage /></ProtectedRoute>} />
+                <Route path="/practice/interviews/:interviewId/feedback" element={<ProtectedRoute><InterviewFeedbackPage /></ProtectedRoute>} />
                 <Route path="/practice/interviews/:interviewId" element={<ProtectedRoute><InterviewPage /></ProtectedRoute>} />
                 <Route path="/hire/assessments" element={<HiringRoute><HiringWorkspacePage /></HiringRoute>} />
                 <Route path="/hire/assessments/:assessmentId" element={<HiringRoute><AssessmentReportPage /></HiringRoute>} />

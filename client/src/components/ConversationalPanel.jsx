@@ -1,6 +1,7 @@
-import { useState, useEffect, lazy, memo, Suspense, useMemo, useCallback } from "react";
+import { useState, useEffect, lazy, memo, Suspense, useMemo, useCallback, useRef } from "react";
 import SoundWave from "./SoundWave";
 import { useElapsed } from "../hooks/useElapsed";
+import { DEFAULT_VOICE_SILENCE_MS, shouldAutoSubmitVoiceTurn } from "../utils/voiceTurnPolicy";
 import {
     Box, Button, Chip, CircularProgress, Dialog, DialogActions,
     DialogContent, DialogContentText, DialogTitle, Paper,
@@ -15,6 +16,7 @@ import SkipRoundButton from "./SkipRoundButton";
 import WebcamPreview from "./WebcamPreview";
 
 const CodeEditorField = lazy(() => import("./CodeEditorField"));
+const SPEECH_ACTIVITY_LEVEL = 0.035;
 
 const ConversationalPanel = ({
     convSubmitting,
@@ -37,6 +39,7 @@ const ConversationalPanel = ({
     listening,
     listeningTarget,
     interimText,
+    micLevel = 0,
     onSpeak,
     outlinedInputSx,
     savedAt,
@@ -52,11 +55,12 @@ const ConversationalPanel = ({
     showRoundControls = true,
     allowFollowUpSkip = true,
     showFollowUpCount = false,
-    submitAnswerLabel = "I’m done",
-    submitFollowUpLabel = "I’m done",
+    submitAnswerLabel = "Submit now",
+    submitFollowUpLabel = "Submit now",
+    autoSubmitVoiceOnSilence,
     cameraSlot,
-    requireCameraBeforeStart = true,
-    autoStartCamera = true,
+    requireCameraBeforeStart = false,
+    autoStartCamera = false,
 }) => {
     const [clarifyText, setClarifyText] = useState("");
     const [clarifying, setClarifying] = useState(false);
@@ -66,6 +70,9 @@ const ConversationalPanel = ({
     const [showTypedAnswer, setShowTypedAnswer] = useState(false);
     const [cameraState, setCameraState] = useState({ on: false, denied: false });
     const [cameraBypassed, setCameraBypassed] = useState(false);
+    const lastVoiceActivityRef = useRef(Date.now());
+    const lastObservedAnswerRef = useRef("");
+    const autoSubmittedTurnRef = useRef("");
     const elapsedLabel = useElapsed();
 
     const questionNumber = useMemo(() => (convState?.index ?? 0) + 1, [convState?.index]);
@@ -75,6 +82,7 @@ const ConversationalPanel = ({
     const isFollowUp = Boolean(pendingFollowUp);
     const isDone = convState?.done;
     const typedWorkspaceVisible = showTypedAnswer || codingEnabled || !supportsSTT;
+    const autoAdvanceEnabled = autoSubmitVoiceOnSilence ?? showRoundControls;
     const cameraReady = cameraSlot !== undefined || !requireCameraBeforeStart || cameraState.on || cameraBypassed;
     const micReady = !supportsSTT || micSessionActive;
     const needsMic = Boolean(supportsSTT && activeText && !micReady && !isDone && !convRoundSubmitting);
@@ -139,8 +147,8 @@ const ConversationalPanel = ({
     }, [readinessNeeded, readinessPrompt, supportsTTS, triggerSpeak]);
 
     useEffect(() => {
-        if (!supportsTTS || !questionText || readinessNeeded) return;
-        const intro = questionNumber === 1 && !isFollowUp
+        if (!supportsTTS || !questionText || readinessNeeded || isFollowUp) return;
+        const intro = questionNumber === 1
             ? `Hi, I’m your interviewer for this round. Let’s begin. ${questionText}`
             : questionText;
         const timer = setTimeout(() => { triggerSpeak(intro); }, 350);
@@ -156,7 +164,22 @@ const ConversationalPanel = ({
     useEffect(() => {
         setClarification(null);
         setClarifyText("");
+        lastVoiceActivityRef.current = Date.now();
+        autoSubmittedTurnRef.current = "";
     }, [activeText]);
+
+    useEffect(() => {
+        const currentAnswer = String(convAnswer || "");
+        if (
+            currentAnswer !== lastObservedAnswerRef.current
+            || Boolean(interimText?.trim())
+            || (isRecording && Number(micLevel) >= SPEECH_ACTIVITY_LEVEL)
+        ) {
+            lastVoiceActivityRef.current = Date.now();
+            if (currentAnswer !== lastObservedAnswerRef.current) autoSubmittedTurnRef.current = "";
+            lastObservedAnswerRef.current = currentAnswer;
+        }
+    }, [convAnswer, interimText, isRecording, micLevel]);
 
     useEffect(() => () => { onStopHandsFree?.(); }, [onStopHandsFree]);
 
@@ -186,6 +209,32 @@ const ConversationalPanel = ({
         await onPauseHandsFree?.();
         await onFollowUpDone?.({ skip });
     };
+
+    useEffect(() => {
+        if (!autoAdvanceEnabled) return undefined;
+        const timer = window.setInterval(() => {
+            const answer = String(convAnswer || "").trim();
+            const turnKey = `${activeText}::${answer}`;
+            if (!answer || autoSubmittedTurnRef.current === turnKey) return;
+            if (!shouldAutoSubmitVoiceTurn({
+                answer,
+                silenceMs: Date.now() - lastVoiceActivityRef.current,
+                thresholdMs: DEFAULT_VOICE_SILENCE_MS,
+                isListening: isRecording,
+                micSessionActive,
+                aiSpeaking,
+                hasInterimText: Boolean(interimText?.trim()),
+                typedWorkspaceVisible,
+                codingEnabled,
+                submitting: convSubmitting || convRoundSubmitting,
+                readinessNeeded,
+            })) return;
+            autoSubmittedTurnRef.current = turnKey;
+            if (pendingFollowUp) void submitFollowUpTurn(false);
+            else void submitAnswerTurn();
+        }, 400);
+        return () => window.clearInterval(timer);
+    }, [activeText, aiSpeaking, autoAdvanceEnabled, codingEnabled, convAnswer, convRoundSubmitting, convSubmitting, interimText, isRecording, micSessionActive, pendingFollowUp, readinessNeeded, typedWorkspaceVisible]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const endRound = async () => {
         setSubmitRoundOpen(false);
@@ -228,7 +277,7 @@ const ConversationalPanel = ({
                             <Typography component="h2" sx={{ fontSize: { xs: "1rem", sm: "1.18rem", md: "1.28rem" }, lineHeight: 1.55, fontWeight: 700, color: "rgba(255,255,255,.96)" }}>{readinessPrompt}</Typography>
                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
                                 <Chip size="small" color={micReady ? "success" : "warning"} label={micReady ? "Mic ready" : "Mic needed"} />
-                                <Chip size="small" color={cameraReady ? "success" : "warning"} label={cameraReady ? "Camera ready" : "Camera needed"} />
+                                {requireCameraBeforeStart && <Chip size="small" color={cameraReady ? "success" : "warning"} label={cameraReady ? "Camera ready" : "Camera needed"} />}
                             </Stack>
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
                                 {supportsSTT && <Button variant={micReady ? "outlined" : "contained"} onClick={() => onStartHandsFree?.(target)}>{micReady ? "Mic is on" : "Turn on mic"}</Button>}
@@ -266,7 +315,7 @@ const ConversationalPanel = ({
                             </Box>
                             <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
                                 <Typography fontWeight={800}>{isRecording ? "Speak naturally — I’m listening" : aiSpeaking ? "The interviewer has the floor" : "Your response"}</Typography>
-                                <Typography variant="body2" color="text.secondary" mt={.25}>The microphone stays available and pauses automatically while the interviewer speaks. Continue when you are ready; finish the turn explicitly.</Typography>
+                                <Typography variant="body2" color="text.secondary" mt={.25}>{autoAdvanceEnabled && !typedWorkspaceVisible && !codingEnabled ? "Keep speaking naturally. I’ll move on after about five seconds of silence; use Submit now if you want to move immediately." : "The microphone stays available and pauses automatically while the interviewer speaks."}</Typography>
                                 {isRecording && interimText && <Typography variant="body2" sx={{ mt: 1, fontStyle: "italic", color: "text.secondary" }}>“{interimText}”</Typography>}
                                 {!typedWorkspaceVisible && convAnswer?.trim() && <Paper variant="outlined" sx={{ mt: 1.25, p: 1.5, bgcolor: "action.hover", maxHeight: 120, overflow: "auto" }}><Typography variant="caption" color="text.secondary" fontWeight={700}>LIVE TRANSCRIPT</Typography><Typography variant="body2" mt={.5}>{convAnswer}</Typography></Paper>}
                             </Box>
@@ -287,12 +336,19 @@ const ConversationalPanel = ({
                         )}
 
                         {typedWorkspaceVisible && (
-                            <Suspense fallback={<Skeleton variant="rectangular" height={180} sx={{ borderRadius: 2 }} />}>
-                                <CodeEditorField value={convAnswer} onChange={setConvAnswer} onModeChange={onCodingModeChange} draftKey={codeDraftKey} suggestCode={/\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(questionText || "")} outlinedInputSx={outlinedInputSx} minRows={7} {...codeEditorProps} />
-                            </Suspense>
+                            codingEnabled ? (
+                                <Box data-testid="coding-workspace" sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1.65fr) minmax(300px, .85fr)" }, gap: 2, alignItems: "start" }}>
+                                    <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 2 }} />}>
+                                        <CodeEditorField value={convAnswer} onChange={setConvAnswer} onModeChange={onCodingModeChange} draftKey={codeDraftKey} suggestCode={/\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(questionText || "")} outlinedInputSx={outlinedInputSx} minRows={7} {...codeEditorProps} />
+                                    </Suspense>
+                                    <TextField label="Explain your approach" value={spokenAnswer || ""} onChange={(event) => setSpokenAnswer?.(event.target.value)} multiline minRows={7} fullWidth helperText="Explain complexity, edge cases, and the decisions behind the code while it remains visible beside you." />
+                                </Box>
+                            ) : (
+                                <Suspense fallback={<Skeleton variant="rectangular" height={180} sx={{ borderRadius: 2 }} />}>
+                                    <CodeEditorField value={convAnswer} onChange={setConvAnswer} onModeChange={onCodingModeChange} draftKey={codeDraftKey} suggestCode={/\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(questionText || "")} outlinedInputSx={outlinedInputSx} minRows={7} {...codeEditorProps} />
+                                </Suspense>
+                            )
                         )}
-
-                        {codingEnabled && <TextField label="Explain your approach" value={spokenAnswer || ""} onChange={(event) => setSpokenAnswer?.(event.target.value)} multiline minRows={3} fullWidth helperText="Keep your verbal reasoning separate from the code." />}
 
                         {pendingFollowUp ? (
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="flex-end">
