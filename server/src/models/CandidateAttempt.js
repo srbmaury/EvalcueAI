@@ -19,6 +19,7 @@ const debugFindingsSchema = new mongoose.Schema({
     rootCause: { type: String, maxlength: 10000, default: "" },
     evidence: { type: String, maxlength: 10000, default: "" },
     proposedFix: { type: String, maxlength: 10000, default: "" },
+    impact: { type: String, maxlength: 10000, default: "" },
     testingStrategy: { type: String, maxlength: 10000, default: "" },
 }, { _id: false });
 
@@ -52,13 +53,13 @@ const attemptQuestionSchema = new mongoose.Schema({
     spokenExplanation: { type: String, maxlength: 5000, default: "" },
     diagramData: { type: String, maxlength: 500000, default: "" },
     diagramSummary: { type: String, maxlength: 10000, default: "" },
+    // Provisional single-file debugging fields retained only during the
+    // feature-branch migration. Project endpoints use debuggingResponses[].
     debugCode: { type: String, maxlength: 20000, default: "" },
     debugFindings: { type: debugFindingsSchema, default: undefined },
     debugTestResult: { type: debugTestResultSchema, default: undefined },
     discussionTurns: { type: [discussionTurnSchema], default: [], validate: (value) => value.length <= 80 },
     followUps: { type: [attemptFollowUpSchema], default: [], validate: (value) => value.length <= 3 },
-    // Kept as a compatibility projection for existing candidate UI/local recovery.
-    // The authoritative history is followUps[].
     followUpQuestion: { type: String, maxlength: 1000, default: "" },
     followUpAnswer: { type: String, maxlength: 5000, default: "" },
     feedbackComment: { type: String, maxlength: 2500, default: "" },
@@ -75,6 +76,39 @@ const attemptRoundSchema = new mongoose.Schema({
     questions: [attemptQuestionSchema],
     score: { type: Number, min: 0, max: 10 },
 }, { _id: true });
+
+const debuggingOverlayFileSchema = new mongoose.Schema({
+    path: { type: String, required: true, maxlength: 500 },
+    content: { type: String, default: "", maxlength: 262144 },
+}, { _id: false });
+
+const debuggingVisibleFailureSchema = new mongoose.Schema({
+    name: { type: String, maxlength: 200, default: "" },
+    message: { type: String, maxlength: 5000, default: "" },
+}, { _id: false });
+
+const debuggingRunSummarySchema = new mongoose.Schema({
+    status: { type: String, enum: ["passed", "failed", "compile_error", "runtime_error", "timeout"], default: "failed" },
+    visiblePassed: { type: Number, min: 0, default: 0 },
+    visibleTotal: { type: Number, min: 0, default: 0 },
+    hiddenPassed: { type: Number, min: 0, default: 0 },
+    hiddenTotal: { type: Number, min: 0, default: 0 },
+    visibleFailures: { type: [debuggingVisibleFailureSchema], default: [] },
+    ranAt: { type: Date, default: Date.now },
+}, { _id: false });
+
+const debuggingResponseSchema = new mongoose.Schema({
+    roundIndex: { type: Number, min: 0, required: true },
+    responseMode: { type: String, enum: ["code_fix", "findings"], required: true },
+    baseProjectFingerprint: { type: String, maxlength: 128, default: "" },
+    changedFiles: { type: [debuggingOverlayFileSchema], default: [] },
+    createdFiles: { type: [debuggingOverlayFileSchema], default: [] },
+    deletedFiles: [{ type: String, maxlength: 500 }],
+    findings: { type: debugFindingsSchema, default: undefined },
+    visibleTestRuns: { type: [debuggingRunSummarySchema], default: [], validate: (value) => value.length <= 20 },
+    finalEvaluation: { type: mongoose.Schema.Types.Mixed, default: undefined },
+    submittedAt: Date,
+}, { _id: false });
 
 const evaluationMetadataSchema = new mongoose.Schema({
     engineVersion: { type: String, maxlength: 80, default: "" },
@@ -96,6 +130,7 @@ const candidateAttemptSchema = new mongoose.Schema({
     evaluationError: { type: String, maxlength: 500, default: "" },
     evaluationMetadata: { type: evaluationMetadataSchema, default: undefined },
     rounds: [attemptRoundSchema],
+    debuggingResponses: { type: [debuggingResponseSchema], default: [] },
     overallScore: { type: Number, min: 0, max: 10 },
     reviewerScore: { type: Number, min: 0, max: 10 },
     reviewerDecision: { type: String, enum: ["", "advance", "hold", "reject"], default: "" },
@@ -106,8 +141,6 @@ const candidateAttemptSchema = new mongoose.Schema({
     integrityEvents: [{ type: { type: String, enum: ["tab_hidden", "window_blur", "fullscreen_exit", "copy", "paste", "offline", "online", "face_missing", "face_restored", "multiple_faces", "camera_interrupted", "face_detection_unavailable"] }, at: { type: Date, default: Date.now }, metadata: { type: mongoose.Schema.Types.Mixed } }],
 }, { timestamps: true });
 
-// System-design and debugging rounds are one evolving task. Keep exactly one
-// problem in the live attempt while other formats retain their question list.
 candidateAttemptSchema.pre("save", function normalizeSingleTaskRounds() {
     for (const round of this.rounds || []) {
         if (!["system-design", "debugging"].includes(round.deliveryMode)) continue;
