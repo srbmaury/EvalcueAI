@@ -1,4 +1,5 @@
 import fetch from "node-fetch";
+import { buildTransactionalEmail } from "./transactionalEmail.js";
 
 const BREVO_API_URL = "https://api.brevo.com/v3";
 const envTrim = (value) => typeof value === "string" ? value.trim() : value;
@@ -33,19 +34,21 @@ const recipients = (to) => (Array.isArray(to) ? to : String(to || "").split(",")
     .map((email) => typeof email === "string" ? { email: email.trim() } : email)
     .filter((recipient) => recipient?.email);
 
-export const sendMail = async ({ to, subject, html, text }) => {
+export const sendMail = async ({ to, subject, html, text, replyTo }) => {
     if (process.env.NODE_ENV === "test" && process.env.ALLOW_TEST_EMAIL !== "true") return;
     const senderEmail = envTrim(process.env.BREVO_SENDER_EMAIL);
     if (!senderEmail) throw new Error("BREVO_SENDER_EMAIL is not configured");
+    const senderName = envTrim(process.env.BREVO_SENDER_NAME) || "Evalcue AI";
+    const replyToEmail = envTrim(replyTo) || senderEmail;
     return brevoRequest("/smtp/email", {
         method: "POST",
         body: JSON.stringify({
-            sender: { email: senderEmail, name: envTrim(process.env.BREVO_SENDER_NAME) || "Evalcue AI" },
+            sender: { email: senderEmail, name: senderName },
             to: recipients(to),
             subject,
             ...(html ? { htmlContent: html } : {}),
             ...(text ? { textContent: text } : {}),
-            replyTo: { email: senderEmail, name: envTrim(process.env.BREVO_SENDER_NAME) || "Evalcue AI" },
+            replyTo: { email: replyToEmail, name: senderName },
             tags: ["evalcue-transactional"],
         }),
     });
@@ -56,17 +59,13 @@ export const verifyEmailProvider = async () => {
     console.log("Brevo API verified: transactional email ready");
 };
 
-export const buildVerificationEmail = (name, verifyUrl) => {
-    const subject = "Verify your email";
-    const text = `Hi ${name},\n\nPlease verify your email by clicking the link below:\n${verifyUrl}\n\nIf you did not sign up, you can ignore this email.`;
-    const html = `
-        <div style="font-family: Arial, sans-serif; line-height:1.5;">
-            <h2>Verify your email</h2>
-            <p>Hi ${name},</p>
-            <p>Please verify your email by clicking the button below:</p>
-            <p><a href="${verifyUrl}" style="display:inline-block;padding:10px 16px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:6px;">Verify Email</a></p>
-            <p>Or open this link: <br/><a href="${verifyUrl}">${verifyUrl}</a></p>
-            <p>If you did not sign up, you can ignore this email.</p>
-        </div>`;
-    return { subject, text, html };
-};
+export const buildVerificationEmail = (name, verifyUrl) => buildTransactionalEmail({
+    subject: "Verify your Evalcue AI email",
+    preheader: "Verify your email to finish creating your Evalcue AI account.",
+    greeting: `Hi ${name || "there"},`,
+    heading: "Verify your email",
+    intro: "Confirm this email address to finish setting up your Evalcue AI account.",
+    cta: { label: "Verify email", url: verifyUrl },
+    note: "This verification link expires after 24 hours. If you did not create this account, you can ignore this message.",
+    footer: "You received this email because an Evalcue AI account was created with this address.",
+});
