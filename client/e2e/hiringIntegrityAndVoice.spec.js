@@ -56,11 +56,14 @@ const installCandidateMedia = async (page, { fullscreenAllowed = true } = {}) =>
             configurable: true,
             get: () => fullscreenElement,
         });
-        document.documentElement.requestFullscreen = async () => {
-            if (!window.__allowFullscreen) throw new Error("fullscreen blocked");
-            fullscreenElement = document.documentElement;
-            document.dispatchEvent(new Event("fullscreenchange"));
-        };
+        Object.defineProperty(Element.prototype, "requestFullscreen", {
+            configurable: true,
+            value: async function requestFullscreen() {
+                if (!window.__allowFullscreen) throw new Error("fullscreen blocked");
+                fullscreenElement = this;
+                document.dispatchEvent(new Event("fullscreenchange"));
+            },
+        });
         document.exitFullscreen = async () => {
             fullscreenElement = null;
             document.dispatchEvent(new Event("fullscreenchange"));
