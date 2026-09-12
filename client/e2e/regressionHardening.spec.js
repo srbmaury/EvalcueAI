@@ -6,7 +6,9 @@ const json = (route, body, status = 200) => route.fulfill({
     body: JSON.stringify(body),
 });
 
-test("public header navigation renders while session restoration is still pending", async ({ page }) => {
+test("public header navigation renders while session restoration is still pending", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Desktop header regression test");
+
     let releaseRefresh;
     const refreshPending = new Promise((resolve) => { releaseRefresh = resolve; });
 
