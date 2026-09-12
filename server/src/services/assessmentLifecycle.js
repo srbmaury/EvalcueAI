@@ -1,20 +1,31 @@
 import Assessment from "../models/Assessment.js";
 import { sendMail } from "../utils/mailer.js";
+import { buildHiringInvitationEmail } from "../utils/hiringInvitationEmail.js";
 import { practiceClientOrigin } from "../config/clientOrigins.js";
 
-const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
-
 const invitationMail = (assessment, invitation) => {
-    const appUrl = practiceClientOrigin();
-    const link = `${appUrl}/assessment/${assessment.shareToken}?invite=${invitation._id}`;
-    const deadline = assessment.expiresAt ? new Intl.DateTimeFormat("en", { dateStyle: "full", timeStyle: "short", timeZone: assessment.timezone || "UTC" }).format(assessment.expiresAt) : "No fixed deadline";
-    return { to: invitation.email, subject: `Invitation: ${assessment.title}`, text: `Hi ${invitation.name || "there"},\n\nYou have been invited to complete ${assessment.title} for ${assessment.jobRole}.\n\nOpen assessment: ${link}\n\nDeadline: ${deadline} (${assessment.timezone || "UTC"}).`, html: `<p>Hi ${escapeHtml(invitation.name || "there")},</p><p>You have been invited to complete <strong>${escapeHtml(assessment.title)}</strong> for ${escapeHtml(assessment.jobRole)}.</p><p><a href="${escapeHtml(link)}">Start assessment</a></p><p>Deadline: ${escapeHtml(deadline)} (${escapeHtml(assessment.timezone || "UTC")}).</p>` };
+    const candidateLink = `${practiceClientOrigin()}/assessment/${assessment.shareToken}?invite=${invitation._id}`;
+    return buildHiringInvitationEmail({
+        candidateName: invitation.name || "there",
+        candidateEmail: invitation.email,
+        organizationName: assessment.organization?.name || "Hiring team",
+        assessmentTitle: assessment.title,
+        jobRole: assessment.jobRole,
+        durationMinutes: assessment.durationMinutes,
+        opensAt: assessment.opensAt,
+        expiresAt: assessment.expiresAt,
+        timezone: assessment.timezone || "UTC",
+        candidateLink,
+        contactEmail: assessment.contactEmail || "",
+        inviteOnly: assessment.inviteOnly,
+        integrity: assessment.integrity || { enabled: false },
+    });
 };
 
 export const processAssessmentLifecycle = async (now = new Date()) => {
     const opened = await Assessment.updateMany({ status: "scheduled", opensAt: { $lte: now }, $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] }, { $set: { status: "active", publishedAt: now } });
     const closed = await Assessment.updateMany({ status: { $in: ["scheduled", "active"] }, expiresAt: { $lte: now } }, { $set: { status: "closed" } });
-    const assessments = await Assessment.find({ status: "active", invitations: { $elemMatch: { status: { $in: ["queued", "failed"] }, $or: [{ nextAttemptAt: null }, { nextAttemptAt: { $lte: now } }], attempts: { $lt: 5 } } } });
+    const assessments = await Assessment.find({ status: "active", invitations: { $elemMatch: { status: { $in: ["queued", "failed"] }, $or: [{ nextAttemptAt: null }, { nextAttemptAt: { $lte: now } }], attempts: { $lt: 5 } } } }).populate("organization", "name");
     let sent = 0; let failed = 0;
     for (const assessment of assessments) {
         for (const invitation of assessment.invitations) {
