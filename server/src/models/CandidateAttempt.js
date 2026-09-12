@@ -15,6 +15,28 @@ const discussionTurnSchema = new mongoose.Schema({
     at: { type: Date, default: Date.now },
 }, { _id: false });
 
+const debugFindingsSchema = new mongoose.Schema({
+    rootCause: { type: String, maxlength: 10000, default: "" },
+    evidence: { type: String, maxlength: 10000, default: "" },
+    proposedFix: { type: String, maxlength: 10000, default: "" },
+    testingStrategy: { type: String, maxlength: 10000, default: "" },
+}, { _id: false });
+
+const debugVisibleTestResultSchema = new mongoose.Schema({
+    name: { type: String, maxlength: 120, default: "" },
+    passed: { type: Boolean, default: false },
+    output: { type: String, maxlength: 20000, default: "" },
+}, { _id: false });
+
+const debugTestResultSchema = new mongoose.Schema({
+    passed: { type: Number, min: 0, default: 0 },
+    total: { type: Number, min: 0, default: 0 },
+    visible: { type: [debugVisibleTestResultSchema], default: [], validate: (value) => value.length <= 12 },
+    hiddenPassed: { type: Number, min: 0, default: 0 },
+    hiddenTotal: { type: Number, min: 0, default: 0 },
+    ranAt: Date,
+}, { _id: false });
+
 const attemptQuestionSchema = new mongoose.Schema({
     text: { type: String, required: true, maxlength: 1000 },
     weight: { type: Number, min: 0.1, max: 10, default: 1 },
@@ -30,6 +52,9 @@ const attemptQuestionSchema = new mongoose.Schema({
     spokenExplanation: { type: String, maxlength: 5000, default: "" },
     diagramData: { type: String, maxlength: 500000, default: "" },
     diagramSummary: { type: String, maxlength: 10000, default: "" },
+    debugCode: { type: String, maxlength: 20000, default: "" },
+    debugFindings: { type: debugFindingsSchema, default: undefined },
+    debugTestResult: { type: debugTestResultSchema, default: undefined },
     discussionTurns: { type: [discussionTurnSchema], default: [], validate: (value) => value.length <= 80 },
     followUps: { type: [attemptFollowUpSchema], default: [], validate: (value) => value.length <= 3 },
     // Kept as a compatibility projection for existing candidate UI/local recovery.
@@ -44,7 +69,7 @@ const attemptQuestionSchema = new mongoose.Schema({
 const attemptRoundSchema = new mongoose.Schema({
     name: { type: String, required: true },
     description: String,
-    deliveryMode: { type: String, enum: ["conversational", "online-assessment", "system-design"], default: "conversational" },
+    deliveryMode: { type: String, enum: ["conversational", "online-assessment", "system-design", "debugging"], default: "conversational" },
     adaptiveState: { type: mongoose.Schema.Types.Mixed, default: undefined },
     adaptiveComplete: { type: Boolean, default: false },
     questions: [attemptQuestionSchema],
@@ -81,13 +106,12 @@ const candidateAttemptSchema = new mongoose.Schema({
     integrityEvents: [{ type: { type: String, enum: ["tab_hidden", "window_blur", "fullscreen_exit", "copy", "paste", "offline", "online", "face_missing", "face_restored", "multiple_faces", "camera_interrupted", "face_detection_unavailable"] }, at: { type: Date, default: Date.now }, metadata: { type: mongoose.Schema.Types.Mixed } }],
 }, { timestamps: true });
 
-// A system-design interview is one evolving design conversation, not a set of
-// independent written questions. Keep exactly one problem in the live attempt;
-// the interviewer probes depth through live interjections while the candidate
-// continues talking and drawing on the same whiteboard.
-candidateAttemptSchema.pre("save", function normalizeSystemDesignRounds() {
+// System-design and debugging rounds are one evolving task. Keep exactly one
+// problem in the live attempt while other formats retain their question list.
+candidateAttemptSchema.pre("save", function normalizeSingleTaskRounds() {
     for (const round of this.rounds || []) {
-        if (round.deliveryMode === "system-design" && Array.isArray(round.questions) && round.questions.length > 1) {
+        if (!["system-design", "debugging"].includes(round.deliveryMode)) continue;
+        if (Array.isArray(round.questions) && round.questions.length > 1) {
             round.questions = [round.questions[0]];
         }
     }
