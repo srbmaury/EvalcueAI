@@ -17,8 +17,7 @@ const mockSignedIn = async (page) => {
     await page.route("**/api/organizations", (route) => json(route, { organizations: [{ _id: "org-1", name: "Acme Hiring", role: "owner", memberCount: 1 }] }));
 };
 
-test("theme choice persists through reload and navigation", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop-chromium", "Theme persistence regression runs once");
+test("theme choice persists through reload and navigation", { tag: "@desktop-only" }, async ({ page }) => {
     await page.route("**/api/auth/refresh", (route) => json(route, { message: "Unauthenticated" }, 401));
     await page.goto("/");
 
