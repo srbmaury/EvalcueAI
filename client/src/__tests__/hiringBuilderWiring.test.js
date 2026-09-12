@@ -10,4 +10,12 @@ describe("hiring assessment builder wiring", () => {
         expect(source).toContain("formatLocalDateTimeInput");
         expect(source).not.toContain("toISOString().slice(0, 16)");
     });
+
+    it("shows the debugging format only through the server capability and uses its dedicated editor", () => {
+        expect(source).toContain('api.get("/assessments/capabilities")');
+        expect(source).toContain("debuggingAssessmentsEnabled");
+        expect(source).toContain('<MenuItem value="debugging">Debugging assignment</MenuItem>');
+        expect(source).toContain("<DebuggingRoundEditor");
+        expect(source).toContain("createDebuggingRound");
+    });
 });
