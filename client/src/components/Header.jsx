@@ -21,7 +21,6 @@ import {
     ListItemText,
     Menu,
     MenuItem,
-    Skeleton,
     Stack,
     Toolbar,
     Tooltip,
@@ -92,11 +91,6 @@ export default function Header() {
                                     <IconButton onClick={toggle} aria-label="Toggle theme">{mode === "dark" ? <LightMode /> : <DarkMode />}</IconButton>
                                 </Tooltip>
                             </Stack>
-                        ) : loading ? (
-                            <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: "auto" }} aria-label="Restoring your session">
-                                <Skeleton variant="rounded" width={88} height={36} />
-                                <Skeleton variant="circular" width={36} height={36} />
-                            </Stack>
                         ) : (
                             <>
                                 <Stack direction="row" spacing={.35} alignItems="center" sx={{ ml: "auto", display: { xs: "none", md: isAdminSurface ? "none" : "flex", lg: "flex" } }}>
@@ -111,7 +105,7 @@ export default function Header() {
                                         <Button component={RouterLink} to="/practice" color="inherit">Practice</Button>
                                         <Button component={RouterLink} to="/hire" color="inherit">Hire</Button>
                                     </>}
-                                    {!user && <Button component={RouterLink} to="/login" variant="contained">Sign in</Button>}
+                                    {!loading && !user && <Button component={RouterLink} to="/login" variant="contained">Sign in</Button>}
                                 </Stack>
 
                                 <Stack direction="row" spacing={.2} alignItems="center" sx={{ ml: { xs: "auto", md: 1 } }}>
@@ -174,10 +168,10 @@ export default function Header() {
                                             <MenuItem component={RouterLink} to="/practice/profile" onClick={closeMobile}>Profile & settings</MenuItem>
                                             <MenuItem onClick={() => { closeMobile(); setFeedbackOpen(true); }}><RateReviewOutlined fontSize="small" sx={{ mr: 1.25 }} />Send feedback</MenuItem>
                                             <MenuItem onClick={handleLogout}><LogoutRounded fontSize="small" sx={{ mr: 1.25 }} />Sign out</MenuItem>
-                                        </> : <>
+                                        </> : !loading ? <>
                                             <Divider />
                                             <MenuItem component={RouterLink} to="/login" onClick={closeMobile}>Sign in</MenuItem>
-                                        </>}
+                                        </> : null}
                                     </Menu>
                                 </Stack>
                             </>

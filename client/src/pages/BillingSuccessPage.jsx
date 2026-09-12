@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link as RouterLink, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useLocation, useSearchParams } from "react-router-dom";
 import { Alert, Button, CircularProgress, Container, Stack, Typography } from "@mui/material";
 import api from "../api/axios";
 
 const label = (value) => value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : "Subscription";
 
 export default function BillingSuccessPage() {
+    const location = useLocation();
     const [params] = useSearchParams();
-    const product = params.get("product") === "hiring" ? "hiring" : "practice";
+    const routeProduct = location.pathname.startsWith("/hire/")
+        ? "hiring"
+        : location.pathname.startsWith("/practice/")
+            ? "practice"
+            : "";
+    const queryProduct = params.get("product") === "hiring" ? "hiring" : "practice";
+    const product = routeProduct || queryProduct;
     const organizationId = params.get("organizationId") || "";
     const [status, setStatus] = useState("checking");
     const [activePlan, setActivePlan] = useState("");
