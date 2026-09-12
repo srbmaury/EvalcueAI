@@ -30,7 +30,7 @@ const RegisterPage = () => {
     const requested = location.state?.from;
     const workspaceParam = params.get("workspace");
     const routeWorkspace = workspaceForSurface(surfaceForPath(location.pathname));
-    const requestedWorkspace = ["practice", "hiring"].includes(workspaceParam) ? workspaceParam : routeWorkspace;
+    const requestedWorkspace = routeWorkspace || (["practice", "hiring"].includes(workspaceParam) ? workspaceParam : null);
     const authSurface = requestedWorkspace || "combined";
     const productName = requestedWorkspace === "hiring" ? "Evalcue AI Hire" : requestedWorkspace === "practice" ? "Evalcue AI Practice" : "Evalcue AI";
     const requestedDestination = requested?.pathname
