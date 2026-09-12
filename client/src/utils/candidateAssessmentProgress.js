@@ -1,5 +1,5 @@
 export const pendingFollowUpFor = (round, question) => {
-    if (!question || round?.deliveryMode === "system-design") return null;
+    if (!question || ["system-design", "debugging"].includes(round?.deliveryMode)) return null;
     if (Number(question.followUpNumber || 0) > 0 && question.followUpQuestion) {
         return { question: question.followUpQuestion, number: Number(question.followUpNumber || 1) };
     }
@@ -9,14 +9,14 @@ export const pendingFollowUpFor = (round, question) => {
 
 export const roundComplete = (round) => {
     if (!round) return false;
-    if (round.deliveryMode === "system-design") return Boolean(round.questions?.[0]?.answer?.trim());
+    if (["system-design", "debugging"].includes(round.deliveryMode)) return Boolean(round.questions?.[0]?.answer?.trim());
     if (round.adaptive && !round.adaptiveComplete) return false;
     const questions = round.questions || [];
     return questions.length > 0 && questions.every((question) => Boolean(question.answer?.trim()) && !pendingFollowUpFor(round, question));
 };
 
 export const firstIncompleteQuestionIndex = (round) => {
-    if (!round || round.deliveryMode === "system-design") return -1;
+    if (!round || ["system-design", "debugging"].includes(round.deliveryMode)) return -1;
     return (round.questions || []).findIndex((question) => !question.answer?.trim() || Boolean(pendingFollowUpFor(round, question)));
 };
 
