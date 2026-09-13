@@ -98,7 +98,7 @@ const installBlockedMedia = async (page) => {
     });
 };
 
-test("mock interview requires mic but keeps camera optional before revealing the first question", async ({ page }) => {
+test("mock interview requires mic and camera before revealing the first question", async ({ page }) => {
     await installBlockedMedia(page);
     await mockAuth(page);
     await page.route("**/api/interviews/interview-voice", (route) => json(route, interviewPayload()));
@@ -106,9 +106,8 @@ test("mock interview requires mic but keeps camera optional before revealing the
     await openVoiceRound(page);
 
     await expect(page.getByText("Before we start", { exact: true })).toBeVisible();
-    await expect(page.getByText(/turn on your microphone before i ask the first question/i)).toBeVisible();
-    await expect(page.getByText(/turn on your microphone and camera/i)).toHaveCount(0);
-    await expect(page.getByText("Camera needed", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/turn on your microphone and camera/i)).toBeVisible();
+    await expect(page.getByText("Camera needed", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Turn on mic" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Turn on camera" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Tell me about a production incident you handled." })).toHaveCount(0);

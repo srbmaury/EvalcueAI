@@ -376,9 +376,9 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     }, [constraintsForDevice, enableServerTranscription, fallbackSTT, startLiveRecognition, startMeter, startRecorderSegment, supportsSTT]);
 
     const startHandsFree = useCallback(async (target) => {
-        if (!supportsSTT || !target) return false;
+        if (!supportsSTT || target === null || target === undefined) return false;
         activeTargetRef.current = target;
-        if (handsFreeRef.current && micSessionActive) {
+        if (handsFreeRef.current) {
             setListeningTarget(target);
             if (handsFreePausedRef.current) {
                 handsFreePausedRef.current = false;
@@ -424,7 +424,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
             setMicPermission("denied");
             return false;
         }
-    }, [constraintsForDevice, enableServerTranscription, fallbackSTT, micSessionActive, startLiveRecognition, startMeter, startRecorderSegment, supportsSTT]);
+    }, [constraintsForDevice, enableServerTranscription, fallbackSTT, startLiveRecognition, startMeter, startRecorderSegment, supportsSTT]);
 
     const pauseHandsFree = useCallback(async () => {
         if (!handsFreeRef.current) return;
@@ -438,10 +438,10 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     }, [commitLiveTranscript, stopLiveRec, stopRecorder]);
 
     const resumeHandsFree = useCallback(async (target = activeTargetRef.current) => {
-        if (!handsFreeRef.current || !target || !supportsSTT) return false;
+        if (!handsFreeRef.current || target === null || target === undefined || !supportsSTT) return false;
         activeTargetRef.current = target;
         setListeningTarget(target);
-        if (!handsFreePausedRef.current && listening) return true;
+        if (!handsFreePausedRef.current) return true;
         handsFreePausedRef.current = false;
         setHandsFreePaused(false);
         if (sessionStreamRef.current) {
@@ -452,7 +452,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         }
         await fallbackSTT(target, { handsFree: true });
         return true;
-    }, [fallbackSTT, listening, startLiveRecognition, startRecorderSegment, supportsSTT]);
+    }, [fallbackSTT, startLiveRecognition, startRecorderSegment, supportsSTT]);
 
     const stopHandsFree = useCallback(() => {
         if (!handsFreeRef.current && !sessionStreamRef.current) return;
@@ -483,7 +483,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     }, [commitLiveTranscript, listeningTarget, pauseHandsFree, stopLiveRec, stopMeter, stopRecorder]);
 
     const retargetListening = useCallback((target) => {
-        if (!target) return;
+        if (target === null || target === undefined) return;
         activeTargetRef.current = target;
         if (listening || handsFreeRef.current) setListeningTarget(target);
     }, [listening]);
@@ -492,6 +492,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         try {
             if (!supportsTTS || !text) { resolve(false); return; }
             window.speechSynthesis.cancel();
+            window.speechSynthesis.resume?.();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.rate = 0.95;
             const preference = ["male", "female"].includes(user?.interviewerVoicePreference)
