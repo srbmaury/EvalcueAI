@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -15,6 +15,7 @@ import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import VoiceControls from "./VoiceControls";
 import SkipRoundButton from "./SkipRoundButton";
+import WebcamPreview from "./WebcamPreview";
 
 const CodeEditorField = lazy(() => import("./CodeEditorField"));
 
@@ -37,19 +38,53 @@ const OAForm = ({
     onSpeak,
     onStartListening,
     onStopListening,
+    micPermission,
+    micLevel,
+    micSessionActive,
+    handsFreePaused,
+    inputDevices,
+    selectedDeviceId,
+    onChangeDevice,
+    onStartHandsFree,
+    onPauseHandsFree,
+    onResumeHandsFree,
+    onStopHandsFree,
     outlinedInputSx,
 }) => {
     const [activeIndex, setActiveIndex] = useState(0);
     const [localDrafts, setLocalDrafts] = useState({});
+    const spokenQuestionRef = useRef("");
     const total = questions?.length || 0;
     const safeIndex = Math.min(activeIndex, Math.max(total - 1, 0));
     const activeQuestion = questions?.[safeIndex];
+    const activeQuestionText = activeQuestion?.question?.text || "";
     const questionSetKey = useMemo(() => (questions || []).map((item, index) => item?.question?._id || item?._id || `${index}:${item?.question?.text || ""}`).join("|"), [questions]);
+    const activeQuestionKey = activeQuestion?.question?._id || activeQuestion?._id || `${safeIndex}:${activeQuestionText}`;
 
     useEffect(() => {
         setLocalDrafts({});
         setActiveIndex(0);
+        spokenQuestionRef.current = "";
     }, [questionSetKey]);
+
+    useEffect(() => {
+        if (!activeQuestionText || spokenQuestionRef.current === activeQuestionKey) return undefined;
+        spokenQuestionRef.current = activeQuestionKey;
+        let cancelled = false;
+        (async () => {
+            if (supportsSTT) await onStartHandsFree?.(safeIndex);
+            if (cancelled) return;
+            if (supportsTTS) {
+                await onPauseHandsFree?.();
+                if (cancelled) return;
+                await onSpeak?.(activeQuestionText);
+            }
+            if (!cancelled && supportsSTT) await onResumeHandsFree?.(safeIndex);
+        })();
+        return () => { cancelled = true; };
+    }, [activeQuestionKey, activeQuestionText, onPauseHandsFree, onResumeHandsFree, onSpeak, onStartHandsFree, safeIndex, supportsSTT, supportsTTS]);
+
+    useEffect(() => () => { onStopHandsFree?.(); }, [onStopHandsFree]);
 
     const effectiveAnswers = useMemo(() => Array.from({ length: total }, (_, index) => (
         Object.prototype.hasOwnProperty.call(localDrafts, index)
@@ -85,7 +120,7 @@ const OAForm = ({
 
     return (
         <Stack spacing={2} mt={2}>
-            <Paper variant="outlined" sx={{ overflow: "hidden", borderRadius: 3, boxShadow: "0 12px 36px rgba(15, 23, 42, 0.06)" }}>
+            <Paper variant="outlined" sx={{ overflow: "hidden", borderRadius: 3, boxShadow: "0 12px 36px rgba(15, 23, 42, 0.06)", position: "relative" }}>
                 <Box sx={{ px: { xs: 2, md: 2.5 }, pt: 2, pb: 1.5, bgcolor: "action.hover" }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1.5} alignItems={{ sm: "center" }}>
                         <Box>
@@ -105,9 +140,28 @@ const OAForm = ({
                         <Stack spacing={2} sx={{ position: { lg: "sticky" }, top: { lg: 92 } }}>
                             <Box>
                                 <Typography variant="caption" color="text.secondary" fontWeight={800}>PROBLEM STATEMENT</Typography>
-                                <Typography component="h2" variant="h5" fontWeight={800} sx={{ lineHeight: 1.45, mt: .5 }}>{activeQuestion?.question?.text || "(question text unavailable)"}</Typography>
+                                <Typography component="h2" variant="h5" fontWeight={800} sx={{ lineHeight: 1.45, mt: .5 }}>{activeQuestionText || "(question text unavailable)"}</Typography>
                             </Box>
-                            <VoiceControls target={safeIndex} speakText={activeQuestion?.question?.text} supportsTTS={supportsTTS} supportsSTT={supportsSTT} listening={listening} listeningTarget={listeningTarget} onSpeak={onSpeak} onStartListening={onStartListening} onStopListening={onStopListening} />
+                            <VoiceControls
+                                target={safeIndex}
+                                speakText={activeQuestionText}
+                                supportsTTS={supportsTTS}
+                                supportsSTT={supportsSTT}
+                                listening={listening}
+                                listeningTarget={listeningTarget}
+                                onSpeak={onSpeak}
+                                onStartListening={onStartListening}
+                                onStopListening={onStopListening}
+                                micPermission={micPermission}
+                                micLevel={micLevel}
+                                inputDevices={inputDevices}
+                                selectedDeviceId={selectedDeviceId}
+                                onChangeDevice={onChangeDevice}
+                                handsFree
+                                micSessionActive={micSessionActive}
+                                handsFreePaused={handsFreePaused}
+                                onStartHandsFree={onStartHandsFree}
+                            />
                             <Box>
                                 <Typography variant="caption" color="text.secondary" fontWeight={800}>PROBLEM NAVIGATION</Typography>
                                 <Box sx={{ display: "flex", gap: .75, flexWrap: "wrap", mt: 1 }} aria-label="Question navigation">
@@ -124,7 +178,7 @@ const OAForm = ({
                         <Typography variant="caption" color="text.secondary" fontWeight={800}>WORKSPACE</Typography>
                         <Box sx={{ mt: 1 }}>
                             <Suspense fallback={<Skeleton variant="rectangular" height={430} sx={{ borderRadius: 2 }} />}>
-                                <CodeEditorField value={effectiveAnswers[safeIndex] || ""} onChange={(value) => handleDraftChange(safeIndex, value)} onModeChange={(enabled) => onCodingModeChange(safeIndex, enabled)} draftKey={`${codeDraftPrefix}:${safeIndex}`} suggestCode={/\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(activeQuestion?.question?.text || "")} minRows={16} outlinedInputSx={outlinedInputSx} />
+                                <CodeEditorField value={effectiveAnswers[safeIndex] || ""} onChange={(value) => handleDraftChange(safeIndex, value)} onModeChange={(enabled) => onCodingModeChange(safeIndex, enabled)} draftKey={`${codeDraftPrefix}:${safeIndex}`} suggestCode={/\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(activeQuestionText)} minRows={16} outlinedInputSx={outlinedInputSx} />
                             </Suspense>
                         </Box>
                         {codingEnabled?.[safeIndex] && <TextField label="Explain your approach" value={spokenAnswers?.[safeIndex] || ""} onChange={(event) => onSpokenChange(safeIndex, event.target.value)} multiline minRows={3} fullWidth sx={{ mt: 2 }} helperText="Optional: reasoning, complexity, assumptions, or trade-offs." />}
@@ -143,6 +197,7 @@ const OAForm = ({
                         </Stack>
                     </Stack>
                 </Box>
+                <WebcamPreview autoStart required monitorFaces />
             </Paper>
         </Stack>
     );
