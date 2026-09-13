@@ -94,13 +94,17 @@ export default function SystemDesignDiscussionPanel({
 
     useEffect(() => {
         if (!problem || spokenProblemRef.current === problem) return;
-        spokenProblemRef.current = problem;
         let cancelled = false;
         (async () => {
             if (supportsSTT) await startHandsFree?.(target);
             if (cancelled) return;
-            if (supportsTTS) await speakInterviewer(problem);
-            else if (supportsSTT) await resumeHandsFree?.(target);
+            if (supportsTTS) {
+                spokenProblemRef.current = problem;
+                await speakInterviewer(problem);
+            } else {
+                spokenProblemRef.current = problem;
+                if (supportsSTT) await resumeHandsFree?.(target);
+            }
         })();
         return () => { cancelled = true; };
     }, [problem, resumeHandsFree, speakInterviewer, startHandsFree, supportsSTT, supportsTTS, target]);
