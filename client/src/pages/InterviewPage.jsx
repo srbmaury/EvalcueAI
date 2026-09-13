@@ -333,7 +333,7 @@ const InterviewPage = () => {
                             top: { md: 8 },
                             zIndex: 20,
                             backdropFilter: "blur(12px)",
-                            bgcolor: "rgba(255,255,255,.94)",
+                            bgcolor: "background.paper",
                         }}
                     >
                         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={1.5} alignItems={{ md: "center" }}>
@@ -517,6 +517,7 @@ const InterviewPage = () => {
                                             codingEnabled={oaCodingEnabled}
                                             onCodingModeChange={changeOaCodingMode}
                                             codeDraftPrefix={`${interviewId}:${selectedRound._id}`}
+                                            roundName={selectedRound.name}
                                             onSpokenChange={(index, value) => setOaSpokenAnswers((current) => {
                                                 const next = [...current];
                                                 next[index] = value;

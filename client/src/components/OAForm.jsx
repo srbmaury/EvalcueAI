@@ -26,6 +26,7 @@ const OAForm = ({
     codingEnabled,
     onCodingModeChange,
     codeDraftPrefix,
+    roundName = "Coding",
     onSpokenChange,
     onChange,
     onSubmit,
@@ -53,7 +54,8 @@ const OAForm = ({
 }) => {
     const [activeIndex, setActiveIndex] = useState(0);
     const [localDrafts, setLocalDrafts] = useState({});
-    const spokenQuestionRef = useRef("");
+    const spokenQuestionKeysRef = useRef(new Set());
+    const roundIntroducedRef = useRef(false);
     const total = questions?.length || 0;
     const safeIndex = Math.min(activeIndex, Math.max(total - 1, 0));
     const activeQuestion = questions?.[safeIndex];
@@ -64,27 +66,35 @@ const OAForm = ({
     useEffect(() => {
         setLocalDrafts({});
         setActiveIndex(0);
-        spokenQuestionRef.current = "";
+        spokenQuestionKeysRef.current = new Set();
+        roundIntroducedRef.current = false;
     }, [questionSetKey]);
 
     useEffect(() => {
-        if (!activeQuestionText || spokenQuestionRef.current === activeQuestionKey) return undefined;
+        if (!activeQuestionText || spokenQuestionKeysRef.current.has(activeQuestionKey)) return undefined;
         let cancelled = false;
         (async () => {
             if (supportsSTT) await onStartHandsFree?.(safeIndex);
             if (cancelled) return;
             if (supportsTTS) {
                 await onPauseHandsFree?.();
+                const isRoundIntroduction = !roundIntroducedRef.current;
+                await new Promise((resolve) => setTimeout(resolve, isRoundIntroduction ? 900 : 450));
                 if (cancelled) return;
-                spokenQuestionRef.current = activeQuestionKey;
-                await onSpeak?.(activeQuestionText);
+                const prompt = isRoundIntroduction
+                    ? `Hi, welcome to the ${roundName} round. Take a moment to understand the problem. Here's your first question: ${activeQuestionText}`
+                    : `Let's move to the next problem: ${activeQuestionText}`;
+                spokenQuestionKeysRef.current.add(activeQuestionKey);
+                roundIntroducedRef.current = true;
+                await onSpeak?.(prompt);
             } else {
-                spokenQuestionRef.current = activeQuestionKey;
+                spokenQuestionKeysRef.current.add(activeQuestionKey);
+                roundIntroducedRef.current = true;
             }
             if (!cancelled && supportsSTT) await onResumeHandsFree?.(safeIndex);
         })();
         return () => { cancelled = true; };
-    }, [activeQuestionKey, activeQuestionText, onPauseHandsFree, onResumeHandsFree, onSpeak, onStartHandsFree, safeIndex, supportsSTT, supportsTTS]);
+    }, [activeQuestionKey, activeQuestionText, onPauseHandsFree, onResumeHandsFree, onSpeak, onStartHandsFree, roundName, safeIndex, supportsSTT, supportsTTS]);
 
     useEffect(() => () => { onStopHandsFree?.(); }, [onStopHandsFree]);
 
@@ -184,6 +194,12 @@ const OAForm = ({
                             </Suspense>
                         </Box>
                         {codingEnabled?.[safeIndex] && <TextField label="Explain your approach" value={spokenAnswers?.[safeIndex] || ""} onChange={(event) => onSpokenChange(safeIndex, event.target.value)} multiline minRows={3} fullWidth sx={{ mt: 2 }} helperText="Optional: reasoning, complexity, assumptions, or trade-offs." />}
+                        <Box
+                            data-testid="online-assessment-camera-slot"
+                            sx={{ position: "relative", height: { xs: 104, sm: 131 }, mt: 2 }}
+                        >
+                            <WebcamPreview autoStart required monitorFaces />
+                        </Box>
                     </Box>
                 </Box>
 
@@ -199,7 +215,6 @@ const OAForm = ({
                         </Stack>
                     </Stack>
                 </Box>
-                <WebcamPreview autoStart required monitorFaces />
             </Paper>
         </Stack>
     );

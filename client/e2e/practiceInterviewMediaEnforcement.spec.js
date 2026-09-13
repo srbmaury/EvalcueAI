@@ -31,14 +31,16 @@ const mockAuth = async (page) => {
     await page.route("**/api/events", (route) => json(route, { accepted: true }, 202));
 };
 
-const installMedia = async (page) => {
-    await page.addInitScript(() => {
+const installMedia = async (page, { completeSpeech = true, speechStartDelay = 0, speechDuration = 150 } = {}) => {
+    await page.addInitScript(({ completeSpeech, speechStartDelay, speechDuration }) => {
         window.__spoken = [];
         window.__mediaRequests = [];
+        window.__recognitionActive = false;
+        window.__micSpeechOverlap = false;
 
         class FakeRecognition {
-            start() { this.onstart?.(); }
-            stop() { this.__expectedStop = true; this.onend?.(); }
+            start() { window.__recognitionActive = true; this.onstart?.(); }
+            stop() { window.__recognitionActive = false; this.__expectedStop = true; this.onend?.(); }
         }
         window.SpeechRecognition = FakeRecognition;
         window.webkitSpeechRecognition = FakeRecognition;
@@ -47,13 +49,22 @@ const installMedia = async (page) => {
         Object.defineProperty(window, "speechSynthesis", {
             configurable: true,
             value: {
-                cancel() {},
+                speaking: false,
+                cancel() { this.speaking = false; },
                 resume() { paused = false; },
                 getVoices() { return []; },
                 speak(utterance) {
                     if (paused) return;
                     window.__spoken.push(utterance.text);
-                    setTimeout(() => utterance.onend?.(), 0);
+                    setTimeout(() => {
+                        this.speaking = true;
+                        utterance.onstart?.();
+                        if (window.__recognitionActive) window.__micSpeechOverlap = true;
+                        setTimeout(() => {
+                            this.speaking = false;
+                            if (completeSpeech) utterance.onend?.();
+                        }, speechDuration);
+                    }, speechStartDelay);
                 },
             },
         });
@@ -75,7 +86,7 @@ const installMedia = async (page) => {
             configurable: true,
             value: { query: async () => ({ state: "granted", onchange: null }) },
         });
-    });
+    }, { completeSpeech, speechStartDelay, speechDuration });
 };
 
 const openRound = async (page, payload) => {
@@ -119,6 +130,31 @@ test("practice coding round keeps the microphone hands-free, speaks each problem
     await expect.poll(async () => page.evaluate((text) => window.__spoken.some((item) => item.includes(text)), question)).toBe(true);
     await expect(page.getByText(/Interview mic active|Listening/i).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /Answer with voice|Start voice/i })).toHaveCount(0);
+    await expect.poll(async () => page.evaluate(() => window.__spoken[0])).toContain("Hi, welcome to the Coding round");
+    const cameraBox = await page.getByLabel("Your camera preview").boundingBox();
+    const skipBox = await page.getByRole("button", { name: "Skip round" }).boundingBox();
+    expect(cameraBox && skipBox).toBeTruthy();
+    expect(
+        cameraBox.x + cameraBox.width <= skipBox.x
+        || skipBox.x + skipBox.width <= cameraBox.x
+        || cameraBox.y + cameraBox.height <= skipBox.y
+        || skipBox.y + skipBox.height <= cameraBox.y,
+    ).toBe(true);
+});
+
+test("practice coding round resumes the microphone when browser speech completion is missing", async ({ page }) => {
+    await installMedia(page, { completeSpeech: false, speechStartDelay: 900, speechDuration: 350 });
+    const question = "Explain how you would detect a cycle in a linked list.";
+    await openRound(page, interviewPayload({
+        name: "Data Structures and Algorithms",
+        description: "Timed coding challenges",
+        deliveryMode: "online-assessment",
+        question: roundQuestion("question-timeout", question),
+    }));
+
+    await expect.poll(async () => page.evaluate((text) => window.__spoken.some((item) => item.includes(text)), question)).toBe(true);
+    await expect(page.getByText("Listening", { exact: true })).toBeVisible({ timeout: 7000 });
+    await expect.poll(async () => page.evaluate(() => window.__micSpeechOverlap)).toBe(false);
 });
 
 test("practice system-design round auto-speaks and keeps required face-monitored camera active", async ({ page }) => {

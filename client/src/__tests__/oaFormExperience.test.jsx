@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import OAForm from "../components/OAForm";
 
@@ -24,6 +24,7 @@ describe("OAForm interview experience", () => {
         ];
         const answers = ["", "Already answered"];
         const onChange = vi.fn();
+        const onSpeak = vi.fn().mockResolvedValue(true);
 
         render(
             <OAForm
@@ -33,6 +34,7 @@ describe("OAForm interview experience", () => {
                 codingEnabled={[true, false]}
                 onCodingModeChange={vi.fn()}
                 codeDraftPrefix="round-1"
+                roundName="Data Structures and Algorithms"
                 onSpokenChange={vi.fn()}
                 onChange={onChange}
                 onSubmit={vi.fn()}
@@ -42,7 +44,7 @@ describe("OAForm interview experience", () => {
                 supportsSTT
                 listening={false}
                 listeningTarget={null}
-                onSpeak={vi.fn()}
+                onSpeak={onSpeak}
                 onStartListening={vi.fn()}
                 onStopListening={vi.fn()}
             />,
@@ -51,6 +53,9 @@ describe("OAForm interview experience", () => {
         expect(screen.getByRole("heading", { name: "Implement an LRU cache." })).toBeTruthy();
         expect(screen.queryByRole("heading", { name: "Explain the complexity." })).toBeNull();
         expect(screen.getByText("1/2 answered")).toBeTruthy();
+        await waitFor(() => expect(onSpeak).toHaveBeenCalledWith(
+            expect.stringContaining("Hi, welcome to the Data Structures and Algorithms round"),
+        ));
 
         const firstEditor = await screen.findByLabelText("Mock answer editor");
         fireEvent.change(firstEditor, { target: { value: "class LRU {}" } });
@@ -61,10 +66,15 @@ describe("OAForm interview experience", () => {
         fireEvent.click(screen.getByRole("button", { name: "Next problem" }));
         expect(screen.getByRole("heading", { name: "Explain the complexity." })).toBeTruthy();
         expect(await screen.findByDisplayValue("Already answered")).toBeTruthy();
+        await waitFor(() => expect(onSpeak).toHaveBeenCalledWith(
+            expect.stringContaining("Let's move to the next problem"),
+        ));
 
         fireEvent.click(screen.getByRole("button", { name: "Previous" }));
         expect(screen.getByRole("heading", { name: "Implement an LRU cache." })).toBeTruthy();
         expect(await screen.findByDisplayValue("class LRU {}")).toBeTruthy();
+        await new Promise((resolve) => setTimeout(resolve, 1100));
+        expect(onSpeak).toHaveBeenCalledTimes(2);
     });
 
     it("keeps round completion available from the focused workspace", () => {
