@@ -467,7 +467,8 @@ export default function AssessmentBuilderPage() {
                                         replaceRound(index, createDebuggingRound());
                                         return;
                                     }
-                                    const { debugging: _debugging, ...rest } = round;
+                                    const rest = { ...round };
+                                    delete rest.debugging;
                                     replaceRound(index, {
                                         ...rest,
                                         deliveryMode,
@@ -478,7 +479,7 @@ export default function AssessmentBuilderPage() {
                                 }}><MenuItem value="conversational">Conversational interview</MenuItem><MenuItem value="online-assessment">Coding / written assessment</MenuItem><MenuItem value="system-design">System design</MenuItem>{debuggingAssessmentsEnabled && <MenuItem value="debugging">Debugging assignment</MenuItem>}</TextField>
                                 <TextField label="Round name" value={round.name} onChange={(event) => updateRound(index, { name: event.target.value })} />
                                 <TextField multiline minRows={2} label="What should this round evaluate?" value={round.description} onChange={(event) => updateRound(index, { description: event.target.value })} />
-                                {round.deliveryMode !== "system-design" && round.deliveryMode !== "debugging" && <TextField type="number" label={round.adaptive ? "Maximum primary questions" : "Question count"} value={round.questionCount} onChange={(event) => updateRound(index, { questionCount: Math.max(1, Math.min(10, Number(event.target.value) || 1) })} inputProps={{ min: 1, max: 10 }} />}
+                                {round.deliveryMode !== "system-design" && round.deliveryMode !== "debugging" && <TextField type="number" label={round.adaptive ? "Maximum primary questions" : "Question count"} value={round.questionCount} onChange={(event) => updateRound(index, { questionCount: Math.max(1, Math.min(10, Number(event.target.value) || 1)) })} inputProps={{ min: 1, max: 10 }} />}
                                 {round.deliveryMode === "conversational" && <FormControlLabel control={<Checkbox checked={round.adaptive !== false} onChange={(event) => updateRound(index, { adaptive: event.target.checked })} />} label="Let AI adapt the remaining primary questions to the candidate" />}
                             </Stack></CardContent></Card>)}
                             <Button startIcon={<AddRounded />} variant="outlined" onClick={() => { setDebuggingValidations({}); setField("rounds", [...form.rounds, emptyRound()]); }}>Add another round</Button>
