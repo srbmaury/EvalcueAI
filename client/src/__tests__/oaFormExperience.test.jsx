@@ -66,10 +66,15 @@ describe("OAForm interview experience", () => {
         fireEvent.click(screen.getByRole("button", { name: "Next problem" }));
         expect(screen.getByRole("heading", { name: "Explain the complexity." })).toBeTruthy();
         expect(await screen.findByDisplayValue("Already answered")).toBeTruthy();
+        await waitFor(() => expect(onSpeak).toHaveBeenCalledWith(
+            expect.stringContaining("Let's move to the next problem"),
+        ));
 
         fireEvent.click(screen.getByRole("button", { name: "Previous" }));
         expect(screen.getByRole("heading", { name: "Implement an LRU cache." })).toBeTruthy();
         expect(await screen.findByDisplayValue("class LRU {}")).toBeTruthy();
+        await new Promise((resolve) => setTimeout(resolve, 1100));
+        expect(onSpeak).toHaveBeenCalledTimes(2);
     });
 
     it("keeps round completion available from the focused workspace", () => {

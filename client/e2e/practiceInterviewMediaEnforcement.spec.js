@@ -31,14 +31,16 @@ const mockAuth = async (page) => {
     await page.route("**/api/events", (route) => json(route, { accepted: true }, 202));
 };
 
-const installMedia = async (page, { completeSpeech = true } = {}) => {
-    await page.addInitScript(({ completeSpeech }) => {
+const installMedia = async (page, { completeSpeech = true, speechStartDelay = 0, speechDuration = 150 } = {}) => {
+    await page.addInitScript(({ completeSpeech, speechStartDelay, speechDuration }) => {
         window.__spoken = [];
         window.__mediaRequests = [];
+        window.__recognitionActive = false;
+        window.__micSpeechOverlap = false;
 
         class FakeRecognition {
-            start() { this.onstart?.(); }
-            stop() { this.__expectedStop = true; this.onend?.(); }
+            start() { window.__recognitionActive = true; this.onstart?.(); }
+            stop() { window.__recognitionActive = false; this.__expectedStop = true; this.onend?.(); }
         }
         window.SpeechRecognition = FakeRecognition;
         window.webkitSpeechRecognition = FakeRecognition;
@@ -53,12 +55,15 @@ const installMedia = async (page, { completeSpeech = true } = {}) => {
                 getVoices() { return []; },
                 speak(utterance) {
                     if (paused) return;
-                    this.speaking = true;
                     window.__spoken.push(utterance.text);
                     setTimeout(() => {
-                        this.speaking = false;
-                        if (completeSpeech) utterance.onend?.();
-                    }, 150);
+                        this.speaking = true;
+                        if (window.__recognitionActive) window.__micSpeechOverlap = true;
+                        setTimeout(() => {
+                            this.speaking = false;
+                            if (completeSpeech) utterance.onend?.();
+                        }, speechDuration);
+                    }, speechStartDelay);
                 },
             },
         });
@@ -80,7 +85,7 @@ const installMedia = async (page, { completeSpeech = true } = {}) => {
             configurable: true,
             value: { query: async () => ({ state: "granted", onchange: null }) },
         });
-    }, { completeSpeech });
+    }, { completeSpeech, speechStartDelay, speechDuration });
 };
 
 const openRound = async (page, payload) => {
@@ -137,7 +142,7 @@ test("practice coding round keeps the microphone hands-free, speaks each problem
 });
 
 test("practice coding round resumes the microphone when browser speech completion is missing", async ({ page }) => {
-    await installMedia(page, { completeSpeech: false });
+    await installMedia(page, { completeSpeech: false, speechStartDelay: 900, speechDuration: 350 });
     const question = "Explain how you would detect a cycle in a linked list.";
     await openRound(page, interviewPayload({
         name: "Data Structures and Algorithms",
@@ -148,6 +153,7 @@ test("practice coding round resumes the microphone when browser speech completio
 
     await expect.poll(async () => page.evaluate((text) => window.__spoken.some((item) => item.includes(text)), question)).toBe(true);
     await expect(page.getByText("Listening", { exact: true })).toBeVisible({ timeout: 7000 });
+    await expect.poll(async () => page.evaluate(() => window.__micSpeechOverlap)).toBe(false);
 });
 
 test("practice system-design round auto-speaks and keeps required face-monitored camera active", async ({ page }) => {
