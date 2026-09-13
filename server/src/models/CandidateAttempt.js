@@ -15,12 +15,11 @@ const discussionTurnSchema = new mongoose.Schema({
     at: { type: Date, default: Date.now },
 }, { _id: false });
 
-const debugFindingsSchema = new mongoose.Schema({
+const debugFindingSchema = new mongoose.Schema({
+    filePath: { type: String, required: true, maxlength: 500 },
     rootCause: { type: String, maxlength: 10000, default: "" },
     evidence: { type: String, maxlength: 10000, default: "" },
     proposedFix: { type: String, maxlength: 10000, default: "" },
-    impact: { type: String, maxlength: 10000, default: "" },
-    testingStrategy: { type: String, maxlength: 10000, default: "" },
 }, { _id: false });
 
 const attemptQuestionSchema = new mongoose.Schema({
@@ -62,18 +61,16 @@ const debuggingOverlayFileSchema = new mongoose.Schema({
     content: { type: String, default: "", maxlength: 262144 },
 }, { _id: false });
 
-const debuggingVisibleFailureSchema = new mongoose.Schema({
-    name: { type: String, maxlength: 200, default: "" },
-    message: { type: String, maxlength: 5000, default: "" },
+const debuggingTestResultSchema = new mongoose.Schema({
+    name: { type: String, maxlength: 120, default: "" },
+    passed: { type: Boolean, default: false },
 }, { _id: false });
 
 const debuggingRunSummarySchema = new mongoose.Schema({
     status: { type: String, enum: ["passed", "failed", "compile_error", "runtime_error", "timeout"], default: "failed" },
-    visiblePassed: { type: Number, min: 0, default: 0 },
-    visibleTotal: { type: Number, min: 0, default: 0 },
-    hiddenPassed: { type: Number, min: 0, default: 0 },
-    hiddenTotal: { type: Number, min: 0, default: 0 },
-    visibleFailures: { type: [debuggingVisibleFailureSchema], default: [] },
+    passed: { type: Number, min: 0, default: 0 },
+    total: { type: Number, min: 0, default: 0 },
+    tests: { type: [debuggingTestResultSchema], default: [] },
     ranAt: { type: Date, default: Date.now },
 }, { _id: false });
 
@@ -84,8 +81,8 @@ const debuggingResponseSchema = new mongoose.Schema({
     changedFiles: { type: [debuggingOverlayFileSchema], default: [] },
     createdFiles: { type: [debuggingOverlayFileSchema], default: [] },
     deletedFiles: [{ type: String, maxlength: 500 }],
-    findings: { type: debugFindingsSchema, default: undefined },
-    visibleTestRuns: { type: [debuggingRunSummarySchema], default: [], validate: (value) => value.length <= 20 },
+    findings: { type: [debugFindingSchema], default: [], validate: (value) => value.length <= 50 },
+    testRuns: { type: [debuggingRunSummarySchema], default: [], validate: (value) => value.length <= 20 },
     finalEvaluation: { type: mongoose.Schema.Types.Mixed, default: undefined },
     submittedAt: Date,
 }, { _id: false });
@@ -124,9 +121,7 @@ const candidateAttemptSchema = new mongoose.Schema({
 candidateAttemptSchema.pre("save", function normalizeSingleTaskRounds() {
     for (const round of this.rounds || []) {
         if (!["system-design", "debugging"].includes(round.deliveryMode)) continue;
-        if (Array.isArray(round.questions) && round.questions.length > 1) {
-            round.questions = [round.questions[0]];
-        }
+        if (Array.isArray(round.questions) && round.questions.length > 1) round.questions = [round.questions[0]];
     }
 });
 

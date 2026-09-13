@@ -37,7 +37,8 @@ const questionInput = z.object({ text: z.string().trim().min(5).max(1000), weigh
 const debuggingProjectFileInput = z.object({
     path: z.string().trim().min(1).max(500),
     content: z.string().max(262144).optional().default(""),
-    kind: z.enum(["source", "visible_test", "hidden_test"]),
+    kind: z.enum(["source", "hidden_test"]),
+    displayName: z.string().trim().max(120).optional().default(""),
 });
 const debuggingInput = z.object({
     responseMode: z.enum(["code_fix", "findings"]),
@@ -46,7 +47,8 @@ const debuggingInput = z.object({
     files: z.array(debuggingProjectFileInput).min(1).max(100),
 }).superRefine((value, ctx) => {
     if (!value.files.some((file) => file.kind === "source")) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["files"], message: "Debugging rounds require at least one source file" });
-    if (value.responseMode === "code_fix" && !value.files.some((file) => file.kind === "visible_test" || file.kind === "hidden_test")) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["files"], message: "Code-fix debugging rounds require at least one test file" });
+    if (value.responseMode === "code_fix" && !value.files.some((file) => file.kind === "hidden_test")) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["files"], message: "Code-fix debugging rounds require at least one hidden test" });
+    if (value.responseMode === "findings" && value.files.some((file) => file.kind !== "source")) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["files"], message: "Findings debugging rounds contain source files only" });
 });
 const roundInput = z.object({
     name: z.string().trim().min(2).max(80), description: z.string().trim().max(300).optional().default(""),
@@ -64,13 +66,13 @@ const assessmentEditable = z.object({ title: z.string().trim().min(2).max(160), 
 const assessmentStatus = z.enum(["draft", "scheduled", "active", "closed", "archived"]);
 const assessmentUpdate = z.union([assessmentEditable.extend({ status: assessmentStatus.optional() }), z.object({ status: assessmentStatus })]);
 const systemDesignCandidateBody = z.object({ roundIndex: z.number().int().min(0).max(4), questionIndex: z.number().int().min(0).max(9), transcript: z.string().max(20000).optional().default(""), diagramData: z.string().max(500000).optional().default(""), previousInterjections: z.array(z.string().max(600)).max(8).optional().default([]), forceInteraction: z.boolean().optional().default(false), candidateAskedQuestion: z.boolean().optional().default(false) });
-const debuggingFindingsInput = z.object({ rootCause: z.string().max(10000).optional().default(""), evidence: z.string().max(10000).optional().default(""), proposedFix: z.string().max(10000).optional().default(""), impact: z.string().max(10000).optional().default(""), testingStrategy: z.string().max(10000).optional().default("") });
+const debuggingFindingInput = z.object({ filePath: z.string().trim().min(1).max(500), rootCause: z.string().max(10000).optional().default(""), evidence: z.string().max(10000).optional().default(""), proposedFix: z.string().max(10000).optional().default("") });
 const debuggingOverlayFile = z.object({ path: z.string().trim().min(1).max(500), content: z.string().max(262144) });
 const debuggingWorkspaceBody = z.object({
     changedFiles: z.array(debuggingOverlayFile).max(100).optional().default([]),
     createdFiles: z.array(debuggingOverlayFile).max(100).optional().default([]),
     deletedFiles: z.array(z.string().trim().min(1).max(500)).max(100).optional().default([]),
-    findings: debuggingFindingsInput.optional(),
+    findings: z.array(debuggingFindingInput).max(50).optional(),
 });
 const debuggingValidationBody = z.object({ instructions: z.string().trim().min(5).max(1000), debugging: debuggingInput });
 

@@ -51,29 +51,22 @@ export const supportedDebuggingRuntimes = () => Object.values(profiles).map(({ r
 export const buildDebuggingRunScript = ({ runtime, files, includeHiddenTests }) => {
     const profile = getDebuggingRuntimeProfile(runtime);
     const sourceFiles = files.filter((file) => file.kind === "source");
-    const visible = files.filter((file) => file.kind === "visible_test");
-    const hidden = includeHiddenTests ? files.filter((file) => file.kind === "hidden_test") : [];
+    const tests = includeHiddenTests ? files.filter((file) => file.kind === "hidden_test") : [];
 
     const lines = [
         "#!/bin/sh",
         "set -u",
-        `visible_total=${visible.length}`,
-        "visible_passed=0",
-        `hidden_total=${hidden.length}`,
-        "hidden_passed=0",
-        "run_index=0",
+        `test_total=${tests.length}`,
+        "test_passed=0",
     ];
 
-    visible.forEach((file, index) => {
+    tests.forEach((file, index) => {
         const command = profile.testCommand(file.path, sourceFiles, index);
-        lines.push(`if ( ${command} ) >/tmp/evalcue-visible-${index}.log 2>&1; then visible_passed=$((visible_passed + 1)); else printf '__EVALCUE_VISIBLE_FAIL__%s\\n' ${shellQuote(file.path)}; fi`);
-    });
-    hidden.forEach((file, index) => {
-        const command = profile.testCommand(file.path, sourceFiles, visible.length + index);
-        lines.push(`if ( ${command} ) >/tmp/evalcue-hidden-${index}.log 2>&1; then hidden_passed=$((hidden_passed + 1)); fi`);
+        const name = String(file.displayName || `Test ${index + 1}`).trim().slice(0, 120) || `Test ${index + 1}`;
+        lines.push(`if ( ${command} ) >/tmp/evalcue-test-${index}.log 2>&1; then test_passed=$((test_passed + 1)); printf '__EVALCUE_TEST__1|%s\\n' ${shellQuote(name)}; else printf '__EVALCUE_TEST__0|%s\\n' ${shellQuote(name)}; fi`);
     });
 
-    lines.push("printf '__EVALCUE_COUNTS__%s,%s,%s,%s\\n' \"$visible_passed\" \"$visible_total\" \"$hidden_passed\" \"$hidden_total\"");
-    lines.push("[ \"$visible_passed\" -eq \"$visible_total\" ] && [ \"$hidden_passed\" -eq \"$hidden_total\" ]");
+    lines.push("printf '__EVALCUE_COUNTS__%s,%s\\n' \"$test_passed\" \"$test_total\"");
+    lines.push("[ \"$test_passed\" -eq \"$test_total\" ]");
     return `${lines.join("\n")}\n`;
 };

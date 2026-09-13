@@ -16,6 +16,7 @@ import { createAdaptiveAssessment } from "./hiringAdaptiveAssessmentController.j
 
 const tokenHash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const cleanText = (value, max = 10000) => String(value || "").trim().slice(0, max);
+const requestError = (message, statusCode = 400) => { const error = new Error(message); error.statusCode = statusCode; return error; };
 
 export const debuggingAssessmentsEnabled = () => String(process.env.ENABLE_DEBUGGING_ASSESSMENTS || "false").toLowerCase() === "true";
 
@@ -32,13 +33,14 @@ export const getDebuggingAssessmentCapabilities = (_req, res) => res.json({
 });
 
 const normalizeDebuggingConfig = (debugging) => {
-    if (!debugging) { const error = new Error("Debugging configuration is required"); error.statusCode = 400; throw error; }
+    if (!debugging) throw requestError("Debugging configuration is required");
     getDebuggingRuntimeProfile(debugging.runtime);
     const { files } = validateDebuggingProject(debugging.files || []);
     const responseMode = debugging.responseMode;
-    if (!["code_fix", "findings"].includes(responseMode)) { const error = new Error("Choose a supported debugging response mode"); error.statusCode = 400; throw error; }
-    if (!files.some((file) => file.kind === "source")) { const error = new Error("Debugging assignments require at least one source file"); error.statusCode = 400; throw error; }
-    if (responseMode === "code_fix" && !files.some((file) => file.kind === "visible_test" || file.kind === "hidden_test")) { const error = new Error("Code-fix debugging assignments require at least one test file"); error.statusCode = 400; throw error; }
+    if (!["code_fix", "findings"].includes(responseMode)) throw requestError("Choose a supported debugging response mode");
+    if (!files.some((file) => file.kind === "source")) throw requestError("Debugging assignments require at least one source file");
+    if (responseMode === "code_fix" && !files.some((file) => file.kind === "hidden_test")) throw requestError("Code-fix debugging assignments require at least one hidden test");
+    if (responseMode === "findings" && files.some((file) => file.kind !== "source")) throw requestError("Findings assignments contain source files only");
     return { responseMode, runtime: debugging.runtime, entryFile: cleanText(debugging.entryFile, 500), files };
 };
 
@@ -50,7 +52,6 @@ const safeDebuggingConfig = (round) => {
         runtime: round.debugging.runtime,
         entryFile: round.debugging.entryFile || "",
         sourceFileCount: files.filter((file) => file.kind === "source").length,
-        visibleTestCount: files.filter((file) => file.kind === "visible_test").length,
         hiddenTestCount: files.filter((file) => file.kind === "hidden_test").length,
     };
 };
@@ -108,7 +109,7 @@ const createRoundsIncludingDebugging = async ({ rounds, req, jobRole, jobDescrip
         const deliveryMode = input.deliveryMode || "conversational";
         const supplied = (input.questions || []).filter((item) => item?.text?.trim()).slice(0, 10);
         if (deliveryMode === "debugging") {
-            if (!supplied.length) { const error = new Error(`Add assignment instructions to ${input.name}.`); error.statusCode = 400; throw error; }
+            if (!supplied.length) throw requestError(`Add assignment instructions to ${input.name}.`);
             const debugging = normalizeDebuggingConfig(input.debugging);
             generatedRounds.push({ name: input.name, description: input.description || "", deliveryMode: "debugging", adaptive: false, questionCount: 1, questions: [normalizeQuestion(supplied[0])], debugging });
             excludeTexts.push(supplied[0].text.trim());
@@ -117,7 +118,7 @@ const createRoundsIncludingDebugging = async ({ rounds, req, jobRole, jobDescrip
         const adaptive = deliveryMode === "conversational" && input.adaptive !== false;
         const requestedCount = Math.min(Math.max(Number(input.questionCount) || 3, 1), 10);
         if (deliveryMode === "conversational" && !adaptive) {
-            if (!supplied.length) { const error = new Error(`Add at least one reviewed question to ${input.name} when AI-generated interview questions are disabled.`); error.statusCode = 400; throw error; }
+            if (!supplied.length) throw requestError(`Add at least one reviewed question to ${input.name} when AI-generated interview questions are disabled.`);
             const questions = supplied.map(normalizeQuestion);
             generatedRounds.push({ name: input.name, description: input.description || "", deliveryMode, adaptive: false, questionCount: questions.length, questions });
             excludeTexts.push(...questions.map((item) => item.text));
@@ -154,11 +155,11 @@ const validateConfigForPublish = async (debugging) => {
     const config = normalizeDebuggingConfig(debugging);
     buildDebuggingArchive({ files: config.files, runtime: config.runtime, includeHiddenTests: config.responseMode === "code_fix" });
     if (config.responseMode === "findings") return { valid: true, message: "Findings assignment validated.", status: "validated" };
-    if (process.env.ENABLE_CODE_EXEC !== "true") { const error = new Error("Code execution must be enabled to publish a code-fix debugging assignment"); error.statusCode = 503; throw error; }
+    if (process.env.ENABLE_CODE_EXEC !== "true") throw requestError("Code execution must be enabled to publish a code-fix debugging assignment", 503);
     const result = await runDebuggingProject({ files: config.files, runtime: config.runtime, includeHiddenTests: true });
-    if (["compile_error", "runtime_error", "timeout"].includes(result.status)) { const error = new Error(`Assignment validation failed: starter project returned ${result.status.replaceAll("_", " ")}`); error.statusCode = 400; throw error; }
-    if (result.visiblePassed === result.visibleTotal && result.hiddenPassed === result.hiddenTotal) { const error = new Error("The starter project already passes every test. Keep at least one reproducible bug for candidates to debug."); error.statusCode = 400; throw error; }
-    return { valid: true, message: "Assignment validated: the project executes and reproduces at least one failing test.", status: "validated", visibleTotal: result.visibleTotal, hiddenTotal: result.hiddenTotal };
+    if (["compile_error", "runtime_error", "timeout"].includes(result.status)) throw requestError(`Assignment validation failed: starter project returned ${result.status.replaceAll("_", " ")}`);
+    if (result.passed === result.total) throw requestError("The starter project already passes every test. Keep at least one reproducible bug for candidates to debug.");
+    return { valid: true, message: "Assignment validated: the project executes and reproduces at least one failing test.", status: "validated", testTotal: result.total };
 };
 
 export const validateDebuggingAssignment = async (req, res, next) => {
@@ -201,7 +202,17 @@ const candidateAttemptPayload = (attempt) => {
     delete value.reviewerNotes;
     delete value.reviewerRatings;
     delete value.reviewedAt;
-    value.debuggingResponses = (value.debuggingResponses || []).map((response) => ({ roundIndex: response.roundIndex, responseMode: response.responseMode, changedFiles: response.changedFiles || [], createdFiles: response.createdFiles || [], deletedFiles: response.deletedFiles || [], findings: response.findings, visibleTestRuns: response.visibleTestRuns || [], finalEvaluation: response.finalEvaluation, submittedAt: response.submittedAt }));
+    value.debuggingResponses = (value.debuggingResponses || []).map((response) => ({
+        roundIndex: response.roundIndex,
+        responseMode: response.responseMode,
+        changedFiles: response.changedFiles || [],
+        createdFiles: response.createdFiles || [],
+        deletedFiles: response.deletedFiles || [],
+        findings: response.findings || [],
+        testRuns: response.testRuns || [],
+        finalEvaluation: response.finalEvaluation,
+        submittedAt: response.submittedAt,
+    }));
     return value;
 };
 
@@ -231,8 +242,8 @@ const workspacePayload = ({ assessmentRound, config, response, roundIndex }) => 
     instructions: assessmentRound.questions?.[0]?.text || "",
     baseFiles: sanitizeProjectForCandidate(config.files),
     files: sanitizeProjectForCandidate(applyDebuggingOverlay(config.files, response)),
-    findings: response.findings || { rootCause: "", evidence: "", proposedFix: "", impact: "", testingStrategy: "" },
-    visibleTestRuns: response.visibleTestRuns || [],
+    findings: response.findings || [],
+    testRuns: response.testRuns || [],
     finalEvaluation: response.submittedAt ? response.finalEvaluation : undefined,
     submittedAt: response.submittedAt,
 });
@@ -244,6 +255,21 @@ export const getCandidateDebuggingWorkspace = async (req, res, next) => {
         await context.attempt.save();
         return res.json(workspacePayload(context));
     } catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }
+};
+
+const normalizeCandidateFindings = (input, config) => {
+    if (!Array.isArray(input)) throw requestError("Findings must be an array");
+    const sourcePaths = new Set(config.files.filter((file) => file.kind === "source").map((file) => file.path));
+    return input.slice(0, 50).map((finding) => {
+        const filePath = cleanText(finding?.filePath, 500);
+        if (!sourcePaths.has(filePath)) throw requestError("Each finding must reference a project source file");
+        return {
+            filePath,
+            rootCause: cleanText(finding?.rootCause),
+            evidence: cleanText(finding?.evidence),
+            proposedFix: cleanText(finding?.proposedFix),
+        };
+    });
 };
 
 export const saveCandidateDebuggingWorkspace = async (req, res, next) => {
@@ -259,8 +285,7 @@ export const saveCandidateDebuggingWorkspace = async (req, res, next) => {
             response.createdFiles = overlay.createdFiles;
             response.deletedFiles = overlay.deletedFiles;
         } else {
-            const findings = req.body.findings || {};
-            response.findings = { rootCause: cleanText(findings.rootCause), evidence: cleanText(findings.evidence), proposedFix: cleanText(findings.proposedFix), impact: cleanText(findings.impact), testingStrategy: cleanText(findings.testingStrategy) };
+            response.findings = normalizeCandidateFindings(req.body.findings || [], config);
         }
         await attempt.save();
         return res.json(workspacePayload(context));
@@ -274,21 +299,20 @@ export const runCandidateDebuggingProjectTests = async (req, res, next) => {
         const { attempt, config, response } = context;
         if (config.responseMode !== "code_fix") return res.status(409).json({ message: "This assignment collects findings and does not execute candidate code" });
         if (response.submittedAt) return res.status(409).json({ message: "This debugging round has already been submitted" });
-        const summary = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime, includeHiddenTests: false });
-        response.visibleTestRuns.push({ ...summary, hiddenPassed: 0, hiddenTotal: 0, ranAt: new Date() });
-        if (response.visibleTestRuns.length > 20) response.visibleTestRuns.splice(0, response.visibleTestRuns.length - 20);
+        const summary = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime, includeHiddenTests: true });
+        response.testRuns.push({ ...summary, ranAt: new Date() });
+        if (response.testRuns.length > 20) response.testRuns.splice(0, response.testRuns.length - 20);
         await attempt.save();
         return res.json(summary);
     } catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }
 };
 
-const findingsAnswer = (findings) => [
-    `Root cause:\n${findings.rootCause || ""}`,
-    `Evidence:\n${findings.evidence || ""}`,
-    `Proposed fix:\n${findings.proposedFix || ""}`,
-    `Impact / risk:\n${findings.impact || ""}`,
-    `Testing strategy:\n${findings.testingStrategy || ""}`,
-].join("\n\n");
+const findingsAnswer = (findings) => findings.map((finding, index) => [
+    `Finding ${index + 1} — ${finding.filePath}`,
+    `Finding / root cause:\n${finding.rootCause || ""}`,
+    finding.evidence ? `Evidence:\n${finding.evidence}` : "",
+    finding.proposedFix ? `Proposed fix:\n${finding.proposedFix}` : "",
+].filter(Boolean).join("\n\n")).join("\n\n---\n\n");
 
 export const submitCandidateDebuggingRound = async (req, res, next) => {
     try {
@@ -301,11 +325,11 @@ export const submitCandidateDebuggingRound = async (req, res, next) => {
             const execution = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime, includeHiddenTests: true });
             summary = { ...execution, diff: summarizeDebuggingDiff(config.files, response) };
             response.finalEvaluation = summary;
-            attemptRound.questions[0].answer = `Debugging solution submitted. Visible tests: ${execution.visiblePassed}/${execution.visibleTotal}. Hidden tests: ${execution.hiddenPassed}/${execution.hiddenTotal}. Files changed: ${summary.diff.changed + summary.diff.created + summary.diff.deleted}.`;
+            attemptRound.questions[0].answer = `Debugging solution submitted. Tests: ${execution.passed}/${execution.total}. Files changed: ${summary.diff.changed + summary.diff.created + summary.diff.deleted}.`;
         } else {
-            const findings = response.findings || {};
-            if (!cleanText(findings.rootCause) || !cleanText(findings.proposedFix) || !cleanText(findings.testingStrategy)) return res.status(400).json({ message: "Complete the root cause, proposed fix, and testing strategy before submitting." });
-            summary = { status: "submitted", findings: true };
+            const findings = Array.isArray(response.findings) ? response.findings : [];
+            if (!findings.length || findings.some((finding) => !cleanText(finding.filePath, 500) || !cleanText(finding.rootCause))) return res.status(400).json({ message: "Add at least one finding with a project file and finding/root cause before submitting." });
+            summary = { status: "submitted", findings: true, findingCount: findings.length };
             response.finalEvaluation = summary;
             attemptRound.questions[0].answer = findingsAnswer(findings);
         }

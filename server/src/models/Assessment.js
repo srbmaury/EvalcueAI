@@ -11,7 +11,8 @@ const assessmentQuestionSchema = new mongoose.Schema({
 const debuggingProjectFileSchema = new mongoose.Schema({
     path: { type: String, required: true, maxlength: 500 },
     content: { type: String, default: "", maxlength: 262144 },
-    kind: { type: String, enum: ["source", "visible_test", "hidden_test"], required: true },
+    kind: { type: String, enum: ["source", "hidden_test"], required: true },
+    displayName: { type: String, maxlength: 120, default: "" },
 }, { _id: false });
 
 const debuggingRoundSchema = new mongoose.Schema({
@@ -54,13 +55,13 @@ const assessmentRoundSchema = new mongoose.Schema({
             validator(value) {
                 if (this.deliveryMode !== "debugging") return true;
                 if (!value || !Array.isArray(value.files) || value.files.length < 1) return false;
-                if (value.responseMode === "code_fix") {
-                    return value.files.some((file) => file.kind === "source") &&
-                        value.files.some((file) => file.kind === "visible_test" || file.kind === "hidden_test");
-                }
-                return value.files.some((file) => file.kind === "source");
+                const hasSource = value.files.some((file) => file.kind === "source");
+                if (!hasSource) return false;
+                if (value.responseMode === "code_fix") return value.files.some((file) => file.kind === "hidden_test");
+                if (value.responseMode === "findings") return value.files.every((file) => file.kind === "source");
+                return false;
             },
-            message: "Debugging rounds require project source files and code-fix rounds require at least one test file",
+            message: "Debugging rounds require source files; code-fix rounds require hidden tests and findings rounds contain source files only",
         },
     },
 }, { _id: true });
@@ -106,15 +107,11 @@ const assessmentSchema = new mongoose.Schema({
     rounds: { type: [assessmentRoundSchema], validate: (value) => value.length >= 1 && value.length <= 5 },
 }, { timestamps: true });
 
-// System-design and debugging rounds are one evolving task, not a list of
-// independent prompts. Normalize here so all create/update paths agree.
 assessmentSchema.pre("validate", function normalizeSingleTaskRounds(next) {
     for (const round of this.rounds || []) {
         if (!["system-design", "debugging"].includes(round.deliveryMode)) continue;
         round.questionCount = 1;
-        if (Array.isArray(round.questions) && round.questions.length > 1) {
-            round.questions = [round.questions[0]];
-        }
+        if (Array.isArray(round.questions) && round.questions.length > 1) round.questions = [round.questions[0]];
     }
     next();
 });

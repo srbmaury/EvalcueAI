@@ -60,64 +60,59 @@ export const buildDebuggingArchive = ({ files, runtime, includeHiddenTests = fal
     ]);
 };
 
-const countsFromOutput = (stdout, defaults) => {
+const safeTestName = (value, index) => String(value || `Test ${index + 1}`).replace(/[\r\n|]+/g, " ").trim().slice(0, 120) || `Test ${index + 1}`;
+
+const protocolFromOutput = (stdout, defaults) => {
     const output = String(stdout || "");
-    const jsonMarker = output.split("\n").find((line) => line.startsWith("__EVALCUE_RESULT__"));
-    if (jsonMarker) {
-        try {
-            const parsed = JSON.parse(jsonMarker.slice("__EVALCUE_RESULT__".length));
-            return {
-                visiblePassed: Number(parsed.visiblePassed) || 0,
-                visibleTotal: Number(parsed.visibleTotal) || 0,
-                hiddenPassed: Number(parsed.hiddenPassed) || 0,
-                hiddenTotal: Number(parsed.hiddenTotal) || 0,
-                visibleFailures: Array.isArray(parsed.visibleFailures) ? parsed.visibleFailures.slice(0, 50).map((failure) => ({ name: String(failure?.name || "Visible test").slice(0, 200), message: String(failure?.message || "Test failed").slice(0, 5000) })) : [],
-                protocolComplete: true,
-            };
-        } catch { /* use line protocol below */ }
-    }
+    const tests = output.split("\n")
+        .filter((line) => line.startsWith("__EVALCUE_TEST__"))
+        .slice(0, 100)
+        .map((line, index) => {
+            const payload = line.slice("__EVALCUE_TEST__".length);
+            const separator = payload.indexOf("|");
+            if (separator < 0) return null;
+            return { passed: payload.slice(0, separator) === "1", name: safeTestName(payload.slice(separator + 1), index) };
+        })
+        .filter(Boolean);
     const countLine = output.split("\n").find((line) => line.startsWith("__EVALCUE_COUNTS__"));
-    const visibleFailures = output.split("\n").filter((line) => line.startsWith("__EVALCUE_VISIBLE_FAIL__")).map((line) => ({ name: line.slice("__EVALCUE_VISIBLE_FAIL__".length).slice(0, 200) || "Visible test", message: "Test process exited with a non-zero status." }));
-    if (countLine) {
-        const [visiblePassed, visibleTotal, hiddenPassed, hiddenTotal] = countLine.slice("__EVALCUE_COUNTS__".length).split(",").map((value) => Math.max(0, Number(value) || 0));
-        return { visiblePassed, visibleTotal, hiddenPassed, hiddenTotal, visibleFailures, protocolComplete: true };
-    }
-    return { ...defaults, visibleFailures, protocolComplete: false };
+    if (!countLine) return { ...defaults, protocolComplete: false };
+    const [passed, total] = countLine.slice("__EVALCUE_COUNTS__".length).split(",").map((value) => Math.max(0, Number(value) || 0));
+    const safeTests = tests.length === total ? tests : defaults.tests.map((test, index) => tests[index] || test);
+    return { passed, total, tests: safeTests.slice(0, total), protocolComplete: true };
 };
 
-const normalizeStatus = (execution, counts) => {
-    const allPassed = counts.visiblePassed === counts.visibleTotal && counts.hiddenPassed === counts.hiddenTotal;
-    // A completed EvalCueAI test protocol can intentionally exit non-zero when
-    // assertions fail. Treat that as a deterministic test failure, not a
-    // candidate runtime crash.
-    if (counts.protocolComplete) return allPassed ? "passed" : "failed";
+const normalizeStatus = (execution, result) => {
+    if (result.protocolComplete) return result.passed === result.total ? "passed" : "failed";
     const description = String(execution?.status?.description || "");
     if (/time limit|timeout/i.test(description)) return "timeout";
     if (/compilation/i.test(description) || execution?.errorType === "compile" || execution?.compileOutput) return "compile_error";
     if (/runtime/i.test(description) || execution?.errorType === "runtime") return "runtime_error";
-    return allPassed ? "passed" : "failed";
+    return result.passed === result.total ? "passed" : "failed";
 };
 
 export const runDebuggingProject = async ({ files, runtime, includeHiddenTests = false }) => {
     const validated = validateDebuggingProject(files).files;
-    const visibleTotal = validated.filter((file) => file.kind === "visible_test").length;
-    const hiddenTotal = includeHiddenTests ? validated.filter((file) => file.kind === "hidden_test").length : 0;
+    const runnableTests = includeHiddenTests ? validated.filter((file) => file.kind === "hidden_test") : [];
+    const defaultTests = runnableTests.map((file, index) => ({ name: safeTestName(file.displayName, index), passed: false }));
     const archive = buildDebuggingArchive({ files: validated, runtime, includeHiddenTests });
     let execution;
     try {
         execution = await executeJudge0Submission({ language_id: MULTI_FILE_LANGUAGE_ID, additional_files: archive.toString("base64") }, { metricLanguage: `debugging-${runtime}` });
     } catch (error) {
-        if (error?.statusCode === 504) return { status: "timeout", visiblePassed: 0, visibleTotal, hiddenPassed: 0, hiddenTotal, visibleFailures: [] };
+        if (error?.statusCode === 504) return { status: "timeout", passed: 0, total: defaultTests.length, tests: defaultTests };
         throw error;
     }
-    const counts = countsFromOutput(execution.stdout, { visiblePassed: execution.isError ? 0 : visibleTotal, visibleTotal, hiddenPassed: execution.isError ? 0 : hiddenTotal, hiddenTotal });
+    const defaults = {
+        passed: execution.isError ? 0 : defaultTests.length,
+        total: defaultTests.length,
+        tests: execution.isError ? defaultTests : defaultTests.map((test) => ({ ...test, passed: true })),
+    };
+    const result = protocolFromOutput(execution.stdout, defaults);
     return {
-        status: normalizeStatus(execution, counts),
-        visiblePassed: counts.visiblePassed,
-        visibleTotal: counts.visibleTotal,
-        hiddenPassed: counts.hiddenPassed,
-        hiddenTotal: counts.hiddenTotal,
-        visibleFailures: counts.visibleFailures,
+        status: normalizeStatus(execution, result),
+        passed: result.passed,
+        total: result.total,
+        tests: result.tests,
     };
 };
 
