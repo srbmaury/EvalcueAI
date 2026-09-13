@@ -18,4 +18,13 @@ describe("hiring assessment builder wiring", () => {
         expect(source).toContain("<DebuggingRoundEditor");
         expect(source).toContain("createDebuggingRound");
     });
+
+    it("tracks current debugging validation and blocks publish without restoring provisional single-file fields", () => {
+        expect(source).toContain("debuggingValidations");
+        expect(source).toContain("onValidationChange");
+        expect(source).toContain("debuggingReadyToPublish");
+        expect(source).toContain("Validate every debugging assignment before publishing or scheduling.");
+        expect(source).not.toContain("starterCode");
+        expect(source).not.toContain("round.debugging?.tests");
+    });
 });
