@@ -69,7 +69,6 @@ const OAForm = ({
 
     useEffect(() => {
         if (!activeQuestionText || spokenQuestionRef.current === activeQuestionKey) return undefined;
-        spokenQuestionRef.current = activeQuestionKey;
         let cancelled = false;
         (async () => {
             if (supportsSTT) await onStartHandsFree?.(safeIndex);
@@ -77,7 +76,10 @@ const OAForm = ({
             if (supportsTTS) {
                 await onPauseHandsFree?.();
                 if (cancelled) return;
+                spokenQuestionRef.current = activeQuestionKey;
                 await onSpeak?.(activeQuestionText);
+            } else {
+                spokenQuestionRef.current = activeQuestionKey;
             }
             if (!cancelled && supportsSTT) await onResumeHandsFree?.(safeIndex);
         })();
