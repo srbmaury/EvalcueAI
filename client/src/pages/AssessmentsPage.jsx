@@ -1,28 +1,14 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Link as RouterLink, Navigate, useLocation, useSearchParams } from "react-router-dom";
-import { AddRounded, ArrowDownwardRounded, ArrowUpwardRounded, AssignmentTurnedInRounded, AutoAwesomeRounded, CloseRounded, ContentCopyRounded, DeleteOutlineRounded, GroupsRounded, HourglassTopRounded, InsightsRounded } from "@mui/icons-material";
-import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, Collapse, Container, Divider, FormControlLabel, Grid, IconButton, MenuItem, Pagination, Paper, Stack, TextField, Tooltip, Typography } from "@mui/material";
+import { useCallback, useContext, useEffect, useState } from "react";
+import { Link as RouterLink, Navigate, useLocation } from "react-router-dom";
+import { AddRounded, AssignmentTurnedInRounded, ContentCopyRounded, GroupsRounded, HourglassTopRounded, InsightsRounded } from "@mui/icons-material";
+import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Container, Divider, Grid, IconButton, MenuItem, Pagination, Paper, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import api from "../api/axios";
 import { useNotify } from "../context/NotificationContext";
 import { OrganizationContext } from "../context/OrganizationContext";
-import JobPostImporter from "../components/JobPostImporter";
-import { assessQuestionSet } from "../utils/assessmentQuality";
 import { hiringPermissionsFor } from "../utils/hiringPermissions";
-import { trackEvent } from "../utils/analytics";
 import { externalSurfaceUrl } from "../utils/deploymentSurface";
 
-const experienceNames = { conversational: "Interview", "online-assessment": "Coding", "system-design": "System design" };
-const emptyRound = () => ({ name: "Interview", description: "Role-specific knowledge and practical judgment", deliveryMode: "conversational", adaptive: true, questionCount: 3, aiPrompt: "", questions: [] });
-const initialForm = { title: "", jobRole: "", jobDescription: "", candidateInstructions: "", contactEmail: "", durationMinutes: 30, opensAt: "", expiresAt: "", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", followUpsEnabled: true, inviteOnly: false, inviteEmails: "", templateName: "", rubric: [], integrity: { enabled: false, requireFullscreen: false, trackFocus: true, trackClipboard: true, requireCamera: false, monitorFacePresence: false, retentionDays: 30 }, rounds: [emptyRound()] };
-const countRequestedInPrompt = (prompt) => { const match = prompt.match(/\b(?:generate|create|make)?\s*(10|[1-9])\s+questions?\b/i); return match ? Number(match[1]) : null; };
-const suggestedAssessmentTitle = (role) => role ? `${role} Assessment` : "";
-const builderSections = [
-    ["assessment-role", "1 · Role"],
-    ["assessment-questions", "2 · Questions"],
-    ["assessment-delivery", "3 · Delivery"],
-    ["assessment-integrity", "4 · Integrity"],
-    ["assessment-review", "5 · Review"],
-];
+const createAssessmentPath = "/hire/assessments?create=1";
 
 export default function AssessmentsPage() {
     const location = useLocation();
@@ -34,174 +20,239 @@ export default function AssessmentsPage() {
         canViewAssessments,
         canManageAssessments,
     } = hiringPermissionsFor(currentRole);
-    const [searchParams, setSearchParams] = useSearchParams();
-    const createFormRef = useRef(null);
-    const [items, setItems] = useState([]); const [page, setPage] = useState(1); const [totalPages, setTotalPages] = useState(1);
-    const [overview, setOverview] = useState({ summary: {}, assessments: [], candidates: [], totalPages: 1 }); const [candidatePage, setCandidatePage] = useState(1); const [candidateSearch, setCandidateSearch] = useState(""); const [candidateStatus, setCandidateStatus] = useState(""); const [candidateAssessment, setCandidateAssessment] = useState(""); const [overviewLoading, setOverviewLoading] = useState(true);
-    const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState("");
-    const [form, setForm] = useState(initialForm);
-    const [showOptionalSetup, setShowOptionalSetup] = useState(false);
-    const [titleCustomized, setTitleCustomized] = useState(false);
-    const [generatingRound, setGeneratingRound] = useState(null); const [improvingQuestion, setImprovingQuestion] = useState("");
-    const [showCreate, setShowCreate] = useState(canManageAssessments && searchParams.get("create") === "1");
-    const [activeBuilderSection, setActiveBuilderSection] = useState("assessment-role");
-    const assessmentQuality = useMemo(() => assessQuestionSet(form), [form]);
-    const builderTracked = useRef(false);
-    const editId = searchParams.get("edit") || "";
-    useEffect(() => { if (!canManageAssessments || (searchParams.get("create") !== "1" && !location.state?.openCreate)) return; setShowCreate(true); const timer = setTimeout(() => { if (typeof createFormRef.current?.scrollIntoView === "function") createFormRef.current.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50); return () => clearTimeout(timer); }, [canManageAssessments, location.key, location.state, searchParams]);
-    useEffect(() => { if (showCreate && !builderTracked.current) { builderTracked.current = true; trackEvent("assessment_builder_started"); } if (!showCreate) builderTracked.current = false; }, [showCreate]);
-    useEffect(() => {
-        if (!showCreate || typeof IntersectionObserver === "undefined") return undefined;
-        const observer = new IntersectionObserver((entries) => {
-            const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-            if (visible?.target?.id) setActiveBuilderSection(visible.target.id);
-        }, { rootMargin: "-130px 0px -55% 0px", threshold: [0.05, 0.25, 0.5] });
-        builderSections.forEach(([id]) => { const node = document.getElementById(id); if (node) observer.observe(node); });
-        return () => observer.disconnect();
-    }, [showCreate]);
+    const [items, setItems] = useState([]);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [overview, setOverview] = useState({ summary: {}, assessments: [], candidates: [], totalPages: 1 });
+    const [candidatePage, setCandidatePage] = useState(1);
+    const [candidateSearch, setCandidateSearch] = useState("");
+    const [candidateStatus, setCandidateStatus] = useState("");
+    const [candidateAssessment, setCandidateAssessment] = useState("");
+    const [overviewLoading, setOverviewLoading] = useState(true);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
     const load = useCallback(async () => {
-        if (!activeOrganization?._id || !canViewAssessments) { setItems([]); setTotalPages(1); setLoading(false); return; }
-        setLoading(true); setError("");
-        try { const { data } = await api.get("/assessments", { params: { page, limit: 8 } }); setItems(data.items || []); setTotalPages(data.totalPages || 1); }
-        catch { setError("We couldn’t load your assessments."); }
-        finally { setLoading(false); }
+        if (!activeOrganization?._id || !canViewAssessments) {
+            setItems([]);
+            setTotalPages(1);
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        setError("");
+        try {
+            const { data } = await api.get("/assessments", { params: { page, limit: 8 } });
+            setItems(data.items || []);
+            setTotalPages(data.totalPages || 1);
+        } catch {
+            setError("We couldn’t load your assessments.");
+        } finally {
+            setLoading(false);
+        }
     }, [activeOrganization?._id, canViewAssessments, page]);
+
     const loadOverview = useCallback(async () => {
-        if (!activeOrganization?._id || !canViewCandidatePipeline) { setOverview({ summary: {}, assessments: [], candidates: [], totalPages: 1 }); setOverviewLoading(false); return; }
+        if (!activeOrganization?._id || !canViewCandidatePipeline) {
+            setOverview({ summary: {}, assessments: [], candidates: [], totalPages: 1 });
+            setOverviewLoading(false);
+            return;
+        }
         setOverviewLoading(true);
-        try { const { data } = await api.get("/assessments/overview", { params: { page: candidatePage, limit: 8, search: candidateSearch || undefined, status: candidateStatus || undefined, assessmentId: candidateAssessment || undefined } }); setOverview({ summary: data.summary || {}, assessments: data.assessments || [], candidates: data.candidates || [], totalPages: data.totalPages || 1 }); }
-        catch { setError("We couldn’t load the candidate pipeline."); }
-        finally { setOverviewLoading(false); }
+        try {
+            const { data } = await api.get("/assessments/overview", {
+                params: {
+                    page: candidatePage,
+                    limit: 8,
+                    search: candidateSearch || undefined,
+                    status: candidateStatus || undefined,
+                    assessmentId: candidateAssessment || undefined,
+                },
+            });
+            setOverview({
+                summary: data.summary || {},
+                assessments: data.assessments || [],
+                candidates: data.candidates || [],
+                totalPages: data.totalPages || 1,
+            });
+        } catch {
+            setError("We couldn’t load the candidate pipeline.");
+        } finally {
+            setOverviewLoading(false);
+        }
     }, [activeOrganization?._id, canViewCandidatePipeline, candidatePage, candidateSearch, candidateStatus, candidateAssessment]);
+
     useEffect(() => {
-        setItems([]); setPage(1); setTotalPages(1);
-        setOverview({ summary: {}, assessments: [], candidates: [], totalPages: 1 }); setCandidatePage(1); setCandidateSearch(""); setCandidateStatus(""); setCandidateAssessment("");
+        setItems([]);
+        setPage(1);
+        setTotalPages(1);
+        setOverview({ summary: {}, assessments: [], candidates: [], totalPages: 1 });
+        setCandidatePage(1);
+        setCandidateSearch("");
+        setCandidateStatus("");
+        setCandidateAssessment("");
         setError("");
     }, [activeOrganization?._id]);
+
     useEffect(() => { load(); }, [load]);
-    useEffect(() => { const timer = setTimeout(loadOverview, candidateSearch ? 300 : 0); return () => clearTimeout(timer); }, [loadOverview, candidateSearch]);
     useEffect(() => {
-        if (showCreate || !location.hash) return;
+        const timer = setTimeout(loadOverview, candidateSearch ? 300 : 0);
+        return () => clearTimeout(timer);
+    }, [loadOverview, candidateSearch]);
+    useEffect(() => {
+        if (!location.hash) return;
         const id = location.hash.slice(1);
         const timer = window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
         return () => window.clearTimeout(timer);
-    }, [location.hash, showCreate, loading, overviewLoading]);
-    useEffect(() => { if (!canManageAssessments || !editId) return; let active = true; api.get(`/assessments/${editId}`).then(({ data }) => { const assessment = data.assessment; if (!active) return; if (assessment.status !== "draft" || data.attempts?.length) { notify("Only unused drafts can be edited. Create a new version instead.", "warning"); return; } setForm({ ...initialForm, ...assessment, opensAt: assessment.opensAt ? new Date(assessment.opensAt).toISOString().slice(0, 16) : "", expiresAt: assessment.expiresAt ? new Date(assessment.expiresAt).toISOString().slice(0, 16) : "", inviteEmails: assessment.invitations?.filter((item) => item.status !== "revoked").map((item) => item.email).join("\n") || "", rounds: assessment.rounds.map((round) => ({ ...round, adaptive: round.deliveryMode === "conversational" ? round.adaptive !== false : false, aiPrompt: "", questionCount: round.questionCount || round.questions.length })) }); setTitleCustomized(true); setShowCreate(true); }).catch(() => notify("Draft could not be loaded for editing.", "error")); return () => { active = false; }; }, [canManageAssessments, editId, notify]);
-    const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
-    const setJobRole = (value) => setForm((current) => ({ ...current, jobRole: value, ...(!titleCustomized ? { title: suggestedAssessmentTitle(value) } : {}) }));
-    const applyStarter = (kind) => { const starters = {
-        engineering: { title: "Software engineering assessment", jobRole: "Software Engineer", jobDescription: "Build reliable, secure, maintainable software; explain tradeoffs; test solutions; and communicate decisions clearly.", rounds: [{ ...emptyRound(), name: "Technical judgment", description: "Problem solving, code quality, testing, and tradeoffs", questionCount: 3 }] },
-        product: { title: "Product management assessment", jobRole: "Product Manager", jobDescription: "Discover customer needs, prioritize outcomes, define success metrics, and align cross-functional teams through ambiguity.", rounds: [{ ...emptyRound(), name: "Product sense", description: "Discovery, prioritization, metrics, and stakeholder judgment", questionCount: 3 }] },
-        sales: { title: "Sales assessment", jobRole: "Account Executive", jobDescription: "Qualify opportunities, uncover customer value, handle objections, and manage a clear and ethical sales process.", rounds: [{ ...emptyRound(), name: "Customer conversation", description: "Discovery, value articulation, objections, and closing judgment", questionCount: 3 }] },
-    }; setTitleCustomized(false); setForm((current) => ({ ...current, ...starters[kind] })); };
-    const updateRound = (index, key, value) => setForm((current) => ({ ...current, rounds: current.rounds.map((round, position) => {
-        if (position !== index) return round;
-        if (key === "deliveryMode") return { ...round, name: experienceNames[value] || round.name, deliveryMode: value, adaptive: value === "conversational" ? round.adaptive !== false : false, questionCount: value === "system-design" ? 1 : round.questionCount };
-        if (key === "adaptive") {
-            const configuredCount = round.questions.filter((question) => question.text?.trim()).length;
-            return { ...round, adaptive: Boolean(value), questionCount: value ? Math.min(10, Math.max(Number(round.questionCount) || 3, configuredCount || 1)) : Math.max(configuredCount, 1) };
-        }
-        if (key === "questionCount") {
-            const requiredCount = round.questions.filter((question) => question.required && question.text?.trim()).length;
-            return { ...round, questionCount: Math.min(10, Math.max(Number(value) || 1, requiredCount || 1)) };
-        }
-        return { ...round, [key]: value };
-    }) }));
-    const updateQuestion = (roundIndex, questionIndex, text) => setForm((current) => ({ ...current, rounds: current.rounds.map((round, position) => position === roundIndex ? { ...round, questions: round.questions.map((question, qPosition) => qPosition === questionIndex ? { ...question, text } : question) } : round) }));
-    const updateQuestionMeta = (roundIndex, questionIndex, patch) => setForm((current) => ({ ...current, rounds: current.rounds.map((round, position) => position === roundIndex ? { ...round, questions: round.questions.map((question, qPosition) => qPosition === questionIndex ? { ...question, ...patch } : question) } : round) }));
-    const addQuestion = (roundIndex) => setForm((current) => ({ ...current, rounds: current.rounds.map((round, position) => { if (position !== roundIndex) return round; const questions = [...round.questions, { text: "", required: true }]; const fixedConversation = round.deliveryMode === "conversational" && round.adaptive === false; return { ...round, questions, questionCount: fixedConversation ? questions.length : Math.min(10, Math.max(Number(round.questionCount) || 1, questions.length)) }; }) }));
-    const removeQuestion = (roundIndex, questionIndex) => setForm((current) => ({ ...current, rounds: current.rounds.map((round, position) => { if (position !== roundIndex) return round; const questions = round.questions.filter((_, qPosition) => qPosition !== questionIndex); const fixedConversation = round.deliveryMode === "conversational" && round.adaptive === false; return { ...round, questions, questionCount: fixedConversation ? Math.max(questions.length, 1) : round.questionCount }; }) }));
-    const moveQuestion = (roundIndex, questionIndex, direction) => setForm((current) => ({ ...current, rounds: current.rounds.map((round, position) => { if (position !== roundIndex) return round; const questions = [...round.questions]; const target = questionIndex + direction; if (target < 0 || target >= questions.length) return round; [questions[questionIndex], questions[target]] = [questions[target], questions[questionIndex]]; return { ...round, questions }; }) }));
-    const generateQuestions = async (roundIndex) => { const round = form.rounds[roundIndex]; if (!round.aiPrompt.trim()) { setError("Describe the topics, difficulty, or question style you want AI to generate."); return; } setGeneratingRound(roundIndex); setError(""); try { const requestedCount = countRequestedInPrompt(round.aiPrompt); const targetCount = Math.min(10, Math.max(requestedCount || Number(round.questionCount) || 1, round.questions.filter((question) => question.required && question.text.trim()).length || 1)); const existing = round.questions.filter((question) => question.text.trim()); const remaining = Math.max(targetCount - existing.length, 1); const { data } = await api.post("/assessments/questions/generate", { jobRole: form.jobRole, jobDescription: form.jobDescription, roundName: round.name, roundDescription: round.description, deliveryMode: round.deliveryMode, prompt: round.aiPrompt, count: remaining, existingQuestions: existing.map((question) => question.text) }); const generated = (data.questions || []).map((question) => ({ ...question, required: false })); const questions = [...existing, ...generated].slice(0, 10); setForm((current) => ({ ...current, rounds: current.rounds.map((item, position) => position === roundIndex ? { ...item, questionCount: item.deliveryMode === "conversational" && item.adaptive === false ? questions.length : targetCount, questions } : item) })); } catch (err) { setError(err?.response?.data?.message || "AI couldn’t generate questions right now. You can add them manually."); } finally { setGeneratingRound(null); } };
-    const improveQuestion = async (roundIndex, questionIndex) => { const question = form.rounds[roundIndex].questions[questionIndex]; if (!question.text.trim()) return; const key = `${roundIndex}-${questionIndex}`; setImprovingQuestion(key); setError(""); try { const { data } = await api.post("/assessments/questions/improve", { question: question.text, jobRole: form.jobRole, jobDescription: form.jobDescription, roundName: form.rounds[roundIndex].name }); updateQuestion(roundIndex, questionIndex, data.text); } catch (err) { setError(err?.response?.data?.message || "AI couldn’t improve this question right now."); } finally { setImprovingQuestion(""); } };
-    const aiGenerationDisabledReason = !form.jobRole ? "Add the job role first." : form.jobDescription.length < 20 ? "Add a more detailed job description (at least 20 characters)." : "";
-    const requestedHiringView = location.hash === "#candidate-pipeline" ? "candidates" : location.hash === "#assessment-list" ? "assessments" : "overview";
+    }, [location.hash, loading, overviewLoading]);
+
+    const requestedHiringView = location.hash === "#candidate-pipeline"
+        ? "candidates"
+        : location.hash === "#assessment-list"
+            ? "assessments"
+            : "overview";
     const hiringView = requestedHiringView === "overview" && !canViewHiringOverview
         ? "candidates"
         : requestedHiringView === "assessments" && !canViewAssessments
             ? "candidates"
             : requestedHiringView;
-    const copyLink = async (token) => { try { await navigator.clipboard.writeText(externalSurfaceUrl("practice", `/assessment/${token}`)); notify("Candidate link copied.", "success"); } catch { notify("Candidate link could not be copied.", "error"); } };
-    const create = async (event) => { event.preventDefault(); if (!canManageAssessments) { setError("Your organization role cannot create or edit assessments."); return; } const intent = event.nativeEvent?.submitter?.value || "draft"; const publishNow = intent === "publish"; const schedule = intent === "schedule"; if (schedule && (!form.opensAt || new Date(form.opensAt) <= new Date())) { setError("Choose a future opening time before scheduling."); return; } const rounds = form.rounds.map((round) => { const questions = round.questions.map((question) => ({ text: question.text.trim(), weight: Number(question.weight) || 1, competencies: question.competencies || [], knockout: Boolean(question.knockout), required: Boolean(question.required) })).filter((question) => question.text); const requiredCount = questions.filter((question) => question.required).length; const fixedConversation = round.deliveryMode === "conversational" && round.adaptive === false; return { ...round, questions, questionCount: fixedConversation ? questions.length : Math.min(10, Math.max(Number(round.questionCount) || 1, requiredCount || 1)) }; }); if (rounds.some((round) => !round.questions.length)) { setError("Add at least one question in every round before saving."); return; } const candidates = form.inviteEmails.split(/[\n,;]+/).map((email) => email.trim()).filter(Boolean).map((email) => ({ email })); if ((publishNow || schedule) && form.inviteOnly && !candidates.length) { setError("Add at least one candidate email for an invite-only assessment."); return; } setSaving(true); setError(""); try { const assessmentInput = { ...form }; delete assessmentInput.inviteEmails; delete assessmentInput._id; delete assessmentInput.organization; delete assessmentInput.createdBy; delete assessmentInput.shareToken; delete assessmentInput.status; delete assessmentInput.invitations; delete assessmentInput.createdAt; delete assessmentInput.updatedAt; delete assessmentInput.__v; delete assessmentInput.publishedAt; delete assessmentInput.archivedAt; const targetStatus = publishNow ? "active" : schedule ? "scheduled" : "draft"; const payload = { ...assessmentInput, opensAt: form.opensAt ? new Date(form.opensAt).toISOString() : null, expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null, rounds }; const { data: saved } = editId ? await api.patch(`/assessments/${editId}`, payload) : await api.post("/assessments", { ...payload, status: targetStatus }); const created = editId && targetStatus !== "draft" ? (await api.patch(`/assessments/${editId}`, { status: targetStatus })).data : saved; let invitationMessage = ""; if ((publishNow || schedule) && candidates.length) { const { data: invitationResult } = await api.post(`/assessments/${created._id}/invitations`, { candidates }); const sent = invitationResult.results?.filter((item) => item.sent).length || 0; const queued = invitationResult.results?.filter((item) => item.queued).length || 0; invitationMessage = sent ? ` ${sent}/${candidates.length} invitation email(s) sent.` : queued ? ` ${queued} invitation(s) queued for opening time.` : ""; } trackEvent(publishNow ? "assessment_published" : schedule ? "assessment_scheduled" : "assessment_draft_saved"); setForm(initialForm); notify(publishNow ? `Assessment published.${invitationMessage}` : schedule ? `Assessment scheduled.${invitationMessage}` : "Draft saved. Preview and publish it when ready.", "success"); setShowCreate(false); setSearchParams({}); setPage(1); await Promise.all([load(), loadOverview()]); } catch (err) { setError(err?.response?.data?.message || "The assessment couldn’t be saved. Check the details and try again."); } finally { setSaving(false); } };
+
+    const copyLink = async (token) => {
+        try {
+            await navigator.clipboard.writeText(externalSurfaceUrl("practice", `/assessment/${token}`));
+            notify("Candidate link copied.", "success");
+        } catch {
+            notify("Candidate link could not be copied.", "error");
+        }
+    };
+
     if (organizationLoading) return <Stack minHeight="50vh" alignItems="center" justifyContent="center"><CircularProgress /></Stack>;
     if (!activeOrganization) return <Navigate to="/hire/team" replace />;
 
     return <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
-        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "flex-start" }} gap={2} mb={3}><Box><Typography component="h1" variant="h3" sx={{ fontSize: { xs: "2.45rem", sm: "3rem" } }} fontWeight={850}>Hiring workspace</Typography>
-        <Typography color="text.secondary" sx={{ mt: 1 }}>Review the hiring pipeline, assessments, and candidate evidence without switching contexts.</Typography></Box>{canManageAssessments && <Button variant={showCreate ? "outlined" : "contained"} startIcon={showCreate ? <CloseRounded /> : <AddRounded />} onClick={() => { const next = !showCreate; setShowCreate(next); setSearchParams(next ? { create: "1" } : {}); }}>{showCreate ? "Cancel" : "Create assessment"}</Button>}</Stack>
+        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "flex-start" }} gap={2} mb={3}>
+            <Box>
+                <Typography component="h1" variant="h3" sx={{ fontSize: { xs: "2.45rem", sm: "3rem" } }} fontWeight={850}>Hiring workspace</Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>Review the hiring pipeline, assessments, and candidate evidence without switching contexts.</Typography>
+            </Box>
+            {canManageAssessments && <Button component={RouterLink} to={createAssessmentPath} variant="contained" startIcon={<AddRounded />}>Create assessment</Button>}
+        </Stack>
+
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <Collapse in={!showCreate} unmountOnExit><Box>
-        {canViewHiringOverview && hiringView === "overview" && <><Typography component="h2" variant="h5" fontWeight={800} mb={2}>Overview</Typography>
-        <Grid container spacing={2} mb={4}>{[
-            [<AssignmentTurnedInRounded key="i" />, "Published assessments", overview.summary.activeAssessments ?? "—", `${overview.summary.assessments ?? 0} total`],
-            [<GroupsRounded key="i" />, "Candidates", overview.summary.totalCandidates ?? "—", `${overview.summary.submitted ?? 0} submitted`],
-            [<HourglassTopRounded key="i" />, "In progress", overview.summary.inProgress ?? "—", "May need a reminder"],
-            [<InsightsRounded key="i" />, "Average AI score", overview.summary.averageScore == null ? "—" : `${overview.summary.averageScore}/10`, "Review with human judgment"],
-        ].map(([icon, label, value, help]) => <Grid size={{ xs: 6, md: 3 }} key={label}><Paper variant="outlined" sx={{ p: 2.25, height: "100%" }}><Box color="primary.main" mb={1}>{icon}</Box><Typography variant="h5" fontWeight={850}>{value}</Typography><Typography fontWeight={750}>{label}</Typography><Typography variant="caption" color="text.secondary">{help}</Typography></Paper></Grid>)}</Grid>
-        {(overview.summary.invitations || overview.summary.invitationFailed) > 0 && <Paper variant="outlined" sx={{ p: 2.5, mb: 4 }}><Typography component="h2" variant="h6" fontWeight={800}>Invitation funnel</Typography><Stack direction={{ xs: "column", sm: "row" }} gap={2} mt={1.5}>{[["Invited", overview.summary.invitations || 0], ["Opened", overview.summary.invitationOpened || 0], ["Started", overview.summary.totalCandidates || 0], ["Submitted", overview.summary.submitted || 0], ["Delivery issues", overview.summary.invitationFailed || 0]].map(([label, value]) => <Box key={label} flex={1}><Typography variant="h5" fontWeight={850} color={label === "Delivery issues" && value ? "error.main" : "text.primary"}>{value}</Typography><Typography variant="body2" color="text.secondary">{label}</Typography></Box>)}</Stack></Paper>}</>}
+
+        {canViewHiringOverview && hiringView === "overview" && <>
+            <Typography component="h2" variant="h5" fontWeight={800} mb={2}>Overview</Typography>
+            <Grid container spacing={2} mb={4}>{[
+                [<AssignmentTurnedInRounded key="i" />, "Published assessments", overview.summary.activeAssessments ?? "—", `${overview.summary.assessments ?? 0} total`],
+                [<GroupsRounded key="i" />, "Candidates", overview.summary.totalCandidates ?? "—", `${overview.summary.submitted ?? 0} submitted`],
+                [<HourglassTopRounded key="i" />, "In progress", overview.summary.inProgress ?? "—", "May need a reminder"],
+                [<InsightsRounded key="i" />, "Average AI score", overview.summary.averageScore == null ? "—" : `${overview.summary.averageScore}/10`, "Review with human judgment"],
+            ].map(([icon, label, value, help]) => <Grid size={{ xs: 6, md: 3 }} key={label}>
+                <Paper variant="outlined" sx={{ p: 2.25, height: "100%" }}>
+                    <Box color="primary.main" mb={1}>{icon}</Box>
+                    <Typography variant="h5" fontWeight={850}>{value}</Typography>
+                    <Typography fontWeight={750}>{label}</Typography>
+                    <Typography variant="caption" color="text.secondary">{help}</Typography>
+                </Paper>
+            </Grid>)}</Grid>
+            {(overview.summary.invitations || overview.summary.invitationFailed) > 0 && <Paper variant="outlined" sx={{ p: 2.5, mb: 4 }}>
+                <Typography component="h2" variant="h6" fontWeight={800}>Invitation funnel</Typography>
+                <Stack direction={{ xs: "column", sm: "row" }} gap={2} mt={1.5}>{[
+                    ["Invited", overview.summary.invitations || 0],
+                    ["Opened", overview.summary.invitationOpened || 0],
+                    ["Started", overview.summary.totalCandidates || 0],
+                    ["Submitted", overview.summary.submitted || 0],
+                    ["Delivery issues", overview.summary.invitationFailed || 0],
+                ].map(([label, value]) => <Box key={label} flex={1}>
+                    <Typography variant="h5" fontWeight={850} color={label === "Delivery issues" && value ? "error.main" : "text.primary"}>{value}</Typography>
+                    <Typography variant="body2" color="text.secondary">{label}</Typography>
+                </Box>)}</Stack>
+            </Paper>}
+        </>}
+
         {canViewCandidatePipeline && hiringView !== "assessments" && <Paper id="candidate-pipeline" variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, mb: 4, scrollMarginTop: 100 }}>
-            <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} gap={2} mb={2}><Box><Typography component="h2" variant="h5" fontWeight={800}>Candidate pipeline</Typography><Typography variant="body2" color="text.secondary">Candidates across all assessments, ordered by their latest activity.</Typography></Box><Stack direction={{ xs: "column", sm: "row" }} gap={1.5} flexWrap="wrap"><TextField size="small" label="Search name or email" value={candidateSearch} onChange={(event) => { setCandidateSearch(event.target.value); setCandidatePage(1); }} /><TextField select size="small" label="Assessment" value={candidateAssessment} onChange={(event) => { setCandidateAssessment(event.target.value); setCandidatePage(1); }} sx={{ minWidth: 180 }}><MenuItem value="">All assessments</MenuItem>{overview.assessments.map((assessment) => <MenuItem key={assessment._id} value={assessment._id}>{assessment.title}</MenuItem>)}</TextField><TextField select size="small" label="Status" value={candidateStatus} onChange={(event) => { setCandidateStatus(event.target.value); setCandidatePage(1); }} sx={{ minWidth: 150 }}><MenuItem value="">All candidates</MenuItem><MenuItem value="started">In progress</MenuItem><MenuItem value="evaluating">Evaluating</MenuItem><MenuItem value="evaluation_failed">Needs retry</MenuItem><MenuItem value="submitted">Submitted</MenuItem></TextField>{(candidateSearch || candidateStatus || candidateAssessment) && <Button type="button" size="small" color="inherit" onClick={() => { setCandidateSearch(""); setCandidateStatus(""); setCandidateAssessment(""); setCandidatePage(1); }}>Clear filters</Button>}</Stack></Stack>
+            <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} gap={2} mb={2}>
+                <Box>
+                    <Typography component="h2" variant="h5" fontWeight={800}>Candidate pipeline</Typography>
+                    <Typography variant="body2" color="text.secondary">Candidates across all assessments, ordered by their latest activity.</Typography>
+                </Box>
+                <Stack direction={{ xs: "column", sm: "row" }} gap={1.5} flexWrap="wrap">
+                    <TextField size="small" label="Search name or email" value={candidateSearch} onChange={(event) => { setCandidateSearch(event.target.value); setCandidatePage(1); }} />
+                    <TextField select size="small" label="Assessment" value={candidateAssessment} onChange={(event) => { setCandidateAssessment(event.target.value); setCandidatePage(1); }} sx={{ minWidth: 180 }}>
+                        <MenuItem value="">All assessments</MenuItem>
+                        {overview.assessments.map((assessment) => <MenuItem key={assessment._id} value={assessment._id}>{assessment.title}</MenuItem>)}
+                    </TextField>
+                    <TextField select size="small" label="Status" value={candidateStatus} onChange={(event) => { setCandidateStatus(event.target.value); setCandidatePage(1); }} sx={{ minWidth: 150 }}>
+                        <MenuItem value="">All candidates</MenuItem>
+                        <MenuItem value="started">In progress</MenuItem>
+                        <MenuItem value="evaluating">Evaluating</MenuItem>
+                        <MenuItem value="evaluation_failed">Needs retry</MenuItem>
+                        <MenuItem value="submitted">Submitted</MenuItem>
+                    </TextField>
+                    {(candidateSearch || candidateStatus || candidateAssessment) && <Button type="button" size="small" color="inherit" onClick={() => { setCandidateSearch(""); setCandidateStatus(""); setCandidateAssessment(""); setCandidatePage(1); }}>Clear filters</Button>}
+                </Stack>
+            </Stack>
             {overviewLoading ? <Stack alignItems="center" py={3}><CircularProgress size={28} /></Stack> : overview.candidates?.length ? <Stack divider={<Divider flexItem />}>
-                {overview.candidates.map((candidate) => { const statusLabel = candidate.status === "submitted" ? "Submitted" : candidate.status === "evaluating" ? "Evaluating" : candidate.status === "evaluation_failed" ? "Needs retry" : "In progress"; return <Stack key={candidate._id} direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} gap={1.5} py={1.75}><Box minWidth={0}><Stack direction="row" gap={1} alignItems="center" flexWrap="wrap"><Typography fontWeight={800} sx={{ overflowWrap: "anywhere" }}>{candidate.candidateName}</Typography><Chip size="small" label={statusLabel} color={candidate.status === "submitted" ? "success" : candidate.status === "evaluation_failed" ? "error" : "warning"} /></Stack><Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>{candidate.candidateEmail}</Typography></Box><Box sx={{ flex: 1, minWidth: 0 }}><Typography fontWeight={700} sx={{ overflowWrap: "anywhere" }}>{candidate.assessment?.title || "Assessment"}</Typography><Typography variant="caption" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>{candidate.assessment?.jobRole}{candidate.assessment?.company ? ` · ${candidate.assessment.company}` : ""}</Typography></Box><Stack direction="row" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap"><Box textAlign={{ md: "right" }}><Typography fontWeight={800}>{candidate.overallScore == null ? "—" : `${candidate.overallScore}/10`}</Typography><Typography variant="caption" color="text.secondary">{candidate.submittedAt ? `Submitted ${new Date(candidate.submittedAt).toLocaleDateString()}` : `Started ${new Date(candidate.startedAt).toLocaleDateString()}`}</Typography></Box>{candidate.assessment?._id && <Button component={RouterLink} to={`/hire/assessments/${candidate.assessment._id}`} size="small" variant="outlined">Review</Button>}</Stack></Stack>; })}
+                {overview.candidates.map((candidate) => {
+                    const statusLabel = candidate.status === "submitted"
+                        ? "Submitted"
+                        : candidate.status === "evaluating"
+                            ? "Evaluating"
+                            : candidate.status === "evaluation_failed"
+                                ? "Needs retry"
+                                : "In progress";
+                    return <Stack key={candidate._id} direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} gap={1.5} py={1.75}>
+                        <Box minWidth={0}>
+                            <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+                                <Typography fontWeight={800} sx={{ overflowWrap: "anywhere" }}>{candidate.candidateName}</Typography>
+                                <Chip size="small" label={statusLabel} color={candidate.status === "submitted" ? "success" : candidate.status === "evaluation_failed" ? "error" : "warning"} />
+                            </Stack>
+                            <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>{candidate.candidateEmail}</Typography>
+                        </Box>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography fontWeight={700} sx={{ overflowWrap: "anywhere" }}>{candidate.assessment?.title || "Assessment"}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>{candidate.assessment?.jobRole}{candidate.assessment?.company ? ` · ${candidate.assessment.company}` : ""}</Typography>
+                        </Box>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
+                            <Box textAlign={{ md: "right" }}>
+                                <Typography fontWeight={800}>{candidate.overallScore == null ? "—" : `${candidate.overallScore}/10`}</Typography>
+                                <Typography variant="caption" color="text.secondary">{candidate.submittedAt ? `Submitted ${new Date(candidate.submittedAt).toLocaleDateString()}` : `Started ${new Date(candidate.startedAt).toLocaleDateString()}`}</Typography>
+                            </Box>
+                            {candidate.assessment?._id && <Button component={RouterLink} to={`/hire/assessments/${candidate.assessment._id}`} size="small" variant="outlined">Review</Button>}
+                        </Stack>
+                    </Stack>;
+                })}
             </Stack> : <Alert severity="info">{candidateSearch || candidateStatus || candidateAssessment ? "No candidates match these filters." : "Candidate activity will appear here after someone opens an assessment link and starts."}</Alert>}
             {(overview.totalPages || 1) > 1 && <Stack alignItems="center" mt={2}><Pagination page={candidatePage} count={overview.totalPages} onChange={(_, value) => setCandidatePage(value)} /></Stack>}
         </Paper>}
-        {canViewAssessments && hiringView !== "candidates" && <><Typography id="assessment-list" component="h2" variant="h5" fontWeight={800} mb={2} sx={{ scrollMarginTop: 100 }}>Assessments</Typography>
-        {loading ? <Stack alignItems="center" py={4}><CircularProgress /></Stack> : items.length === 0 ? <Alert severity="info" sx={{ mb: 3 }} action={canManageAssessments && !showCreate ? <Button color="inherit" onClick={() => setShowCreate(true)}>Create one</Button> : null}>No assessments yet.</Alert> : <Stack spacing={2} mb={4}>{items.map((item) => {
-            const inProgress = Math.max((item.attemptCount || 0) - (item.submittedCount || 0), 0);
-            const completion = item.attemptCount ? Math.round((item.submittedCount || 0) / item.attemptCount * 100) : 0;
-            return <Card variant="outlined" key={item._id} sx={{ borderRadius: 3 }}><CardContent sx={{ p: { xs: 2.25, sm: 2.5 }, "&:last-child": { pb: { xs: 2.25, sm: 2.5 } } }}><Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} gap={2.5}><Box sx={{ flex: 1, minWidth: 0 }}><Stack direction="row" gap={1} alignItems="center" flexWrap="wrap"><Typography component="h3" variant="h6" fontWeight={800}>{item.title}</Typography><Chip size="small" label={item.status === "active" ? "published" : item.status} color={item.status === "active" ? "success" : ["draft", "scheduled"].includes(item.status) ? "warning" : "default"} />{item.opensAt && item.status === "scheduled" && <Chip size="small" variant="outlined" label={`Opens ${new Date(item.opensAt).toLocaleString()}`} />}{item.expiresAt && <Chip size="small" variant="outlined" label={`Due ${new Date(item.expiresAt).toLocaleDateString()}`} />}</Stack><Typography color="text.secondary">{item.jobRole}{item.company ? ` · ${item.company}` : ""}</Typography><Typography variant="body2" mt={1}>{item.status === "draft" ? "Not visible to candidates" : item.status === "scheduled" ? `Invitations will be delivered at opening · ${item.timezone || "UTC"}` : `${item.submittedCount || 0} submitted · ${inProgress} in progress · ${completion}% completion`}</Typography></Box><Stack direction="row" alignItems="center" spacing={.75} flexShrink={0}>{canManageAssessments && item.status === "active" && <Tooltip title="Copy candidate link"><IconButton onClick={() => copyLink(item.shareToken)}><ContentCopyRounded /></IconButton></Tooltip>}<Button component={RouterLink} to={`/hire/assessments/${item._id}`} variant="outlined">{canManageAssessments ? (item.status === "draft" ? "Review draft" : "Manage assessment") : "View assessment"}</Button></Stack></Stack></CardContent></Card>;
-        })}</Stack>}
-        {totalPages > 1 && <Stack alignItems="center" sx={{ mb: 4 }}><Pagination page={page} count={totalPages} onChange={(_, value) => setPage(value)} /></Stack>}</>}
-        </Box></Collapse>
-        <Collapse in={showCreate} unmountOnExit>
-        <Paper ref={createFormRef} component="form" onSubmit={create} variant="outlined" sx={{ p: { xs: 2, md: 3 }, mb: 4, scrollMarginTop: 88 }}>
-            <Typography component="h2" variant="h5" fontWeight={800}>{editId ? "Edit draft assessment" : "Create assessment"}</Typography>
-            <Stack spacing={2} sx={{ mt: 2 }}>
-                <Paper variant="outlined" sx={{ position: "sticky", top: 82, zIndex: 4, p: 1, overflowX: "auto" }}><Stack direction="row" gap={.5} minWidth="max-content" aria-label="Assessment builder sections">{builderSections.map(([id, label]) => <Button key={id} size="small" href={`#${id}`} variant={activeBuilderSection === id ? "contained" : "text"} aria-current={activeBuilderSection === id ? "step" : undefined} onClick={() => setActiveBuilderSection(id)}>{label}</Button>)}</Stack></Paper>
-                <Box id="assessment-role" sx={{ scrollMarginTop: 150 }}><Typography variant="overline" color="primary.main" fontWeight={800}>1 · Role and context</Typography><Typography variant="body2" color="text.secondary" mb={1}>Start from a curated structure or import a real job post.</Typography><Stack direction="row" gap={1} flexWrap="wrap"><Button size="small" variant="outlined" onClick={() => applyStarter("engineering")}>Engineering</Button><Button size="small" variant="outlined" onClick={() => applyStarter("product")}>Product</Button><Button size="small" variant="outlined" onClick={() => applyStarter("sales")}>Sales</Button></Stack></Box>
-                <JobPostImporter onImport={({ jobRole, jobDescription }) => { setTitleCustomized(false); setForm((current) => ({ ...current, jobRole, jobDescription, title: suggestedAssessmentTitle(jobRole) })); }} />
-                <Paper variant="outlined" sx={{ px: 2, py: 1.5 }}><Typography variant="caption" color="text.secondary">Creating for</Typography><Typography fontWeight={800}>{activeOrganization?.name}</Typography></Paper><TextField required fullWidth label="Job role" value={form.jobRole} onChange={(e) => setJobRole(e.target.value)} />
-                <TextField required fullWidth label="Assessment name" helperText="Generated from the role. Candidates will see this name." value={form.title} onChange={(e) => { setTitleCustomized(true); setField("title", e.target.value); }} />
-                <TextField required multiline minRows={4} label="Job description and success criteria" helperText="Include responsibilities, seniority, must-have skills, and what strong performance looks like. These details shape every generated question." value={form.jobDescription} onChange={(e) => setField("jobDescription", e.target.value)} inputProps={{ minLength: 20 }} />
-                <Button variant="text" sx={{ alignSelf: "flex-start" }} onClick={() => setShowOptionalSetup((current) => !current)}>{showOptionalSetup ? "Hide optional setup" : "Add instructions, schedule, and scorecard"}</Button>
-                <Collapse in={showOptionalSetup} unmountOnExit><Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}><Stack spacing={2}>
-                <Typography component="h3" variant="h6" fontWeight={750}>Optional setup</Typography>
-                <TextField multiline minRows={2} label="Candidate instructions" value={form.candidateInstructions} onChange={(e) => setField("candidateInstructions", e.target.value)} />
-                <TextField label="Reusable template name (optional)" helperText="Name this setup so your team can duplicate and version it later." value={form.templateName} onChange={(e) => setField("templateName", e.target.value)} />
-                <Box><Stack direction="row" justifyContent="space-between" alignItems="center"><Box><Typography component="h3" variant="h6" fontWeight={750}>Scorecard criteria</Typography><Typography variant="body2" color="text.secondary">Define the shared evidence reviewers should use across candidates.</Typography></Box><Button size="small" startIcon={<AddRounded />} onClick={() => setField("rubric", [...form.rubric, { name: "", description: "", weight: 1 }])}>Add criterion</Button></Stack>{form.rubric.map((criterion, index) => <Stack direction={{ xs: "column", md: "row" }} gap={1} mt={1} key={index}><TextField required fullWidth label="Criterion" value={criterion.name} onChange={(event) => setField("rubric", form.rubric.map((item, position) => position === index ? { ...item, name: event.target.value } : item))} /><TextField fullWidth label="Evidence description" value={criterion.description} onChange={(event) => setField("rubric", form.rubric.map((item, position) => position === index ? { ...item, description: event.target.value } : item))} /><TextField type="number" label="Weight" value={criterion.weight} onChange={(event) => setField("rubric", form.rubric.map((item, position) => position === index ? { ...item, weight: event.target.value } : item))} inputProps={{ min: 1, max: 100 }} sx={{ width: { md: 110 } }} /><IconButton aria-label="Remove scorecard criterion" onClick={() => setField("rubric", form.rubric.filter((_, position) => position !== index))}><DeleteOutlineRounded /></IconButton></Stack>)}</Box>
-                <Stack direction={{ xs: "column", md: "row" }} spacing={2}><TextField fullWidth type="email" label="Candidate support email" helperText="Shown to candidates if they need help." value={form.contactEmail} onChange={(e) => setField("contactEmail", e.target.value)} /><TextField fullWidth type="number" label="Estimated duration (minutes)" value={form.durationMinutes} onChange={(e) => setField("durationMinutes", e.target.value)} inputProps={{ min: 5, max: 240 }} /></Stack>
-                <Stack direction={{ xs: "column", md: "row" }} spacing={2}><TextField fullWidth label="Opens at" type="datetime-local" value={form.opensAt} onChange={(e) => setField("opensAt", e.target.value)} InputLabelProps={{ shrink: true }} /><TextField fullWidth label="Submission deadline" type="datetime-local" value={form.expiresAt} onChange={(e) => setField("expiresAt", e.target.value)} InputLabelProps={{ shrink: true }} /></Stack><TextField label="Scheduling timezone" value={form.timezone} disabled helperText="Opening and deadline times use your browser’s timezone." />
-                </Stack></Paper></Collapse>
-                <Divider /><Box id="assessment-questions" sx={{ scrollMarginTop: 150 }}><Typography variant="overline" color="primary.main" fontWeight={800}>2 · Evaluation design</Typography><Typography component="h3" variant="h6" fontWeight={750}>Build the questions</Typography><Typography variant="body2" color="text.secondary">Define the evidence you need. Mark questions as Must ask when they are non-negotiable; AI can use the remaining budget adaptively.</Typography></Box>
-                {form.rounds.map((round, index) => <Card variant="outlined" key={index} sx={{ borderRadius: 3 }}><CardContent sx={{ p: { xs: 2, md: 2.75 } }}><Stack spacing={2.25}><Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} gap={1.5}><Box><Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap><Typography fontWeight={850}>{form.rounds.length === 1 ? "Interview experience" : `Round ${index + 1}`}</Typography><Chip size="small" variant="outlined" label={round.deliveryMode === "conversational" ? "Conversational" : round.deliveryMode === "online-assessment" ? "Written / coding" : "System design"} /></Stack><Typography variant="body2" color="text.secondary" mt={.5}>{form.rounds.length === 1 ? "Configure the format, question budget, and evidence you want to collect." : "Give this round a clear purpose and candidate experience."}</Typography></Box>{form.rounds.length > 1 && <Tooltip title="Remove round"><IconButton aria-label={`Remove ${round.name} round`} onClick={() => setField("rounds", form.rounds.filter((_, position) => position !== index))}><DeleteOutlineRounded /></IconButton></Tooltip>}</Stack>
-                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: form.rounds.length > 1 ? "minmax(190px,.75fr) minmax(300px,1.35fr) minmax(190px,.7fr)" : "minmax(320px,1.25fr) minmax(210px,.75fr)" }, gap: 2, alignItems: "start" }}>
-                        {form.rounds.length > 1 && <TextField required fullWidth label="Round label" value={round.name} onChange={(e) => updateRound(index, "name", e.target.value)} helperText="Shown to candidates when the round changes." />}
-                        <TextField select fullWidth label="Candidate experience" value={round.deliveryMode} onChange={(e) => updateRound(index, "deliveryMode", e.target.value)} helperText="Controls how questions and answers are presented."><MenuItem value="conversational">Conversational interview — one at a time</MenuItem><MenuItem value="online-assessment">Coding / written assessment — all questions</MenuItem><MenuItem value="system-design">System design — canvas + discussion</MenuItem></TextField>
-                        <TextField required fullWidth label={round.deliveryMode === "conversational" && round.adaptive !== false ? "Maximum questions" : "Question count"} type="number" value={round.questionCount} onChange={(e) => updateRound(index, "questionCount", e.target.value)} disabled={round.deliveryMode === "system-design" || (round.deliveryMode === "conversational" && round.adaptive === false)} inputProps={{ min: 1, max: 10 }} helperText={round.deliveryMode === "system-design" ? "System design uses one primary prompt." : round.deliveryMode === "conversational" && round.adaptive !== false ? "AI may finish earlier once it has enough evidence. Must-ask recruiter questions always count toward this maximum." : round.deliveryMode === "conversational" ? "Fixed mode asks exactly the reviewed questions shown below." : "All questions in this format are presented to the candidate."} />
-                    </Box>
-                    <TextField fullWidth multiline minRows={2} label="What this experience evaluates" helperText="Describe the skills, decisions, and evidence a strong answer should demonstrate." value={round.description} onChange={(e) => updateRound(index, "description", e.target.value)} />
-                    {round.deliveryMode === "conversational" && <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2.5, bgcolor: "action.hover" }}><Stack spacing={1.5}><Box><Typography fontWeight={800}>Interview behavior</Typography><Typography variant="body2" color="text.secondary">{round.adaptive !== false ? "AI starts broadly, then deepens naturally based on the candidate’s answers. Questions marked Must ask are guaranteed, AI can use the remaining budget for role-relevant questions, and the round ends with a soft transition once enough evidence is collected." : "Only the reviewed questions shown below are asked as primary questions. The candidate still gets a conversational introduction and a soft transition at the end of the round; no additional AI primary questions are created."}</Typography></Box><FormControlLabel sx={{ m: 0, alignItems: "flex-start" }} control={<Checkbox checked={round.adaptive !== false} onChange={(event) => updateRound(index, "adaptive", event.target.checked)} />} label={<Box pt={.2}><Typography fontWeight={750}>Allow AI to generate additional interview questions</Typography><Typography variant="caption" color="text.secondary">Turn this off when you want the recruiter-reviewed question set to be the complete interview. AI contextual follow-ups are controlled separately below.</Typography></Box>} /><Stack direction="row" gap={1} flexWrap="wrap" useFlexGap><Chip size="small" color={round.adaptive !== false ? "primary" : "default"} variant="outlined" label={round.adaptive !== false ? "Adaptive primary questions" : "Recruiter question set only"} /><Chip size="small" variant="outlined" label={round.adaptive !== false ? `Up to ${round.questionCount} primary questions` : `${round.questions.filter((question) => question.text?.trim()).length} fixed primary questions`} />{round.adaptive !== false && <Chip size="small" variant="outlined" label={`${round.questions.filter((question) => question.required && question.text?.trim()).length} must ask`} />}<Chip size="small" color={form.followUpsEnabled ? "primary" : "default"} variant={form.followUpsEnabled ? "filled" : "outlined"} label={form.followUpsEnabled ? "0–3 follow-ups per question" : "AI follow-ups off"} /></Stack></Stack></Paper>}
-                    {round.deliveryMode === "system-design" && <Alert severity="info">Candidates receive an Excalidraw architecture canvas plus voice and written explanation. Diagrams are saved with their answer and included in recruiter reports.</Alert>}
-                    <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems="flex-start"><TextField fullWidth multiline minRows={2} label="AI question brief" placeholder={round.deliveryMode === "system-design" ? "Design a globally scalable notification service. Ask the candidate to cover APIs, data model, reliability, security, and trade-offs." : "Generate scenario-based questions from the key topics and required seniority."} helperText={round.deliveryMode === "conversational" && round.adaptive !== false ? "Optional guidance for AI-authored questions in the builder and the remaining live question budget. You can mark any reviewed question as Must ask." : round.deliveryMode === "conversational" ? "Optional authoring aid only. If you click Generate with AI, those questions appear below for you to review; no new primary questions will be generated during the live interview." : "Optional: describe topics, difficulty, or situations. AI fills the remaining slots up to the question count; you can edit every question before publishing."} value={round.aiPrompt} onChange={(e) => updateRound(index, "aiPrompt", e.target.value)} /><Tooltip title={aiGenerationDisabledReason}><span><Button variant="outlined" startIcon={generatingRound === index ? <CircularProgress size={18} /> : <AutoAwesomeRounded />} disabled={generatingRound !== null || Boolean(aiGenerationDisabledReason)} onClick={() => generateQuestions(index)} sx={{ minWidth: 190, mt: { md: 1 } }}>{generatingRound === index ? "Generating…" : "Generate with AI"}</Button></span></Tooltip></Stack>
-                    <Stack spacing={1}>{round.questions.map((question, questionIndex) => <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderRadius: 2.5 }} key={questionIndex}><Stack direction="row" gap={1} alignItems="center" justifyContent="space-between" mb={1} flexWrap="wrap"><Chip size="small" variant="outlined" color={round.deliveryMode === "conversational" && round.adaptive === false ? "primary" : question.required ? "primary" : "default"} label={round.deliveryMode === "conversational" && round.adaptive === false ? "Fixed interview question" : question.required ? "Must-ask recruiter question" : "Optional AI-planned question"} /><Stack direction="row"><Tooltip title="Improve with AI"><span><IconButton aria-label={`Improve question ${questionIndex + 1} with AI`} disabled={!question.text.trim() || Boolean(improvingQuestion)} onClick={() => improveQuestion(index, questionIndex)}>{improvingQuestion === `${index}-${questionIndex}` ? <CircularProgress size={20} /> : <AutoAwesomeRounded />}</IconButton></span></Tooltip><Tooltip title="Move up"><span><IconButton aria-label={`Move question ${questionIndex + 1} up`} disabled={questionIndex === 0} onClick={() => moveQuestion(index, questionIndex, -1)}><ArrowUpwardRounded /></IconButton></span></Tooltip><Tooltip title="Move down"><span><IconButton aria-label={`Move question ${questionIndex + 1} down`} disabled={questionIndex === round.questions.length - 1} onClick={() => moveQuestion(index, questionIndex, 1)}><ArrowDownwardRounded /></IconButton></span></Tooltip><Tooltip title="Delete question"><IconButton aria-label={`Delete question ${questionIndex + 1}`} onClick={() => removeQuestion(index, questionIndex)}><DeleteOutlineRounded /></IconButton></Tooltip></Stack></Stack><TextField required fullWidth multiline minRows={2} label={`Question ${questionIndex + 1}`} value={question.text} onChange={(e) => updateQuestion(index, questionIndex, e.target.value)} inputProps={{ maxLength: 1000 }} />{round.deliveryMode === "conversational" && round.adaptive !== false ? <FormControlLabel sx={{ mt: 1 }} control={<Checkbox checked={Boolean(question.required)} onChange={(e) => updateQuestionMeta(index, questionIndex, { required: e.target.checked })} />} label={<Box><Typography variant="body2" fontWeight={700}>Must ask this question</Typography><Typography variant="caption" color="text.secondary">Guarantees this reviewed question is covered before the adaptive round can end.</Typography></Box>} /> : round.deliveryMode === "conversational" ? <Typography variant="caption" color="text.secondary" display="block" mt={1}>Fixed mode always asks every reviewed question.</Typography> : null}<Box component="details" sx={{ mt: 1.25, borderTop: "1px solid", borderColor: "divider", pt: 1.25, "& > summary": { cursor: "pointer", color: "text.secondary", fontSize: ".82rem", fontWeight: 700 } }}><Typography component="summary">Advanced scoring and review</Typography><Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "flex-start" }} mt={1.5}><TextField label="Weight" type="number" value={question.weight || 1} onChange={(e) => updateQuestionMeta(index, questionIndex, { weight: e.target.value })} inputProps={{ min: .1, max: 10, step: .1 }} sx={{ width: { xs: "100%", sm: 120 }, flexShrink: 0 }} /><TextField fullWidth label="Competencies" value={(question.competencies || []).join(", ")} onChange={(e) => updateQuestionMeta(index, questionIndex, { competencies: e.target.value.split(",").map((value) => value.trim()).filter(Boolean) })} helperText="Comma separated, for example: scalability, security" /></Stack><FormControlLabel sx={{ mt: .5 }} control={<Checkbox checked={Boolean(question.knockout)} onChange={(e) => updateQuestionMeta(index, questionIndex, { knockout: e.target.checked })} />} label="Flag as knockout criterion for human review" /></Box></Paper>)}</Stack>
-                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} gap={1}><Button startIcon={<AddRounded />} disabled={round.questions.length >= 10} onClick={() => addQuestion(index)}>Add manual question</Button><Typography variant="caption" color="text.secondary">{round.deliveryMode === "conversational" && round.adaptive === false ? `${round.questions.filter((question) => question.text?.trim()).length} configured · fixed interview set` : `${round.questions.filter((question) => question.text?.trim()).length} configured · ${round.questions.filter((question) => question.required && question.text?.trim()).length} must ask · up to ${round.questionCount} total`}</Typography></Stack>
-                </Stack></CardContent></Card>)}
-                <Box><Button startIcon={<AddRounded />} disabled={form.rounds.length >= 5} onClick={() => setField("rounds", [...form.rounds, emptyRound()])}>Add round</Button></Box>
-                <Box id="assessment-delivery" sx={{ scrollMarginTop: 150 }}><Typography variant="overline" color="primary.main" fontWeight={800}>3 · Delivery and access</Typography><Typography component="h3" variant="h6" fontWeight={750}>Control the candidate flow</Typography><Typography variant="body2" color="text.secondary">Choose whether AI may probe an answer and who can start the assessment.</Typography></Box>
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 1.5 }}>
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, borderColor: form.followUpsEnabled ? "primary.light" : "divider", bgcolor: form.followUpsEnabled ? "action.selected" : "background.paper" }}><FormControlLabel sx={{ m: 0, alignItems: "flex-start", width: "100%" }} control={<Checkbox checked={form.followUpsEnabled} onChange={(e) => setField("followUpsEnabled", e.target.checked)} />} label={<Box pt={.25}><Typography fontWeight={800}>AI contextual follow-ups</Typography><Typography variant="body2" color="text.secondary" mt={.25}>For conversational rounds, AI decides whether another focused probe is useful and may ask 0–3 follow-ups per primary question. This works with either adaptive or recruiter-only primary questions.</Typography></Box>} /></Paper>
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, borderColor: form.inviteOnly ? "primary.light" : "divider", bgcolor: form.inviteOnly ? "action.selected" : "background.paper" }}><FormControlLabel sx={{ m: 0, alignItems: "flex-start", width: "100%" }} control={<Checkbox checked={form.inviteOnly} onChange={(e) => setField("inviteOnly", e.target.checked)} />} label={<Box pt={.25}><Typography fontWeight={800}>Invite-only access</Typography><Typography variant="body2" color="text.secondary" mt={.25}>Only explicitly invited email addresses can start. Leave this off when you want to share a general candidate link.</Typography></Box>} /></Paper>
-                </Box>
-                {form.inviteOnly && <TextField required multiline minRows={3} label="Candidate email addresses" placeholder={"candidate@example.com\nanother@example.com"} helperText="Enter one email per line, or separate emails with commas. Invitations are sent after the assessment is created; you can add, resend, or revoke them later." value={form.inviteEmails} onChange={(e) => setField("inviteEmails", e.target.value)} />}
-                <Divider /><Box id="assessment-integrity" sx={{ scrollMarginTop: 150 }}><Typography variant="overline" color="primary.main" fontWeight={800}>4 · Integrity and consent</Typography><Typography component="h3" variant="h6" fontWeight={750}>Assessment integrity</Typography><Typography variant="body2" color="text.secondary">Optional review signals only. They never automatically disqualify a candidate.</Typography></Box>
-                <FormControlLabel control={<Checkbox checked={form.integrity.enabled} onChange={(e) => setField("integrity", { ...form.integrity, enabled: e.target.checked })} />} label="Enable integrity event tracking with candidate consent" />
-                {form.integrity.enabled && <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", lg: "repeat(3, minmax(0, 1fr))" }, gap: 1.5, alignItems: "center" }}><FormControlLabel control={<Checkbox checked={form.integrity.requireCamera} onChange={(e) => setField("integrity", { ...form.integrity, requireCamera: e.target.checked, monitorFacePresence: e.target.checked })} />} label="Require camera readiness" /><FormControlLabel control={<Checkbox disabled={!form.integrity.requireCamera} checked={form.integrity.monitorFacePresence} onChange={(e) => setField("integrity", { ...form.integrity, monitorFacePresence: e.target.checked })} />} label="Monitor face presence during interview" /><FormControlLabel control={<Checkbox checked={form.integrity.requireFullscreen} onChange={(e) => setField("integrity", { ...form.integrity, requireFullscreen: e.target.checked })} />} label="Request fullscreen" /><FormControlLabel control={<Checkbox checked={form.integrity.trackFocus} onChange={(e) => setField("integrity", { ...form.integrity, trackFocus: e.target.checked })} />} label="Track focus changes" /><FormControlLabel control={<Checkbox checked={form.integrity.trackClipboard} onChange={(e) => setField("integrity", { ...form.integrity, trackClipboard: e.target.checked })} />} label="Track copy/paste" /><TextField fullWidth size="small" type="number" label="Retention days" helperText="Integrity events are deleted after this period." value={form.integrity.retentionDays} onChange={(e) => setField("integrity", { ...form.integrity, retentionDays: e.target.value })} inputProps={{ min: 1, max: 365 }} /></Box>}
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: "action.hover" }}><Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1}><Box><Typography fontWeight={800}>Review before publishing</Typography><Typography variant="body2" color="text.secondary">Quality checks are guidance; you retain control over every must-ask question and hiring decision.</Typography></Box><Stack direction="row" gap={1} flexWrap="wrap"><Chip size="small" label={`${assessmentQuality.total} configured questions`} /><Chip size="small" color={assessmentQuality.duplicates ? "warning" : "success"} label={assessmentQuality.duplicates ? `${assessmentQuality.duplicates} duplicate(s)` : "No duplicates"} /><Chip size="small" color={assessmentQuality.withoutCompetencies ? "warning" : "success"} label={assessmentQuality.withoutCompetencies ? `${assessmentQuality.withoutCompetencies} need competencies` : `${assessmentQuality.competencies.length} competencies covered`} /><Chip size="small" color={assessmentQuality.targetMismatch ? "warning" : "success"} label={assessmentQuality.targetMismatch ? `${assessmentQuality.targetMismatch} round target mismatch` : "Round budgets valid"} /><Chip size="small" variant="outlined" label={`${assessmentQuality.coverage}% JD keyword coverage`} /></Stack></Stack></Paper>
-                <Box id="assessment-review" sx={{ scrollMarginTop: 150 }}><Typography variant="overline" color="primary.main" fontWeight={800}>5 · Final review</Typography></Box>
-                <Alert severity="info">Save as a draft to preview and edit the candidate experience. Candidate links and invitations become available only after publishing.</Alert>
-                <Paper elevation={0} variant="outlined" sx={{ position: { xs: "static", sm: "sticky" }, bottom: { sm: 12 }, zIndex: 5, p: { xs: 2, sm: 1.25 }, borderRadius: 2.5, boxShadow: { sm: 6 } }}><Stack direction={{ xs: "column", sm: "row" }} gap={1} alignItems={{ sm: "center" }}><Box sx={{ flex: 1, px: .5 }}><Typography fontWeight={750} variant="body2">Ready when you are</Typography><Typography variant="caption" color="text.secondary">Save privately, schedule for later, or publish now.</Typography></Box><Button type="submit" value="draft" variant="outlined" disabled={saving}>{saving ? <CircularProgress size={22} color="inherit" /> : "Save draft"}</Button><Button type="submit" value="schedule" variant="outlined" disabled={saving || !form.opensAt}>{saving ? <CircularProgress size={22} color="inherit" /> : "Schedule"}</Button><Button type="submit" value="publish" variant="contained" disabled={saving}>{saving ? <CircularProgress size={22} color="inherit" /> : "Publish now"}</Button></Stack></Paper>
-            </Stack>
-        </Paper></Collapse>
+
+        {canViewAssessments && hiringView !== "candidates" && <>
+            <Typography id="assessment-list" component="h2" variant="h5" fontWeight={800} mb={2} sx={{ scrollMarginTop: 100 }}>Assessments</Typography>
+            {loading ? <Stack alignItems="center" py={4}><CircularProgress /></Stack> : items.length === 0 ? <Alert severity="info" sx={{ mb: 3 }} action={canManageAssessments ? <Button component={RouterLink} to={createAssessmentPath} color="inherit">Create one</Button> : null}>No assessments yet.</Alert> : <Stack spacing={2} mb={4}>{items.map((item) => {
+                const inProgress = Math.max((item.attemptCount || 0) - (item.submittedCount || 0), 0);
+                const completion = item.attemptCount ? Math.round((item.submittedCount || 0) / item.attemptCount * 100) : 0;
+                return <Card variant="outlined" key={item._id} sx={{ borderRadius: 3 }}>
+                    <CardContent sx={{ p: { xs: 2.25, sm: 2.5 }, "&:last-child": { pb: { xs: 2.25, sm: 2.5 } } }}>
+                        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} gap={2.5}>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+                                    <Typography component="h3" variant="h6" fontWeight={800}>{item.title}</Typography>
+                                    <Chip size="small" label={item.status === "active" ? "published" : item.status} color={item.status === "active" ? "success" : ["draft", "scheduled"].includes(item.status) ? "warning" : "default"} />
+                                    {item.opensAt && item.status === "scheduled" && <Chip size="small" variant="outlined" label={`Opens ${new Date(item.opensAt).toLocaleString()}`} />}
+                                    {item.expiresAt && <Chip size="small" variant="outlined" label={`Due ${new Date(item.expiresAt).toLocaleDateString()}`} />}
+                                </Stack>
+                                <Typography color="text.secondary">{item.jobRole}{item.company ? ` · ${item.company}` : ""}</Typography>
+                                <Typography variant="body2" mt={1}>{item.status === "draft" ? "Not visible to candidates" : item.status === "scheduled" ? `Invitations will be delivered at opening · ${item.timezone || "UTC"}` : `${item.submittedCount || 0} submitted · ${inProgress} in progress · ${completion}% completion`}</Typography>
+                            </Box>
+                            <Stack direction="row" alignItems="center" spacing={.75} flexShrink={0}>
+                                {canManageAssessments && item.status === "active" && <Tooltip title="Copy candidate link"><IconButton onClick={() => copyLink(item.shareToken)}><ContentCopyRounded /></IconButton></Tooltip>}
+                                <Button component={RouterLink} to={`/hire/assessments/${item._id}`} variant="outlined">{canManageAssessments ? (item.status === "draft" ? "Review draft" : "Manage assessment") : "View assessment"}</Button>
+                            </Stack>
+                        </Stack>
+                    </CardContent>
+                </Card>;
+            })}</Stack>}
+            {totalPages > 1 && <Stack alignItems="center" sx={{ mb: 4 }}><Pagination page={page} count={totalPages} onChange={(_, value) => setPage(value)} /></Stack>}
+        </>}
     </Container>;
 }
