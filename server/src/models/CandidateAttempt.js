@@ -23,21 +23,6 @@ const debugFindingsSchema = new mongoose.Schema({
     testingStrategy: { type: String, maxlength: 10000, default: "" },
 }, { _id: false });
 
-const debugVisibleTestResultSchema = new mongoose.Schema({
-    name: { type: String, maxlength: 120, default: "" },
-    passed: { type: Boolean, default: false },
-    output: { type: String, maxlength: 20000, default: "" },
-}, { _id: false });
-
-const debugTestResultSchema = new mongoose.Schema({
-    passed: { type: Number, min: 0, default: 0 },
-    total: { type: Number, min: 0, default: 0 },
-    visible: { type: [debugVisibleTestResultSchema], default: [], validate: (value) => value.length <= 12 },
-    hiddenPassed: { type: Number, min: 0, default: 0 },
-    hiddenTotal: { type: Number, min: 0, default: 0 },
-    ranAt: Date,
-}, { _id: false });
-
 const attemptQuestionSchema = new mongoose.Schema({
     text: { type: String, required: true, maxlength: 1000 },
     weight: { type: Number, min: 0.1, max: 10, default: 1 },
@@ -53,11 +38,6 @@ const attemptQuestionSchema = new mongoose.Schema({
     spokenExplanation: { type: String, maxlength: 5000, default: "" },
     diagramData: { type: String, maxlength: 500000, default: "" },
     diagramSummary: { type: String, maxlength: 10000, default: "" },
-    // Provisional single-file debugging fields retained only during the
-    // feature-branch migration. Project endpoints use debuggingResponses[].
-    debugCode: { type: String, maxlength: 20000, default: "" },
-    debugFindings: { type: debugFindingsSchema, default: undefined },
-    debugTestResult: { type: debugTestResultSchema, default: undefined },
     discussionTurns: { type: [discussionTurnSchema], default: [], validate: (value) => value.length <= 80 },
     followUps: { type: [attemptFollowUpSchema], default: [], validate: (value) => value.length <= 3 },
     followUpQuestion: { type: String, maxlength: 1000, default: "" },
