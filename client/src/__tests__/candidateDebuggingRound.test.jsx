@@ -86,7 +86,10 @@ describe("CandidateDebuggingRound", () => {
             baseFiles, files: baseFiles, findings: { rootCause: "", evidence: "", proposedFix: "", impact: "", testingStrategy: "" }, visibleTestRuns: [],
         };
         mocks.get.mockResolvedValue({ data: findingsWorkspace });
-        mocks.put.mockImplementation(async (_url, body) => ({ data: { ...findingsWorkspace, findings: body.findings } }));
+        mocks.put.mockImplementation(async (...args) => {
+            const body = args[1];
+            return { data: { ...findingsWorkspace, findings: body.findings } };
+        });
         mocks.post.mockResolvedValueOnce({ data: { summary: { status: "submitted", findings: true }, attempt: { _id: "attempt", rounds: [] } } });
         render(<CandidateDebuggingRound endpoint={endpoint} headers={headers} />);
         await screen.findByText("Diagnose the concurrency defect.");
