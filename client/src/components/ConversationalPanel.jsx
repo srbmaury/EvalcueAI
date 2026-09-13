@@ -59,8 +59,8 @@ const ConversationalPanel = ({
     submitFollowUpLabel = "Submit now",
     autoSubmitVoiceOnSilence,
     cameraSlot,
-    requireCameraBeforeStart = false,
-    autoStartCamera = false,
+    requireCameraBeforeStart = true,
+    autoStartCamera = true,
 }) => {
     const [clarifyText, setClarifyText] = useState("");
     const [clarifying, setClarifying] = useState(false);
