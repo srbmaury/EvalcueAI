@@ -54,7 +54,8 @@ const OAForm = ({
 }) => {
     const [activeIndex, setActiveIndex] = useState(0);
     const [localDrafts, setLocalDrafts] = useState({});
-    const spokenQuestionRef = useRef("");
+    const spokenQuestionKeysRef = useRef(new Set());
+    const roundIntroducedRef = useRef(false);
     const total = questions?.length || 0;
     const safeIndex = Math.min(activeIndex, Math.max(total - 1, 0));
     const activeQuestion = questions?.[safeIndex];
@@ -65,26 +66,30 @@ const OAForm = ({
     useEffect(() => {
         setLocalDrafts({});
         setActiveIndex(0);
-        spokenQuestionRef.current = "";
+        spokenQuestionKeysRef.current = new Set();
+        roundIntroducedRef.current = false;
     }, [questionSetKey]);
 
     useEffect(() => {
-        if (!activeQuestionText || spokenQuestionRef.current === activeQuestionKey) return undefined;
+        if (!activeQuestionText || spokenQuestionKeysRef.current.has(activeQuestionKey)) return undefined;
         let cancelled = false;
         (async () => {
             if (supportsSTT) await onStartHandsFree?.(safeIndex);
             if (cancelled) return;
             if (supportsTTS) {
                 await onPauseHandsFree?.();
-                await new Promise((resolve) => setTimeout(resolve, safeIndex === 0 ? 900 : 450));
+                const isRoundIntroduction = !roundIntroducedRef.current;
+                await new Promise((resolve) => setTimeout(resolve, isRoundIntroduction ? 900 : 450));
                 if (cancelled) return;
-                const prompt = safeIndex === 0
+                const prompt = isRoundIntroduction
                     ? `Hi, welcome to the ${roundName} round. Take a moment to understand the problem. Here's your first question: ${activeQuestionText}`
                     : `Let's move to the next problem: ${activeQuestionText}`;
-                spokenQuestionRef.current = activeQuestionKey;
+                spokenQuestionKeysRef.current.add(activeQuestionKey);
+                roundIntroducedRef.current = true;
                 await onSpeak?.(prompt);
             } else {
-                spokenQuestionRef.current = activeQuestionKey;
+                spokenQuestionKeysRef.current.add(activeQuestionKey);
+                roundIntroducedRef.current = true;
             }
             if (!cancelled && supportsSTT) await onResumeHandsFree?.(safeIndex);
         })();

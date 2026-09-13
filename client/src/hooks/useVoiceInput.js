@@ -493,6 +493,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         let timeoutId;
         let speakingPollId;
         let settled = false;
+        let observedSpeaking = false;
         const finish = (value) => {
             if (settled) return;
             settled = true;
@@ -522,13 +523,18 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
                 interviewerVoiceRef.current = preferred;
             }
             if (preferred) utterance.voice = preferred;
+            utterance.onstart = () => { observedSpeaking = true; };
             utterance.onend = () => finish(true);
             utterance.onerror = () => finish(false);
-            const startedAt = Date.now();
             const estimatedSpeechMs = Math.ceil(String(text).length / 12 * 1000);
-            timeoutId = setTimeout(() => finish(false), Math.min(20000, Math.max(3000, estimatedSpeechMs + 2000)));
+            timeoutId = setTimeout(() => {
+                try { window.speechSynthesis.cancel(); } catch { void 0; }
+                finish(false);
+            }, Math.min(90000, Math.max(5000, estimatedSpeechMs + 5000)));
             speakingPollId = setInterval(() => {
-                if (Date.now() - startedAt >= 600 && window.speechSynthesis?.speaking === false) finish(true);
+                const speaking = window.speechSynthesis?.speaking;
+                if (speaking === true) observedSpeaking = true;
+                else if (observedSpeaking && speaking === false) finish(true);
             }, 250);
             window.speechSynthesis.speak(utterance);
         } catch (error) {

@@ -58,6 +58,7 @@ const installMedia = async (page, { completeSpeech = true, speechStartDelay = 0,
                     window.__spoken.push(utterance.text);
                     setTimeout(() => {
                         this.speaking = true;
+                        utterance.onstart?.();
                         if (window.__recognitionActive) window.__micSpeechOverlap = true;
                         setTimeout(() => {
                             this.speaking = false;
