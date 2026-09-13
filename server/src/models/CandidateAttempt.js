@@ -15,6 +15,13 @@ const discussionTurnSchema = new mongoose.Schema({
     at: { type: Date, default: Date.now },
 }, { _id: false });
 
+const debugFindingSchema = new mongoose.Schema({
+    filePath: { type: String, required: true, maxlength: 500 },
+    rootCause: { type: String, maxlength: 10000, default: "" },
+    evidence: { type: String, maxlength: 10000, default: "" },
+    proposedFix: { type: String, maxlength: 10000, default: "" },
+}, { _id: false });
+
 const attemptQuestionSchema = new mongoose.Schema({
     text: { type: String, required: true, maxlength: 1000 },
     weight: { type: Number, min: 0.1, max: 10, default: 1 },
@@ -32,8 +39,6 @@ const attemptQuestionSchema = new mongoose.Schema({
     diagramSummary: { type: String, maxlength: 10000, default: "" },
     discussionTurns: { type: [discussionTurnSchema], default: [], validate: (value) => value.length <= 80 },
     followUps: { type: [attemptFollowUpSchema], default: [], validate: (value) => value.length <= 3 },
-    // Kept as a compatibility projection for existing candidate UI/local recovery.
-    // The authoritative history is followUps[].
     followUpQuestion: { type: String, maxlength: 1000, default: "" },
     followUpAnswer: { type: String, maxlength: 5000, default: "" },
     feedbackComment: { type: String, maxlength: 2500, default: "" },
@@ -44,12 +49,43 @@ const attemptQuestionSchema = new mongoose.Schema({
 const attemptRoundSchema = new mongoose.Schema({
     name: { type: String, required: true },
     description: String,
-    deliveryMode: { type: String, enum: ["conversational", "online-assessment", "system-design"], default: "conversational" },
+    deliveryMode: { type: String, enum: ["conversational", "online-assessment", "system-design", "debugging"], default: "conversational" },
     adaptiveState: { type: mongoose.Schema.Types.Mixed, default: undefined },
     adaptiveComplete: { type: Boolean, default: false },
     questions: [attemptQuestionSchema],
     score: { type: Number, min: 0, max: 10 },
 }, { _id: true });
+
+const debuggingOverlayFileSchema = new mongoose.Schema({
+    path: { type: String, required: true, maxlength: 500 },
+    content: { type: String, default: "", maxlength: 262144 },
+}, { _id: false });
+
+const debuggingTestResultSchema = new mongoose.Schema({
+    name: { type: String, maxlength: 120, default: "" },
+    passed: { type: Boolean, default: false },
+}, { _id: false });
+
+const debuggingRunSummarySchema = new mongoose.Schema({
+    status: { type: String, enum: ["passed", "failed", "compile_error", "runtime_error", "timeout"], default: "failed" },
+    passed: { type: Number, min: 0, default: 0 },
+    total: { type: Number, min: 0, default: 0 },
+    tests: { type: [debuggingTestResultSchema], default: [] },
+    ranAt: { type: Date, default: Date.now },
+}, { _id: false });
+
+const debuggingResponseSchema = new mongoose.Schema({
+    roundIndex: { type: Number, min: 0, required: true },
+    responseMode: { type: String, enum: ["code_fix", "findings"], required: true },
+    baseProjectFingerprint: { type: String, maxlength: 128, default: "" },
+    changedFiles: { type: [debuggingOverlayFileSchema], default: [] },
+    createdFiles: { type: [debuggingOverlayFileSchema], default: [] },
+    deletedFiles: [{ type: String, maxlength: 500 }],
+    findings: { type: [debugFindingSchema], default: [], validate: (value) => value.length <= 50 },
+    testRuns: { type: [debuggingRunSummarySchema], default: [], validate: (value) => value.length <= 20 },
+    finalEvaluation: { type: mongoose.Schema.Types.Mixed, default: undefined },
+    submittedAt: Date,
+}, { _id: false });
 
 const evaluationMetadataSchema = new mongoose.Schema({
     engineVersion: { type: String, maxlength: 80, default: "" },
@@ -71,6 +107,7 @@ const candidateAttemptSchema = new mongoose.Schema({
     evaluationError: { type: String, maxlength: 500, default: "" },
     evaluationMetadata: { type: evaluationMetadataSchema, default: undefined },
     rounds: [attemptRoundSchema],
+    debuggingResponses: { type: [debuggingResponseSchema], default: [] },
     overallScore: { type: Number, min: 0, max: 10 },
     reviewerScore: { type: Number, min: 0, max: 10 },
     reviewerDecision: { type: String, enum: ["", "advance", "hold", "reject"], default: "" },
@@ -81,15 +118,10 @@ const candidateAttemptSchema = new mongoose.Schema({
     integrityEvents: [{ type: { type: String, enum: ["tab_hidden", "window_blur", "fullscreen_exit", "copy", "paste", "offline", "online", "face_missing", "face_restored", "multiple_faces", "camera_interrupted", "face_detection_unavailable"] }, at: { type: Date, default: Date.now }, metadata: { type: mongoose.Schema.Types.Mixed } }],
 }, { timestamps: true });
 
-// A system-design interview is one evolving design conversation, not a set of
-// independent written questions. Keep exactly one problem in the live attempt;
-// the interviewer probes depth through live interjections while the candidate
-// continues talking and drawing on the same whiteboard.
-candidateAttemptSchema.pre("save", function normalizeSystemDesignRounds() {
+candidateAttemptSchema.pre("save", function normalizeSingleTaskRounds() {
     for (const round of this.rounds || []) {
-        if (round.deliveryMode === "system-design" && Array.isArray(round.questions) && round.questions.length > 1) {
-            round.questions = [round.questions[0]];
-        }
+        if (!["system-design", "debugging"].includes(round.deliveryMode)) continue;
+        if (Array.isArray(round.questions) && round.questions.length > 1) round.questions = [round.questions[0]];
     }
 });
 

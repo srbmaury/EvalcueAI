@@ -1,9 +1,20 @@
 # Evalcue AI
 
-
-Evalcue AI is a full-stack platform for **software engineering interview practice** and **structured technical hiring**. Candidates can rehearse conversational, coding, and system-design interviews with adaptive AI follow-ups. Hiring teams can create role-specific assessments, invite candidates, collect technical evidence, and review scorecards while keeping employment decisions human-controlled.
+Evalcue AI is a full-stack platform for **software engineering interview practice** and **structured technical hiring**. Candidates can rehearse conversational, coding, and system-design interviews with adaptive AI follow-ups. Hiring teams can create role-specific assessments, including multi-file debugging assignments, invite candidates, collect technical evidence, and review scorecards while keeping employment decisions human-controlled.
 
 ## Product surfaces
+
+Evalcue AI is deployed as three intentionally separated product surfaces from the same codebase. `VITE_APP_SURFACE` and deployment guards prevent Practice and Hiring from becoming path-only variants of one application.
+
+### Evalcue AI Landing
+
+- Product overview and public documentation
+- Entry points into the separate Practice and Hiring products
+- SEO/indexable marketing and resource pages
+
+Production host: `evalcueai.com`
+
+Canonical public route in the shared client: `/`
 
 ### Evalcue AI Practice
 
@@ -15,19 +26,24 @@ Evalcue AI is a full-stack platform for **software engineering interview practic
 - Resume upload, review, JD matching, saved interview experiences, progress tracking, and reminders
 - Post-interview feedback and improvement suggestions
 
-Canonical public route: `/practice`
+Production host: `practice.evalcueai.com`
+
+Canonical public route in the shared client: `/practice`
 
 ### Evalcue AI Hire
 
 - Organization-owned technical assessments and candidate pipelines
 - Manual or AI-generated round definitions
-- Conversational, coding, and live system-design assessment modes
+- Conversational, coding, live system-design, and multi-file debugging assessment modes
+- Debugging assignments support either source-code fixes evaluated by recruiter-authored hidden tests with candidate-safe result names, or file-scoped findings-only diagnosis
 - Invite-only candidate links, invitation lifecycle tracking, and local answer recovery
 - Weighted competency scorecards, AI evaluation, human overrides, and calibration views
 - Optional consented integrity signals such as fullscreen/focus/clipboard/connectivity events and on-device face-presence checks
 - OIDC SSO support for eligible hiring organizations
 
-Canonical public route: `/hire`
+Production host: `hiring.evalcueai.com`
+
+Canonical public route in the shared client: `/hire`
 
 ## Architecture
 
@@ -47,6 +63,7 @@ MongoDB  Redis    AI APIs    External services
 - **Data:** MongoDB; production transaction support is required
 - **Async work:** Redis + BullMQ for question preparation, bulk feedback, and candidate evaluation
 - **AI:** OpenAI and/or Gemini, with optional Tavily grounding
+- **Code execution:** Judge0, including server-controlled multi-file project execution for debugging assignments when explicitly enabled
 - **Operations:** Prometheus metrics, optional Grafana OTLP push, Sentry, structured logs
 
 ## Repository layout
@@ -83,17 +100,17 @@ cd ../client && npm install
 
 ### Configure the server
 
-The checked-in example now contains **development-safe defaults** rather than production settings:
+The checked-in example contains **development-safe defaults** rather than production settings:
 
 ```bash
 cp server/.env.example server/.env
 ```
 
-At minimum, set a real `JWT_SECRET` and a reachable `MONGO_URI`. Configure `OPENAI_API_KEY` or `GEMINI_API_KEY` to use AI features. `CLIENT_ORIGIN` is the browser origin and is also the canonical base used in candidate invitation emails.
+At minimum, set a real `JWT_SECRET` and a reachable `MONGO_URI`. Configure `OPENAI_API_KEY` or `GEMINI_API_KEY` to use AI features. `PRACTICE_CLIENT_ORIGIN` and `HIRING_CLIENT_ORIGIN` are the canonical product browser origins; `CLIENT_ORIGIN` remains the local/legacy fallback.
 
 For production set `NODE_ENV=production` and configure, at minimum:
 
-- `ALLOWED_ORIGINS`, `CLIENT_ORIGIN`, `SERVER_ORIGIN`
+- `ALLOWED_ORIGINS`, `CLIENT_ORIGIN`, `PRACTICE_CLIENT_ORIGIN`, `HIRING_CLIENT_ORIGIN`, and `SERVER_ORIGIN`
 - `REDIS_URL`
 - `METRICS_TOKEN`
 - Brevo API/sender/webhook values
@@ -101,6 +118,7 @@ For production set `NODE_ENV=production` and configure, at minimum:
 - Cloudinary credentials for resume storage
 - at least one AI provider; OpenAI is required when server STT is enabled
 - Judge0 and an allowed host when code execution is enabled
+- `ENABLE_DEBUGGING_ASSESSMENTS=true` only when the debugging-assignment feature is intentionally enabled; code-fix debugging additionally requires `ENABLE_CODE_EXEC=true`
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the Practice Pro + Hiring Pilot/Starter/Growth price IDs
 - a transaction-capable MongoDB replica set or sharded cluster
 
@@ -118,7 +136,7 @@ Important values:
 - `VITE_LANDING_ORIGIN`, `VITE_PRACTICE_ORIGIN`, and `VITE_HIRING_ORIGIN` for safe cross-site navigation and candidate links
 - CAPTCHA and Google client IDs when those integrations are enabled
 
-See [NETLIFY_DEPLOYMENT.md](NETLIFY_DEPLOYMENT.md) for the two-site Netlify and GoDaddy DNS setup.
+See [NETLIFY_DEPLOYMENT.md](NETLIFY_DEPLOYMENT.md) for frontend deployment and DNS setup.
 
 ### Run locally
 
@@ -156,7 +174,7 @@ npm run test:e2e
 npm run audit
 ```
 
-`npm run test:launch` runs the launch-critical API journeys. GitHub Actions runs client lint/unit/build/Playwright/audit plus server unit/API/audit checks on pushes and pull requests. Failed Playwright runs retain browser diagnostics as CI artifacts.
+`npm run test:launch` runs the launch-critical API journeys. GitHub Actions runs client lint/unit/build/Playwright/audit plus server unit/API/audit checks on pushes and pull requests. The workflow also attempts to retain browser diagnostics as CI artifacts when needed.
 
 See [TESTING.md](TESTING.md) for the compact command reference.
 
@@ -228,6 +246,34 @@ The system stores the final candidate transcript as the authoritative answer, th
 
 For hiring assessments, candidate-facing screens do not reveal private scores or recruiter feedback. AI output is advisory evidence; employment decisions remain with human reviewers.
 
+## Debugging assignments
+
+Debugging is an opt-in Hire round type for production-style code comprehension rather than blank-editor algorithm solving. The recruiter defines the debugging round as part of the assessment; candidates cannot create, select, or skip into a debugging round outside the configured assessment sequence.
+
+Recruiters author an **immutable multi-file project baseline** in a hierarchical browser workspace and choose one of two response modes:
+
+- **Code fix:** the project contains ordinary `source` files plus recruiter-only `hidden_test` files. Candidates can edit, create, or delete source files while test files remain inaccessible. Recruiters give each hidden test a candidate-safe display name. When candidates choose **Run tests**, the server executes the hidden tests but returns only safe names and pass/fail results; test paths, source, assertions, expected values, stderr, stack traces, and other diagnostics are never exposed. Final submission reruns the hidden suite and persists deterministic evidence for the recruiter report.
+- **Findings:** there are no executable test files. The project is read-only and the findings panel is shown beside it. Candidates can add multiple findings, each tied to an actual project file and containing a root cause, code evidence, and proposed fix. This mode does not require Judge0 execution.
+
+The assignment baseline remains immutable from the candidate’s perspective. Code-fix work is stored as an overlay of changed, created, and deleted source files instead of duplicating the full project, which supports reload recovery while keeping recruiter-authored hidden tests server-side. Candidate payload sanitization removes hidden-test files before any workspace reaches the browser.
+
+Recruiter reports keep deterministic debugging evidence separate from AI scoring. Code-fix reports show the final execution status, changed-path summary, aggregate pass counts, and candidate-safe hidden-test names/results. Findings reports show the candidate’s file-scoped findings. Hidden test definitions and diagnostics are never included in candidate or recruiter-facing result payloads.
+
+### Debugging execution boundary
+
+Code-fix execution uses Judge0 multi-file mode (`language_id=89`) with server-owned runtime profiles. Recruiters cannot provide arbitrary shell commands. Supported debugging runtimes are:
+
+- Node.js 22 (`node-22`)
+- Python 3 (`python-3`)
+- Java 21 (`java-21`)
+- C++20 (`cpp-20`)
+
+Project paths are normalized and traversal/absolute paths are rejected. Current project limits are **100 files**, **256 KiB per file**, and **2 MiB total project source**. Assignments must be self-contained: do not depend on package installation, outbound network access, databases, or other external services inside the candidate runner.
+
+Before publication, a code-fix assignment is dry-run validated server-side. Its starter project must execute successfully while reproducing at least one failing hidden test; a project that already passes the complete hidden suite is rejected. Findings assignments validate project structure without executing candidate code.
+
+The capability is dark by default. Set `ENABLE_DEBUGGING_ASSESSMENTS=true` only in environments where the feature is intentionally enabled. Code-fix mode also requires `ENABLE_CODE_EXEC=true` and a working, allowlisted Judge0 configuration.
+
 ## Reliability and background processing
 
 When Redis is configured, BullMQ runs question preparation, bulk-feedback, and candidate-assessment workers. Candidate submissions atomically enter an `evaluating` state, retry failures, and recover stranded evaluation jobs on startup.
@@ -245,6 +291,7 @@ See [RUNBOOK.md](RUNBOOK.md) for production operations and recovery.
 - CAPTCHA protection for production authentication flows
 - File magic-byte/size validation and optional antivirus scanning
 - Opt-in Judge0 execution with host allowlisting
+- Debugging assignments use validated relative paths, immutable baselines, server-owned runtimes, candidate source-only overlays, and hidden-test isolation
 - Hashed candidate attempt credentials and non-indexable assessment URLs
 - Signed/idempotent Stripe webhooks
 - Organization-scoped hiring authorization

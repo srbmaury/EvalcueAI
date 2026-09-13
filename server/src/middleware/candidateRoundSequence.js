@@ -13,10 +13,12 @@ const hasPendingFollowUp = (question) => {
 export const candidateRoundComplete = (round) => {
     if (!round) return false;
     const questions = Array.isArray(round.questions) ? round.questions : [];
-    if (round.deliveryMode === "system-design") return Boolean(questions[0]?.answer?.trim());
+    if (["system-design", "debugging"].includes(round.deliveryMode)) return Boolean(questions[0]?.answer?.trim());
     if (round.adaptiveState?.enabled && !round.adaptiveComplete) return false;
     return questions.length > 0 && questions.every((question) => Boolean(question?.answer?.trim()) && !hasPendingFollowUp(question));
 };
+
+export const candidateRoundIndexForRequest = (req) => Number(req.body?.roundIndex ?? req.params?.roundIndex);
 
 /**
  * Candidate live rounds are sequential. This server-side guard mirrors the UX
@@ -25,7 +27,7 @@ export const candidateRoundComplete = (round) => {
  */
 export const requireCandidateRoundSequence = async (req, res, next) => {
     try {
-        const roundIndex = Number(req.body?.roundIndex);
+        const roundIndex = candidateRoundIndexForRequest(req);
         if (!Number.isInteger(roundIndex) || roundIndex <= 0) return next();
 
         const assessment = await Assessment.findOne({

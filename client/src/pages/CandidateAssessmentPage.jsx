@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 import { CheckCircleOutlineRounded, ErrorOutlineRounded } from "@mui/icons-material";
 import api from "../api/axios";
+import CandidateDebuggingRound from "../components/CandidateDebuggingRound";
 import CodeEditorField from "../components/CodeEditorField";
 import ConversationalPanel from "../components/ConversationalPanel";
 import SystemDesignDiscussionPanel from "../components/SystemDesignDiscussionPanel";
@@ -336,6 +337,7 @@ export default function CandidateAssessmentPage() {
     const activePendingFollowUp = pendingFollowUpFor(activeRound, activeQuestion);
     const isActiveConversation = activeRound?.deliveryMode === "conversational";
     const isActiveSystemDesign = activeRound?.deliveryMode === "system-design";
+    const isActiveDebugging = activeRound?.deliveryMode === "debugging";
     const isActiveOA = activeRound?.deliveryMode === "online-assessment";
     const answerTarget = `candidate:${activeRoundIndex}:${activeQuestionIndex}`;
     const focusedAnswerField = activePendingFollowUp ? "followup" : focusedField;
@@ -344,8 +346,8 @@ export default function CandidateAssessmentPage() {
     useEffect(() => { focusedVoiceTargetRef.current = voiceTarget; retargetListening(voiceTarget); }, [retargetListening, voiceTarget]);
     useEffect(() => { diagramSceneRef.current = activeQuestion?.diagramData || ""; }, [activeQuestion?._id, activeQuestion?.diagramData]);
     useEffect(() => {
-        setCodingEnabled(isActiveOA || (!isActiveSystemDesign && /\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(activeQuestion?.text || "")));
-    }, [activeQuestion?._id, activeQuestion?.text, isActiveOA, isActiveSystemDesign]);
+        setCodingEnabled(isActiveOA || (!isActiveSystemDesign && !isActiveDebugging && /\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(activeQuestion?.text || "")));
+    }, [activeQuestion?._id, activeQuestion?.text, isActiveDebugging, isActiveOA, isActiveSystemDesign]);
     useEffect(() => { setFocusedField(activePendingFollowUp ? "followup" : "answer"); }, [activePendingFollowUp, activeQuestion?._id]);
 
     const finishRoundSoftly = useCallback((nextAttempt, roundIndex) => {
@@ -453,7 +455,6 @@ export default function CandidateAssessmentPage() {
     };
 
     const allRoundsComplete = Boolean(attempt?.rounds?.length) && attempt.rounds.every(roundComplete);
-
     const durationSeconds = Math.max(60, Number(assessment?.durationMinutes || 30) * 60);
     const elapsedSeconds = attempt?.startedAt ? Math.max(0, (clockNow - new Date(attempt.startedAt).getTime()) / 1000) : 0;
     const remainingSeconds = Math.max(0, durationSeconds - elapsedSeconds);
@@ -466,7 +467,7 @@ export default function CandidateAssessmentPage() {
     if (!assessment) return <Container maxWidth="sm" sx={{ py: 8 }}><Alert severity="error">{error}</Alert></Container>;
     if (submitted) return <Container maxWidth="sm" sx={{ py: 8 }}><Paper variant="outlined" sx={{ p: 5, textAlign: "center" }}><Typography component="h1" variant="h4" fontWeight={850}>Assessment submitted</Typography><Typography color="text.secondary" mt={2}>Your responses were sent to the recruiting team. You can safely close this page.</Typography></Paper></Container>;
 
-    const plannedUnits = assessment.rounds.reduce((sum, round) => sum + (round.deliveryMode === "system-design" ? 1 : round.questionCount), 0);
+    const plannedUnits = assessment.rounds.reduce((sum, round) => sum + (["system-design", "debugging"].includes(round.deliveryMode) ? 1 : round.questionCount), 0);
 
     return (
         <>
@@ -607,6 +608,16 @@ export default function CandidateAssessmentPage() {
                                 submitAnswerLabel="I’m done"
                                 submitFollowUpLabel="I’m done"
                                 cameraSlot={<WebcamPreview autoStart={assessment.integrity?.requireCamera} required={assessment.integrity?.requireCamera} monitorFaces={assessment.integrity?.enabled && assessment.integrity?.monitorFacePresence} onIntegrityEvent={recordIntegrityEvent} onFaceStatusChange={setFaceStatus} />}
+                            />
+                        ) : isActiveDebugging ? (
+                            <CandidateDebuggingRound
+                                endpoint={`${candidateToolBase}/debugging/${activeRoundIndex}`}
+                                headers={candidateToolHeaders}
+                                canRun={assessment.capabilities?.codeExecution !== false}
+                                onSubmitted={(nextAttempt) => {
+                                    persist(nextAttempt);
+                                    finishRoundSoftly(nextAttempt, activeRoundIndex);
+                                }}
                             />
                         ) : isActiveOA && activeQuestion ? (
                             <Paper variant="outlined" sx={{ overflow: "hidden", borderRadius: 3 }}>

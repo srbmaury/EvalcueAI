@@ -8,10 +8,31 @@ const assessmentQuestionSchema = new mongoose.Schema({
     required: { type: Boolean, default: false },
 }, { _id: true });
 
+const debuggingProjectFileSchema = new mongoose.Schema({
+    path: { type: String, required: true, maxlength: 500 },
+    content: { type: String, default: "", maxlength: 262144 },
+    kind: { type: String, enum: ["source", "hidden_test"], required: true },
+    displayName: { type: String, maxlength: 120, default: "" },
+}, { _id: false });
+
+const debuggingRoundSchema = new mongoose.Schema({
+    responseMode: { type: String, enum: ["code_fix", "findings"], required: true },
+    runtime: { type: String, enum: ["java-21", "node-22", "python-3", "cpp-20"], required: true },
+    entryFile: { type: String, maxlength: 500, default: "" },
+    files: {
+        type: [debuggingProjectFileSchema],
+        default: [],
+        validate: {
+            validator(value) { return Array.isArray(value) && value.length >= 1 && value.length <= 100; },
+            message: "Debugging projects require 1 to 100 files",
+        },
+    },
+}, { _id: false });
+
 const assessmentRoundSchema = new mongoose.Schema({
     name: { type: String, required: true, maxlength: 80 },
     description: { type: String, maxlength: 300 },
-    deliveryMode: { type: String, enum: ["conversational", "online-assessment", "system-design"], default: "conversational" },
+    deliveryMode: { type: String, enum: ["conversational", "online-assessment", "system-design", "debugging"], default: "conversational" },
     adaptive: { type: Boolean, default: false },
     questionCount: {
         type: Number,
@@ -27,6 +48,22 @@ const assessmentRoundSchema = new mongoose.Schema({
         },
     },
     questions: { type: [assessmentQuestionSchema], validate: (value) => value.length >= 1 && value.length <= 10 },
+    debugging: {
+        type: debuggingRoundSchema,
+        default: undefined,
+        validate: {
+            validator(value) {
+                if (this.deliveryMode !== "debugging") return true;
+                if (!value || !Array.isArray(value.files) || value.files.length < 1) return false;
+                const hasSource = value.files.some((file) => file.kind === "source");
+                if (!hasSource) return false;
+                if (value.responseMode === "code_fix") return value.files.some((file) => file.kind === "hidden_test");
+                if (value.responseMode === "findings") return value.files.every((file) => file.kind === "source");
+                return false;
+            },
+            message: "Debugging rounds require source files; code-fix rounds require hidden tests and findings rounds contain source files only",
+        },
+    },
 }, { _id: true });
 
 const assessmentSchema = new mongoose.Schema({
@@ -70,16 +107,11 @@ const assessmentSchema = new mongoose.Schema({
     rounds: { type: [assessmentRoundSchema], validate: (value) => value.length >= 1 && value.length <= 5 },
 }, { timestamps: true });
 
-// A system-design interview is one evolving problem, not a list of prompts.
-// Normalizing here also protects existing create/update paths and recruiter UI
-// payloads that still carry a larger generic question count.
-assessmentSchema.pre("validate", function normalizeSystemDesignRounds(next) {
+assessmentSchema.pre("validate", function normalizeSingleTaskRounds(next) {
     for (const round of this.rounds || []) {
-        if (round.deliveryMode !== "system-design") continue;
+        if (!["system-design", "debugging"].includes(round.deliveryMode)) continue;
         round.questionCount = 1;
-        if (Array.isArray(round.questions) && round.questions.length > 1) {
-            round.questions = [round.questions[0]];
-        }
+        if (Array.isArray(round.questions) && round.questions.length > 1) round.questions = [round.questions[0]];
     }
     next();
 });
