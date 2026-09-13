@@ -26,6 +26,7 @@ const OAForm = ({
     codingEnabled,
     onCodingModeChange,
     codeDraftPrefix,
+    roundName = "Coding",
     onSpokenChange,
     onChange,
     onSubmit,
@@ -75,16 +76,20 @@ const OAForm = ({
             if (cancelled) return;
             if (supportsTTS) {
                 await onPauseHandsFree?.();
+                await new Promise((resolve) => setTimeout(resolve, safeIndex === 0 ? 900 : 450));
                 if (cancelled) return;
+                const prompt = safeIndex === 0
+                    ? `Hi, welcome to the ${roundName} round. Take a moment to understand the problem. Here's your first question: ${activeQuestionText}`
+                    : `Let's move to the next problem: ${activeQuestionText}`;
                 spokenQuestionRef.current = activeQuestionKey;
-                await onSpeak?.(activeQuestionText);
+                await onSpeak?.(prompt);
             } else {
                 spokenQuestionRef.current = activeQuestionKey;
             }
             if (!cancelled && supportsSTT) await onResumeHandsFree?.(safeIndex);
         })();
         return () => { cancelled = true; };
-    }, [activeQuestionKey, activeQuestionText, onPauseHandsFree, onResumeHandsFree, onSpeak, onStartHandsFree, safeIndex, supportsSTT, supportsTTS]);
+    }, [activeQuestionKey, activeQuestionText, onPauseHandsFree, onResumeHandsFree, onSpeak, onStartHandsFree, roundName, safeIndex, supportsSTT, supportsTTS]);
 
     useEffect(() => () => { onStopHandsFree?.(); }, [onStopHandsFree]);
 
@@ -184,6 +189,12 @@ const OAForm = ({
                             </Suspense>
                         </Box>
                         {codingEnabled?.[safeIndex] && <TextField label="Explain your approach" value={spokenAnswers?.[safeIndex] || ""} onChange={(event) => onSpokenChange(safeIndex, event.target.value)} multiline minRows={3} fullWidth sx={{ mt: 2 }} helperText="Optional: reasoning, complexity, assumptions, or trade-offs." />}
+                        <Box
+                            data-testid="online-assessment-camera-slot"
+                            sx={{ position: "relative", height: { xs: 104, sm: 131 }, mt: 2 }}
+                        >
+                            <WebcamPreview autoStart required monitorFaces />
+                        </Box>
                     </Box>
                 </Box>
 
@@ -199,7 +210,6 @@ const OAForm = ({
                         </Stack>
                     </Stack>
                 </Box>
-                <WebcamPreview autoStart required monitorFaces />
             </Paper>
         </Stack>
     );

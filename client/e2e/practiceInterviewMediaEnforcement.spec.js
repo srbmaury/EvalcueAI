@@ -47,13 +47,18 @@ const installMedia = async (page, { completeSpeech = true } = {}) => {
         Object.defineProperty(window, "speechSynthesis", {
             configurable: true,
             value: {
-                cancel() {},
+                speaking: false,
+                cancel() { this.speaking = false; },
                 resume() { paused = false; },
                 getVoices() { return []; },
                 speak(utterance) {
                     if (paused) return;
+                    this.speaking = true;
                     window.__spoken.push(utterance.text);
-                    if (completeSpeech) setTimeout(() => utterance.onend?.(), 0);
+                    setTimeout(() => {
+                        this.speaking = false;
+                        if (completeSpeech) utterance.onend?.();
+                    }, 150);
                 },
             },
         });

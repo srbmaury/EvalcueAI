@@ -56,6 +56,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     const interviewerGenderRef = useRef(null);
     const interviewerVoiceRef = useRef(null);
     const recentTranscriptRef = useRef({ target: null, text: "", at: 0 });
+    const activeSpeechFinishRef = useRef(null);
     const rawOnTranscriptRef = useRef(onTranscript);
     const onTranscriptRef = useRef(onTranscript);
 
@@ -489,8 +490,21 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     }, [listening]);
 
     const speakNow = useCallback((text) => new Promise((resolve) => {
+        let timeoutId;
+        let speakingPollId;
+        let settled = false;
+        const finish = (value) => {
+            if (settled) return;
+            settled = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            if (speakingPollId) clearInterval(speakingPollId);
+            if (activeSpeechFinishRef.current === finish) activeSpeechFinishRef.current = null;
+            resolve(value);
+        };
         try {
-            if (!supportsTTS || !text) { resolve(false); return; }
+            if (!supportsTTS || !text) { finish(false); return; }
+            activeSpeechFinishRef.current?.(false);
+            activeSpeechFinishRef.current = finish;
             window.speechSynthesis.cancel();
             window.speechSynthesis.resume?.();
             const utterance = new SpeechSynthesisUtterance(text);
@@ -508,18 +522,25 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
                 interviewerVoiceRef.current = preferred;
             }
             if (preferred) utterance.voice = preferred;
-            let settled = false;
-            const finish = (value) => { if (!settled) { settled = true; resolve(value); } };
             utterance.onend = () => finish(true);
             utterance.onerror = () => finish(false);
+            const startedAt = Date.now();
+            const estimatedSpeechMs = Math.ceil(String(text).length / 12 * 1000);
+            timeoutId = setTimeout(() => finish(false), Math.min(20000, Math.max(3000, estimatedSpeechMs + 2000)));
+            speakingPollId = setInterval(() => {
+                if (Date.now() - startedAt >= 600 && window.speechSynthesis?.speaking === false) finish(true);
+            }, 250);
             window.speechSynthesis.speak(utterance);
         } catch (error) {
             console.warn("speakNow error", error);
-            resolve(false);
+            finish(false);
         }
     }), [supportsTTS, user?.interviewerVoicePreference]);
 
     useEffect(() => () => {
+        activeSpeechFinishRef.current?.(false);
+        activeSpeechFinishRef.current = null;
+        try { window.speechSynthesis?.cancel?.(); } catch { void 0; }
         handsFreeRef.current = false;
         handsFreePausedRef.current = true;
         clearRotateTimer();
