@@ -25,8 +25,7 @@ const authFor = (user, orgId) => ({ Authorization: `Bearer ${signAccessToken(use
 
 const projectFiles = () => [
     { path: "src/index.js", content: "export const increment = (value) => value;", kind: "source" },
-    { path: "tests/increment.test.js", content: "VISIBLE_ASSERTION", kind: "visible_test" },
-    { path: "hidden/boundary.test.js", content: "SECRET_EXPECTED_VALUE", kind: "hidden_test" },
+    { path: "tests/boundary.test.js", content: "INTERNAL_ASSERTION", kind: "hidden_test", displayName: "handles boundary values" },
 ];
 const debuggingRound = ({ responseMode = "code_fix", title = "Fix duplicate charging" } = {}) => ({
     name: "Debugging",
@@ -39,7 +38,7 @@ const debuggingRound = ({ responseMode = "code_fix", title = "Fix duplicate char
 const assessmentInput = (round, overrides = {}) => ({ title: "Debugging screen", jobRole: "Backend Engineer", jobDescription: "Debug production services safely and explain root causes.", status: "active", durationMinutes: 45, rounds: [round], ...overrides });
 const startCandidate = async (shareToken, email = "candidate@example.com") => write(agent.post(`/api/assessments/public/${shareToken}/start`)).send({ name: "Candidate", email, privacyConsent: true }).expect(201);
 
-const failingStarter = { status: "failed", visiblePassed: 0, visibleTotal: 1, hiddenPassed: 0, hiddenTotal: 1, visibleFailures: [{ name: "tests/increment.test.js", message: "failed" }] };
+const failingStarter = { status: "failed", passed: 0, total: 1, tests: [{ name: "handles boundary values", passed: false }] };
 
 describe("debugging assessment API", () => {
     beforeAll(async () => {
@@ -79,7 +78,7 @@ describe("debugging assessment API", () => {
         expect(response.body.message).toMatch(/feature disabled/i);
     });
 
-    it("publishes safe debugging metadata and keeps project files behind the attempt boundary", async () => {
+    it("publishes safe metadata and keeps recruiter tests behind the attempt boundary", async () => {
         process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
         const capabilities = await agent.get("/api/assessments/capabilities").set(ownerAuth).expect(200);
         expect(capabilities.body.debuggingAssessments).toBe(true);
@@ -87,61 +86,61 @@ describe("debugging assessment API", () => {
 
         const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound())).expect(201);
         const publicResponse = await agent.get(`/api/assessments/public/${created.body.shareToken}`).expect(200);
-        expect(publicResponse.body.rounds[0].debugging).toMatchObject({ responseMode: "code_fix", runtime: "node-22", sourceFileCount: 1, visibleTestCount: 1, hiddenTestCount: 1 });
-        expect(JSON.stringify(publicResponse.body)).not.toContain("VISIBLE_ASSERTION");
-        expect(JSON.stringify(publicResponse.body)).not.toContain("SECRET_EXPECTED_VALUE");
+        expect(publicResponse.body.rounds[0].debugging).toMatchObject({ responseMode: "code_fix", runtime: "node-22", sourceFileCount: 1, hiddenTestCount: 1 });
+        expect(JSON.stringify(publicResponse.body)).not.toContain("INTERNAL_ASSERTION");
+        expect(JSON.stringify(publicResponse.body)).not.toContain("tests/boundary.test.js");
 
         const started = await startCandidate(created.body.shareToken);
         const workspace = await agent.get(`/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/debugging/0`).set("x-attempt-token", started.body.attemptToken).expect(200);
-        expect(workspace.body.files.map((file) => file.path)).toEqual(["src/index.js", "tests/increment.test.js"]);
-        expect(JSON.stringify(workspace.body)).not.toContain("hidden/boundary.test.js");
-        expect(JSON.stringify(workspace.body)).not.toContain("SECRET_EXPECTED_VALUE");
+        expect(workspace.body.files.map((file) => file.path)).toEqual(["src/index.js"]);
+        expect(JSON.stringify(workspace.body)).not.toContain("tests/boundary.test.js");
+        expect(JSON.stringify(workspace.body)).not.toContain("INTERNAL_ASSERTION");
     });
 
-    it("autosaves a candidate overlay, runs only visible tests, and keeps hidden diagnostics private", async () => {
+    it("autosaves an overlay and runs recruiter tests with safe display names", async () => {
         process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
         const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound(), { title: "Runner screen" })).expect(201);
         const started = await startCandidate(created.body.shareToken, "runner@example.com");
         const base = `/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/debugging/0`;
 
-        await write(agent.put(`${base}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({
-            changedFiles: [{ path: "src/index.js", content: "export const increment = (value) => value + 1;" }], createdFiles: [], deletedFiles: [],
-        }).expect(200);
+        await write(agent.put(`${base}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ changedFiles: [{ path: "src/index.js", content: "export const increment = (value) => value + 1;" }], createdFiles: [], deletedFiles: [] }).expect(200);
 
-        runDebuggingProject.mockResolvedValueOnce({ status: "passed", visiblePassed: 1, visibleTotal: 1, hiddenPassed: 0, hiddenTotal: 0, visibleFailures: [] });
+        runDebuggingProject.mockResolvedValueOnce({ status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] });
         const run = await write(agent.post(`${base}/run-tests`)).set("x-attempt-token", started.body.attemptToken).send({}).expect(200);
-        expect(run.body).toEqual({ status: "passed", visiblePassed: 1, visibleTotal: 1, hiddenPassed: 0, hiddenTotal: 0, visibleFailures: [] });
-        expect(runDebuggingProject).toHaveBeenLastCalledWith(expect.objectContaining({ includeHiddenTests: false, files: expect.arrayContaining([expect.objectContaining({ path: "hidden/boundary.test.js", content: "SECRET_EXPECTED_VALUE" })]) }));
-        expect(JSON.stringify(run.body)).not.toMatch(/SECRET|hidden\/boundary/i);
+        expect(run.body).toEqual({ status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] });
+        expect(runDebuggingProject).toHaveBeenLastCalledWith(expect.objectContaining({ includeHiddenTests: true, files: expect.arrayContaining([expect.objectContaining({ path: "tests/boundary.test.js", content: "INTERNAL_ASSERTION" })]) }));
+        expect(JSON.stringify(run.body)).not.toMatch(/boundary\.test\.js|INTERNAL_ASSERTION/i);
     });
 
-    it("final submission executes hidden tests and returns only aggregate hidden evidence", async () => {
+    it("final submission returns the same candidate-safe test evidence with the diff", async () => {
         process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
         const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound(), { title: "Final runner" })).expect(201);
         const started = await startCandidate(created.body.shareToken, "final-runner@example.com");
         const base = `/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/debugging/0`;
         await write(agent.put(`${base}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ changedFiles: [{ path: "src/index.js", content: "fixed" }] }).expect(200);
-        runDebuggingProject.mockResolvedValueOnce({ status: "passed", visiblePassed: 1, visibleTotal: 1, hiddenPassed: 1, hiddenTotal: 1, visibleFailures: [] });
+        runDebuggingProject.mockResolvedValueOnce({ status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] });
         const submitted = await write(agent.post(`${base}/submit`)).set("x-attempt-token", started.body.attemptToken).send({}).expect(200);
         expect(runDebuggingProject).toHaveBeenLastCalledWith(expect.objectContaining({ includeHiddenTests: true }));
-        expect(submitted.body.summary).toMatchObject({ hiddenPassed: 1, hiddenTotal: 1, diff: { changed: 1, created: 0, deleted: 0 } });
-        expect(JSON.stringify(submitted.body)).not.toMatch(/SECRET|hidden\/boundary/i);
-        expect(submitted.body.attempt.rounds[0].questions[0].answer).toMatch(/Debugging solution submitted/);
+        expect(submitted.body.summary).toMatchObject({ passed: 1, total: 1, diff: { changed: 1, created: 0, deleted: 0 } });
+        expect(submitted.body.summary.tests).toEqual([{ name: "handles boundary values", passed: true }]);
+        expect(JSON.stringify(submitted.body)).not.toMatch(/boundary\.test\.js|INTERNAL_ASSERTION/i);
+        expect(submitted.body.attempt.rounds[0].questions[0].answer).toMatch(/Tests: 1\/1/);
     });
 
-    it("saves and submits findings without invoking Judge0", async () => {
+    it("saves file-specific findings without invoking Judge0", async () => {
         process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
         const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound({ responseMode: "findings", title: "Explain the race condition." }), { title: "Findings screen" })).expect(201);
         const callsAfterCreate = runDebuggingProject.mock.calls.length;
         const started = await startCandidate(created.body.shareToken, "findings@example.com");
         const base = `/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/debugging/0`;
-        await write(agent.put(`${base}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ findings: {
-            rootCause: "A read-modify-write race allows duplicate charges.", evidence: "Both requests observe pending.", proposedFix: "Use an atomic conditional update.", impact: "Duplicate charges.", testingStrategy: "Run concurrent duplicate requests.",
-        } }).expect(200);
+        await write(agent.put(`${base}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ findings: [{
+            filePath: "src/index.js", rootCause: "A read-modify-write race allows duplicate work.", evidence: "Both requests observe pending.", proposedFix: "Use an atomic conditional update.",
+        }] }).expect(200);
         await write(agent.post(`${base}/run-tests`)).set("x-attempt-token", started.body.attemptToken).send({}).expect(409);
         const submitted = await write(agent.post(`${base}/submit`)).set("x-attempt-token", started.body.attemptToken).send({}).expect(200);
-        expect(submitted.body.summary).toEqual({ status: "submitted", findings: true });
-        expect(submitted.body.attempt.rounds[0].questions[0].answer).toMatch(/Root cause/);
+        expect(submitted.body.summary).toEqual({ status: "submitted", findings: true, findingCount: 1 });
+        expect(submitted.body.attempt.rounds[0].questions[0].answer).toMatch(/src\/index\.js/);
+        expect(submitted.body.attempt.rounds[0].questions[0].answer).toMatch(/read-modify-write race/);
         expect(runDebuggingProject).toHaveBeenCalledTimes(callsAfterCreate);
     });
 });
