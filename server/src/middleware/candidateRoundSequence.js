@@ -18,6 +18,8 @@ export const candidateRoundComplete = (round) => {
     return questions.length > 0 && questions.every((question) => Boolean(question?.answer?.trim()) && !hasPendingFollowUp(question));
 };
 
+export const candidateRoundIndexForRequest = (req) => Number(req.body?.roundIndex ?? req.params?.roundIndex);
+
 /**
  * Candidate live rounds are sequential. This server-side guard mirrors the UX
  * lock so a crafted request cannot answer a later round before earlier rounds
@@ -25,7 +27,7 @@ export const candidateRoundComplete = (round) => {
  */
 export const requireCandidateRoundSequence = async (req, res, next) => {
     try {
-        const roundIndex = Number(req.body?.roundIndex ?? req.params?.roundIndex);
+        const roundIndex = candidateRoundIndexForRequest(req);
         if (!Number.isInteger(roundIndex) || roundIndex <= 0) return next();
 
         const assessment = await Assessment.findOne({
