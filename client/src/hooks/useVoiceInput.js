@@ -378,7 +378,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     const startHandsFree = useCallback(async (target) => {
         if (!supportsSTT || target === null || target === undefined) return false;
         activeTargetRef.current = target;
-        if (handsFreeRef.current && micSessionActive) {
+        if (handsFreeRef.current) {
             setListeningTarget(target);
             if (handsFreePausedRef.current) {
                 handsFreePausedRef.current = false;
@@ -424,7 +424,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
             setMicPermission("denied");
             return false;
         }
-    }, [constraintsForDevice, enableServerTranscription, fallbackSTT, micSessionActive, startLiveRecognition, startMeter, startRecorderSegment, supportsSTT]);
+    }, [constraintsForDevice, enableServerTranscription, fallbackSTT, startLiveRecognition, startMeter, startRecorderSegment, supportsSTT]);
 
     const pauseHandsFree = useCallback(async () => {
         if (!handsFreeRef.current) return;
@@ -441,7 +441,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         if (!handsFreeRef.current || target === null || target === undefined || !supportsSTT) return false;
         activeTargetRef.current = target;
         setListeningTarget(target);
-        if (!handsFreePausedRef.current && listening) return true;
+        if (!handsFreePausedRef.current) return true;
         handsFreePausedRef.current = false;
         setHandsFreePaused(false);
         if (sessionStreamRef.current) {
@@ -452,7 +452,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         }
         await fallbackSTT(target, { handsFree: true });
         return true;
-    }, [fallbackSTT, listening, startLiveRecognition, startRecorderSegment, supportsSTT]);
+    }, [fallbackSTT, startLiveRecognition, startRecorderSegment, supportsSTT]);
 
     const stopHandsFree = useCallback(() => {
         if (!handsFreeRef.current && !sessionStreamRef.current) return;
