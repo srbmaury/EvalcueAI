@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import DebuggingProjectWorkspace from "../components/DebuggingProjectWorkspace";
 
@@ -22,6 +22,30 @@ const files = [
 ];
 
 describe("DebuggingProjectWorkspace", () => {
+    it("renders project paths as a hierarchical folder tree", () => {
+        const projectFiles = [
+            { path: "demo/src.js", content: "demo", kind: "source" },
+            { path: "src/index.js", content: "index", kind: "source" },
+            { path: "src/services/payment.js", content: "payment", kind: "source" },
+        ];
+        render(<DebuggingProjectWorkspace files={projectFiles} readOnly />);
+
+        const demoFolder = screen.getByTestId("project-folder:demo");
+        expect(within(demoFolder).getByText("demo")).toBeTruthy();
+        expect(within(demoFolder).getByRole("button", { name: "demo/src.js" })).toBeTruthy();
+        expect(within(demoFolder).queryByRole("button", { name: "src/index.js" })).toBeNull();
+
+        const srcFolder = screen.getByTestId("project-folder:src");
+        expect(within(srcFolder).getByRole("button", { name: "src/index.js" })).toBeTruthy();
+        const servicesFolder = within(srcFolder).getByTestId("project-folder:src/services");
+        expect(within(servicesFolder).getByText("services")).toBeTruthy();
+        expect(within(servicesFolder).getByRole("button", { name: "src/services/payment.js" })).toBeTruthy();
+
+        expect(screen.queryByText("demo/src.js")).toBeNull();
+        expect(screen.queryByText("src/index.js")).toBeNull();
+        expect(screen.queryByText("src/services/payment.js")).toBeNull();
+    });
+
     it("creates files and folders as immutable file-array changes", () => {
         const onFilesChange = vi.fn();
         render(<DebuggingProjectWorkspace files={files} onFilesChange={onFilesChange} allowClassification />);
@@ -65,8 +89,8 @@ describe("DebuggingProjectWorkspace", () => {
         const onFilesChange = vi.fn();
         render(<DebuggingProjectWorkspace files={files} onFilesChange={onFilesChange} hideHidden protectTests />);
 
-        expect(screen.queryByText("hidden/secret.test.js")).toBeNull();
-        fireEvent.click(screen.getByRole("button", { name: /tests\/index\.test\.js/ }));
+        expect(screen.queryByText("secret.test.js")).toBeNull();
+        fireEvent.click(screen.getByRole("button", { name: "tests/index.test.js" }));
         expect(screen.getByLabelText("Project code editor").readOnly).toBe(true);
         expect(screen.queryByLabelText("Delete selected file")).toBeNull();
         expect(screen.getByText("Test files are read-only in the candidate workspace.")).toBeTruthy();
