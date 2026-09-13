@@ -8,9 +8,9 @@ import {
 
 describe("debugging project model", () => {
     it("rejects traversal and absolute paths", () => {
-        expect(() => validateDebuggingProject([{ path: "../secret", content: "x", kind: "source" }])).toThrow(/path/i);
-        expect(() => validateDebuggingProject([{ path: "/etc/passwd", content: "x", kind: "source" }])).toThrow(/path/i);
-        expect(() => validateDebuggingProject([{ path: "C:\\secret.txt", content: "x", kind: "source" }])).toThrow(/path/i);
+        expect(() => validateDebuggingProject([{ path: "../outside.txt", content: "x", kind: "source" }])).toThrow(/path/i);
+        expect(() => validateDebuggingProject([{ path: "/outside.txt", content: "x", kind: "source" }])).toThrow(/path/i);
+        expect(() => validateDebuggingProject([{ path: "D:\\outside.txt", content: "x", kind: "source" }])).toThrow(/path/i);
     });
 
     it("enforces file and byte limits", () => {
@@ -29,13 +29,17 @@ describe("debugging project model", () => {
         ])).toThrow(/duplicate/i);
     });
 
-    it("removes hidden tests from candidate payloads", () => {
-        const files = sanitizeProjectForCandidate([
+    it("supports source and hidden-test files only and removes tests from candidate payloads", () => {
+        expect(() => validateDebuggingProject([
             { path: "src/a.js", content: "a", kind: "source" },
-            { path: "tests/a.test.js", content: "v", kind: "visible_test" },
-            { path: "hidden/a.test.js", content: "h", kind: "hidden_test" },
-        ]);
-        expect(files.map((file) => file.path)).toEqual(["src/a.js", "tests/a.test.js"]);
+            { path: "tests/a.test.js", content: "test", kind: "visible_test" },
+        ])).toThrow(/kind|unsupported/i);
+        const validated = validateDebuggingProject([
+            { path: "src/a.js", content: "a", kind: "source" },
+            { path: "tests/a.test.js", content: "test", kind: "hidden_test", displayName: "handles request" },
+        ]).files;
+        expect(validated[1]).toMatchObject({ kind: "hidden_test", displayName: "handles request" });
+        expect(sanitizeProjectForCandidate(validated)).toEqual([{ path: "src/a.js", content: "a", kind: "source" }]);
     });
 
     it("applies changed created and deleted candidate files without mutating the base", () => {
@@ -43,30 +47,15 @@ describe("debugging project model", () => {
             { path: "src/a.js", content: "old", kind: "source" },
             { path: "src/b.js", content: "keep", kind: "source" },
         ];
-        const overlay = {
-            changedFiles: [{ path: "src/a.js", content: "new" }],
-            createdFiles: [{ path: "src/c.js", content: "created" }],
-            deletedFiles: ["src/b.js"],
-        };
-        expect(applyDebuggingOverlay(base, overlay).map(({ path, content }) => [path, content])).toEqual([
-            ["src/a.js", "new"],
-            ["src/c.js", "created"],
-        ]);
+        const overlay = { changedFiles: [{ path: "src/a.js", content: "new" }], createdFiles: [{ path: "src/c.js", content: "created" }], deletedFiles: ["src/b.js"] };
+        expect(applyDebuggingOverlay(base, overlay).map(({ path, content }) => [path, content])).toEqual([["src/a.js", "new"], ["src/c.js", "created"]]);
         expect(base[0].content).toBe("old");
         expect(summarizeDebuggingDiff(base, overlay)).toMatchObject({ changed: 1, created: 1, deleted: 1 });
     });
 
-    it("prevents candidate overlays from changing or deleting hidden tests", () => {
-        const base = [{ path: "hidden/secret.test.js", content: "secret", kind: "hidden_test" }];
-        expect(() => applyDebuggingOverlay(base, {
-            changedFiles: [{ path: "hidden/secret.test.js", content: "tampered" }],
-            createdFiles: [],
-            deletedFiles: [],
-        })).toThrow(/hidden/i);
-        expect(() => applyDebuggingOverlay(base, {
-            changedFiles: [],
-            createdFiles: [],
-            deletedFiles: ["hidden/secret.test.js"],
-        })).toThrow(/hidden/i);
+    it("prevents candidate overlays from changing or deleting recruiter tests", () => {
+        const base = [{ path: "tests/internal.test.js", content: "internal", kind: "hidden_test", displayName: "protected behavior" }];
+        expect(() => applyDebuggingOverlay(base, { changedFiles: [{ path: "tests/internal.test.js", content: "changed" }], createdFiles: [], deletedFiles: [] })).toThrow(/hidden/i);
+        expect(() => applyDebuggingOverlay(base, { changedFiles: [], createdFiles: [], deletedFiles: ["tests/internal.test.js"] })).toThrow(/hidden/i);
     });
 });
