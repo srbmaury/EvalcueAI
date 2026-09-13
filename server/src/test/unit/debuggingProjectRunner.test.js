@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { executeJudge0Submission } = vi.hoisted(() => ({ executeJudge0Submission: vi.fn() }));
 vi.mock("../../utils/runCode.js", () => ({ executeJudge0Submission }));
@@ -9,10 +9,7 @@ import { getDebuggingRuntimeProfile } from "../../services/debuggingRuntimeProfi
 const listZipEntries = (buffer) => {
     const names = [];
     for (let offset = 0; offset + 46 <= buffer.length;) {
-        if (buffer.readUInt32LE(offset) !== 0x02014b50) {
-            offset += 1;
-            continue;
-        }
+        if (buffer.readUInt32LE(offset) !== 0x02014b50) { offset += 1; continue; }
         const nameLength = buffer.readUInt16LE(offset + 28);
         const extraLength = buffer.readUInt16LE(offset + 30);
         const commentLength = buffer.readUInt16LE(offset + 32);
@@ -24,20 +21,16 @@ const listZipEntries = (buffer) => {
 
 const files = [
     { path: "src/app.js", content: "export const add = (a, b) => a + b;", kind: "source" },
-    { path: "tests/app.test.js", content: "// visible", kind: "visible_test" },
-    { path: "hidden/secret.test.js", content: "// hidden", kind: "hidden_test" },
+    { path: "tests/basic.test.js", content: "// recruiter assertion", kind: "hidden_test", displayName: "adds two values" },
+    { path: "tests/duplicate.test.js", content: "// recruiter assertion", kind: "hidden_test", displayName: "prevents duplicate charge" },
 ];
 
 describe("debugging project runner", () => {
     beforeEach(() => {
         executeJudge0Submission.mockReset();
         executeJudge0Submission.mockResolvedValue({
-            stdout: "__EVALCUE_RESULT__{\"visiblePassed\":1,\"visibleTotal\":1,\"hiddenPassed\":0,\"hiddenTotal\":0,\"visibleFailures\":[]}",
-            stderr: "",
-            compileOutput: "",
-            status: { id: 3, description: "Accepted" },
-            isError: false,
-            errorType: "none",
+            stdout: "__EVALCUE_TEST__1|adds two values\n__EVALCUE_TEST__1|prevents duplicate charge\n__EVALCUE_COUNTS__2,2\n",
+            stderr: "", compileOutput: "", status: { id: 3, description: "Accepted" }, isError: false, errorType: "none",
         });
     });
 
@@ -46,51 +39,38 @@ describe("debugging project runner", () => {
         expect(() => getDebuggingRuntimeProfile("custom-shell")).toThrow(/runtime/i);
     });
 
-    it("builds visible-run archives without hidden tests", () => {
+    it("keeps recruiter test files out when test execution is disabled", () => {
         const archive = buildDebuggingArchive({ files, runtime: "node-22", includeHiddenTests: false });
         const entries = listZipEntries(archive);
         expect(entries).toContain("compile");
         expect(entries).toContain("run");
         expect(entries).toContain("src/app.js");
-        expect(entries).toContain("tests/app.test.js");
-        expect(entries).not.toContain("hidden/secret.test.js");
+        expect(entries).not.toContain("tests/basic.test.js");
+        expect(entries).not.toContain("tests/duplicate.test.js");
     });
 
-    it("includes hidden tests only for final execution", () => {
+    it("includes recruiter tests for candidate test runs", () => {
         const archive = buildDebuggingArchive({ files, runtime: "node-22", includeHiddenTests: true });
-        expect(listZipEntries(archive)).toContain("hidden/secret.test.js");
+        const entries = listZipEntries(archive);
+        expect(entries).toContain("tests/basic.test.js");
+        expect(entries).toContain("tests/duplicate.test.js");
     });
 
     it("submits Judge0 multi-file language 89", async () => {
-        await runDebuggingProject({ files, runtime: "node-22", includeHiddenTests: false });
-        expect(executeJudge0Submission).toHaveBeenCalledWith(expect.objectContaining({
-            language_id: 89,
-            additional_files: expect.any(String),
-        }), expect.any(Object));
-        const payload = executeJudge0Submission.mock.calls[0][0];
-        const archive = Buffer.from(payload.additional_files, "base64");
-        expect(listZipEntries(archive)).not.toContain("hidden/secret.test.js");
+        await runDebuggingProject({ files, runtime: "node-22", includeHiddenTests: true });
+        expect(executeJudge0Submission).toHaveBeenCalledWith(expect.objectContaining({ language_id: 89, additional_files: expect.any(String) }), expect.any(Object));
     });
 
-    it("returns only aggregate hidden evidence and visible diagnostics", async () => {
+    it("returns only safe test names and pass fail status", async () => {
         executeJudge0Submission.mockResolvedValueOnce({
-            stdout: "noise\n__EVALCUE_RESULT__{\"visiblePassed\":1,\"visibleTotal\":2,\"hiddenPassed\":3,\"hiddenTotal\":4,\"visibleFailures\":[{\"name\":\"visible checkout\",\"message\":\"expected one charge\"}],\"hiddenFailures\":[{\"name\":\"secret race\",\"message\":\"SECRET_EXPECTED_VALUE\"}]}",
-            stderr: "hidden/secret.test.js SECRET_STACK",
-            compileOutput: "",
-            status: { id: 4, description: "Wrong Answer" },
-            isError: false,
-            errorType: "none",
+            stdout: "__EVALCUE_TEST__1|adds two values\n__EVALCUE_TEST__0|prevents duplicate charge\n__EVALCUE_COUNTS__1,2\n",
+            stderr: "tests/duplicate.test.js internal diagnostic", compileOutput: "", status: { id: 4, description: "Wrong Answer" }, isError: false, errorType: "none",
         });
-
         const result = await runDebuggingProject({ files, runtime: "node-22", includeHiddenTests: true });
         expect(result).toEqual({
-            status: "failed",
-            visiblePassed: 1,
-            visibleTotal: 2,
-            hiddenPassed: 3,
-            hiddenTotal: 4,
-            visibleFailures: [{ name: "visible checkout", message: "expected one charge" }],
+            status: "failed", passed: 1, total: 2,
+            tests: [{ name: "adds two values", passed: true }, { name: "prevents duplicate charge", passed: false }],
         });
-        expect(JSON.stringify(result)).not.toMatch(/secret race|SECRET|hidden\/secret/i);
+        expect(JSON.stringify(result)).not.toMatch(/duplicate\.test\.js|internal diagnostic/i);
     });
 });
