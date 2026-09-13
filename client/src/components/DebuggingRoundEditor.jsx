@@ -10,9 +10,7 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
     const debugging = {
         ...fallback.debugging,
         ...(round?.debugging || {}),
-        files: Array.isArray(round?.debugging?.files) && round.debugging.files.length
-            ? round.debugging.files
-            : fallback.debugging.files,
+        files: Array.isArray(round?.debugging?.files) && round.debugging.files.length ? round.debugging.files : fallback.debugging.files,
     };
     const instruction = round?.questions?.[0]?.text || "";
     const [validating, setValidating] = useState(false);
@@ -24,15 +22,18 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
         onChange?.({ ...round, ...patch });
     };
     const updateDebugging = (patch) => emit({ debugging: { ...debugging, ...patch } });
+    const changeResponseMode = (responseMode) => {
+        const files = responseMode === "findings"
+            ? debugging.files.filter((file) => file.kind === "source")
+            : debugging.files;
+        updateDebugging({ responseMode, files });
+    };
 
     const validateAssignment = async () => {
         setValidating(true);
         setValidationError("");
         try {
-            const { data } = await api.post("/assessments/debugging/validate", {
-                instructions: instruction,
-                debugging,
-            });
+            const { data } = await api.post("/assessments/debugging/validate", { instructions: instruction, debugging });
             onValidationChange?.(data);
         } catch (err) {
             const message = err?.response?.data?.message || "The assignment could not be validated.";
@@ -43,54 +44,63 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
         }
     };
 
-    return (
-        <Stack spacing={2.25}>
-            <Box>
-                <Typography component="h3" variant="h6" fontWeight={850}>Debugging assignment</Typography>
-                <Typography variant="body2" color="text.secondary" mt={0.5}>
-                    Author a real multi-file project. Candidates inspect the codebase, diagnose the defect, and either fix it or document their findings.
-                </Typography>
-            </Box>
+    return <Stack spacing={2.25}>
+        <Box>
+            <Typography component="h3" variant="h6" fontWeight={850}>Debugging assignment</Typography>
+            <Typography variant="body2" color="text.secondary" mt={0.5}>Author a real multi-file project directly in EvalCueAI.</Typography>
+        </Box>
 
-            <TextField required multiline minRows={3} label="Assignment instructions" helperText="Describe the observed bug, constraints, and expected outcome without revealing the root cause." value={instruction} onChange={(event) => emit({
-                questionCount: 1,
-                questions: [{ ...(round?.questions?.[0] || {}), text: event.target.value, required: true }],
-            })} />
+        <TextField
+            required
+            multiline
+            minRows={3}
+            label="Assignment instructions"
+            inputProps={{ "aria-label": "Assignment instructions" }}
+            helperText="Describe the observed bug, constraints, and expected outcome without revealing the root cause."
+            value={instruction}
+            onChange={(event) => emit({ questionCount: 1, questions: [{ ...(round?.questions?.[0] || {}), text: event.target.value, required: true }] })}
+        />
 
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField select fullWidth label="Candidate response" value={debugging.responseMode} onChange={(event) => updateDebugging({ responseMode: event.target.value })}>
-                    <MenuItem value="code_fix">Fix code</MenuItem>
-                    <MenuItem value="findings">Submit findings</MenuItem>
-                </TextField>
-                <TextField select fullWidth label="Runtime" value={debugging.runtime} onChange={(event) => updateDebugging({ runtime: event.target.value })}>
-                    {DEBUGGING_RUNTIMES.map((runtime) => <MenuItem key={runtime.value} value={runtime.value}>{runtime.label}</MenuItem>)}
-                </TextField>
-                <TextField fullWidth label="Entry file (optional)" value={debugging.entryFile || ""} onChange={(event) => updateDebugging({ entryFile: event.target.value })} placeholder="src/index.js" />
-            </Stack>
-
-            <Box>
-                <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1} mb={1.25}>
-                    <Box>
-                        <Typography fontWeight={850}>Project workspace</Typography>
-                        <Typography variant="body2" color="text.secondary">Create the project in place. Mark test files as visible or hidden; hidden tests never reach candidates.</Typography>
-                    </Box>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                        <Chip size="small" variant="outlined" label={`${debugging.files.length} files`} />
-                        <Button variant="outlined" startIcon={<PlayArrowRounded />} disabled={validating || !instruction.trim() || !debugging.files.length} onClick={validateAssignment}>
-                            {validating ? "Validating…" : "Validate assignment"}
-                        </Button>
-                    </Stack>
-                </Stack>
-                <DebuggingProjectWorkspace files={debugging.files} runtime={debugging.runtime} onFilesChange={(files) => updateDebugging({ files })} allowClassification />
-            </Box>
-
-            {debugging.responseMode === "findings" && <Alert severity="info">Candidates receive this project read-only and submit root cause, evidence, proposed fix, impact/risk, and testing strategy. No code execution is required.</Alert>}
-            {validation?.valid && <Alert severity="success">{validation.message || "Assignment validated. The project can be published."}</Alert>}
-            {(validationError || validation?.valid === false) && <Alert severity="error">{validationError || validation.message || "Assignment validation failed."}</Alert>}
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <TextField select fullWidth label="Candidate response" value={debugging.responseMode} onChange={(event) => changeResponseMode(event.target.value)}>
+                <MenuItem value="code_fix">Fix code</MenuItem>
+                <MenuItem value="findings">Submit findings</MenuItem>
+            </TextField>
+            <TextField select fullWidth label="Runtime" value={debugging.runtime} onChange={(event) => updateDebugging({ runtime: event.target.value })}>
+                {DEBUGGING_RUNTIMES.map((runtime) => <MenuItem key={runtime.value} value={runtime.value}>{runtime.label}</MenuItem>)}
+            </TextField>
+            <TextField fullWidth label="Entry file (optional)" value={debugging.entryFile || ""} onChange={(event) => updateDebugging({ entryFile: event.target.value })} placeholder="src/index.js" />
         </Stack>
-    );
+
+        <Box>
+            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1} mb={1.25}>
+                <Box>
+                    <Typography fontWeight={850}>Project workspace</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        {debugging.responseMode === "code_fix"
+                            ? "Create source files and mark recruiter tests as Hidden test. Give each test a candidate-visible name."
+                            : "Create source files only. Candidates inspect them read-only and attach findings to specific files."}
+                    </Typography>
+                </Box>
+                <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip size="small" variant="outlined" label={`${debugging.files.length} files`} />
+                    <Button variant="outlined" startIcon={<PlayArrowRounded />} disabled={validating || !instruction.trim() || !debugging.files.length} onClick={validateAssignment}>{validating ? "Validating…" : "Validate assignment"}</Button>
+                </Stack>
+            </Stack>
+            <DebuggingProjectWorkspace
+                files={debugging.files}
+                runtime={debugging.runtime}
+                onFilesChange={(files) => updateDebugging({ files })}
+                allowClassification={debugging.responseMode === "code_fix"}
+            />
+        </Box>
+
+        {debugging.responseMode === "code_fix" && <Alert severity="info">Candidates can run recruiter tests and see only the display name plus pass/fail status. Test files themselves remain private.</Alert>}
+        {debugging.responseMode === "findings" && <Alert severity="info">Candidates receive the project read-only and add findings against specific project files. This mode has no test files or code execution.</Alert>}
+        {validation?.valid && <Alert severity="success">{validation.message || "Assignment validated. The project can be published."}</Alert>}
+        {(validationError || validation?.valid === false) && <Alert severity="error">{validationError || validation.message || "Assignment validation failed."}</Alert>}
+    </Stack>;
 }
 
-// Compatibility while the assessment builder import is migrated to the utility module.
 // eslint-disable-next-line react-refresh/only-export-components
 export { createDebuggingRound };
