@@ -6,6 +6,7 @@ import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
 import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
 import { useSystemDesignDiscussion } from "../hooks/useSystemDesignDiscussion";
 import { countDiscussionWords, MIN_END_DISCUSSION_WORDS } from "../utils/systemDesignDiscussion";
+import WebcamPreview from "./WebcamPreview";
 
 const SystemDesignCanvas = lazy(() => import("./SystemDesignCanvas"));
 
@@ -47,7 +48,7 @@ export default function SystemDesignDiscussionPanel({
     speakNow,
     onEnd,
     ending = false,
-    cameraSlot = null,
+    cameraSlot,
 }) {
     const [aiSpeaking, setAiSpeaking] = useState(false);
     const spokenProblemRef = useRef("");
@@ -56,6 +57,9 @@ export default function SystemDesignDiscussionPanel({
     const isListening = listening && listeningTarget === target;
     const discussionWords = countDiscussionWords(transcript || "");
     const canEndDiscussion = discussionWords >= MIN_END_DISCUSSION_WORDS;
+    const resolvedCameraSlot = cameraSlot === undefined
+        ? <WebcamPreview autoStart required monitorFaces />
+        : cameraSlot;
 
     useEffect(() => () => { mountedRef.current = false; stopHandsFree?.(); }, [stopHandsFree]);
 
@@ -162,7 +166,7 @@ export default function SystemDesignDiscussionPanel({
                         label="Architecture whiteboard"
                     />
                 </Suspense>
-                {cameraSlot && <Box sx={{ position: "absolute", right: 18, bottom: 18, zIndex: 4 }}>{cameraSlot}</Box>}
+                {resolvedCameraSlot && <Box sx={{ position: "absolute", right: 18, bottom: 18, zIndex: 4 }}>{resolvedCameraSlot}</Box>}
             </Paper>
 
             <Paper
