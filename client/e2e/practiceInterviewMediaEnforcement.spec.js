@@ -31,8 +31,8 @@ const mockAuth = async (page) => {
     await page.route("**/api/events", (route) => json(route, { accepted: true }, 202));
 };
 
-const installMedia = async (page) => {
-    await page.addInitScript(() => {
+const installMedia = async (page, { completeSpeech = true } = {}) => {
+    await page.addInitScript(({ completeSpeech }) => {
         window.__spoken = [];
         window.__mediaRequests = [];
 
@@ -53,7 +53,7 @@ const installMedia = async (page) => {
                 speak(utterance) {
                     if (paused) return;
                     window.__spoken.push(utterance.text);
-                    setTimeout(() => utterance.onend?.(), 0);
+                    if (completeSpeech) setTimeout(() => utterance.onend?.(), 0);
                 },
             },
         });
@@ -75,7 +75,7 @@ const installMedia = async (page) => {
             configurable: true,
             value: { query: async () => ({ state: "granted", onchange: null }) },
         });
-    });
+    }, { completeSpeech });
 };
 
 const openRound = async (page, payload) => {
@@ -119,6 +119,30 @@ test("practice coding round keeps the microphone hands-free, speaks each problem
     await expect.poll(async () => page.evaluate((text) => window.__spoken.some((item) => item.includes(text)), question)).toBe(true);
     await expect(page.getByText(/Interview mic active|Listening/i).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /Answer with voice|Start voice/i })).toHaveCount(0);
+    await expect.poll(async () => page.evaluate(() => window.__spoken[0])).toContain("Hi, welcome to the Coding round");
+    const cameraBox = await page.getByLabel("Your camera preview").boundingBox();
+    const skipBox = await page.getByRole("button", { name: "Skip round" }).boundingBox();
+    expect(cameraBox && skipBox).toBeTruthy();
+    expect(
+        cameraBox.x + cameraBox.width <= skipBox.x
+        || skipBox.x + skipBox.width <= cameraBox.x
+        || cameraBox.y + cameraBox.height <= skipBox.y
+        || skipBox.y + skipBox.height <= cameraBox.y,
+    ).toBe(true);
+});
+
+test("practice coding round resumes the microphone when browser speech completion is missing", async ({ page }) => {
+    await installMedia(page, { completeSpeech: false });
+    const question = "Explain how you would detect a cycle in a linked list.";
+    await openRound(page, interviewPayload({
+        name: "Data Structures and Algorithms",
+        description: "Timed coding challenges",
+        deliveryMode: "online-assessment",
+        question: roundQuestion("question-timeout", question),
+    }));
+
+    await expect.poll(async () => page.evaluate((text) => window.__spoken.some((item) => item.includes(text)), question)).toBe(true);
+    await expect(page.getByText("Listening", { exact: true })).toBeVisible({ timeout: 7000 });
 });
 
 test("practice system-design round auto-speaks and keeps required face-monitored camera active", async ({ page }) => {
