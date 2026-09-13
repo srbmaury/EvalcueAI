@@ -7,6 +7,12 @@ import DebuggingProjectWorkspace from "./DebuggingProjectWorkspace";
 import { deriveDebuggingOverlay } from "../utils/debuggingProject";
 
 const emptyFindings = { rootCause: "", evidence: "", proposedFix: "", impact: "", testingStrategy: "" };
+const candidateSafeFiles = (files) => (Array.isArray(files) ? files : []).filter((file) => file?.kind !== "hidden_test");
+const candidateSafeWorkspace = (data = {}) => ({
+    ...data,
+    files: candidateSafeFiles(data.files),
+    baseFiles: candidateSafeFiles(data.baseFiles || data.files),
+});
 
 export default function CandidateDebuggingRound({ endpoint, headers, canRun = true, onSubmitted }) {
     const [workspace, setWorkspace] = useState(null);
@@ -25,8 +31,9 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
         setError("");
         try {
             const { data } = await api.get(endpoint, { headers, skipAuthRedirect: true });
-            setWorkspace(data);
-            setFiles(data.files || []);
+            const safe = candidateSafeWorkspace(data);
+            setWorkspace(safe);
+            setFiles(safe.files);
             setFindings({ ...emptyFindings, ...(data.findings || {}) });
             dirtyRef.current = false;
         } catch (err) {
@@ -43,13 +50,14 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
         setSaving(true);
         try {
             const body = workspace.responseMode === "code_fix"
-                ? deriveDebuggingOverlay(workspace.baseFiles || workspace.files || [], nextFiles)
+                ? deriveDebuggingOverlay(candidateSafeFiles(workspace.baseFiles || workspace.files || []), candidateSafeFiles(nextFiles))
                 : { findings: nextFindings };
             const { data } = await api.put(`${endpoint}/workspace`, body, { headers, skipAuthRedirect: true });
-            setWorkspace((current) => ({ ...current, ...data, baseFiles: current?.baseFiles || data.baseFiles }));
+            const safe = candidateSafeWorkspace(data);
+            setWorkspace((current) => ({ ...current, ...safe, baseFiles: current?.baseFiles || safe.baseFiles }));
             setLastSavedAt(new Date().toISOString());
             dirtyRef.current = false;
-            return data;
+            return safe;
         } catch (err) {
             setError(err?.response?.data?.message || "Your debugging work could not be saved.");
             return null;
@@ -64,7 +72,7 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
         return () => window.clearTimeout(timer);
     }, [files, findings, save, workspace]);
 
-    const changeFiles = (next) => { dirtyRef.current = true; setFiles(next); };
+    const changeFiles = (next) => { dirtyRef.current = true; setFiles(candidateSafeFiles(next)); };
     const changeFinding = (key, value) => { dirtyRef.current = true; setFindings((current) => ({ ...current, [key]: value })); };
 
     const runTests = async () => {
