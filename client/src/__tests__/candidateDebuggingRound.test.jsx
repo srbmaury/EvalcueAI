@@ -35,7 +35,7 @@ beforeEach(() => {
     mocks.get.mockReset();
     mocks.put.mockReset();
     mocks.post.mockReset();
-    mocks.put.mockImplementation(async (_url, _body) => ({ data: codeWorkspace() }));
+    mocks.put.mockImplementation(async () => ({ data: codeWorkspace() }));
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
