@@ -1,7 +1,7 @@
 # Evalcue AI
 
 
-Evalcue AI is a full-stack platform for **software engineering interview practice** and **structured technical hiring**. Candidates can rehearse conversational, coding, and system-design interviews with adaptive AI follow-ups. Hiring teams can create role-specific assessments, invite candidates, collect technical evidence, and review scorecards while keeping employment decisions human-controlled.
+Evalcue AI is a full-stack platform for **software engineering interview practice** and **structured technical hiring**. Candidates can rehearse conversational, coding, and system-design interviews with adaptive AI follow-ups. Hiring teams can create role-specific assessments, including multi-file debugging assignments, invite candidates, collect technical evidence, and review scorecards while keeping employment decisions human-controlled.
 
 ## Product surfaces
 
@@ -21,7 +21,8 @@ Canonical public route: `/practice`
 
 - Organization-owned technical assessments and candidate pipelines
 - Manual or AI-generated round definitions
-- Conversational, coding, and live system-design assessment modes
+- Conversational, coding, live system-design, and multi-file debugging assessment modes
+- Debugging assignments support either code fixes with visible/hidden deterministic tests or structured findings-only diagnosis
 - Invite-only candidate links, invitation lifecycle tracking, and local answer recovery
 - Weighted competency scorecards, AI evaluation, human overrides, and calibration views
 - Optional consented integrity signals such as fullscreen/focus/clipboard/connectivity events and on-device face-presence checks
@@ -47,6 +48,7 @@ MongoDB  Redis    AI APIs    External services
 - **Data:** MongoDB; production transaction support is required
 - **Async work:** Redis + BullMQ for question preparation, bulk feedback, and candidate evaluation
 - **AI:** OpenAI and/or Gemini, with optional Tavily grounding
+- **Code execution:** Judge0, including multi-file project mode for debugging assignments when explicitly enabled
 - **Operations:** Prometheus metrics, optional Grafana OTLP push, Sentry, structured logs
 
 ## Repository layout
@@ -101,6 +103,7 @@ For production set `NODE_ENV=production` and configure, at minimum:
 - Cloudinary credentials for resume storage
 - at least one AI provider; OpenAI is required when server STT is enabled
 - Judge0 and an allowed host when code execution is enabled
+- `ENABLE_DEBUGGING_ASSESSMENTS=true` only when the debugging-assignment feature is intentionally enabled; code-fix debugging additionally requires `ENABLE_CODE_EXEC=true`
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the Practice Pro + Hiring Pilot/Starter/Growth price IDs
 - a transaction-capable MongoDB replica set or sharded cluster
 
@@ -228,6 +231,19 @@ The system stores the final candidate transcript as the authoritative answer, th
 
 For hiring assessments, candidate-facing screens do not reveal private scores or recruiter feedback. AI output is advisory evidence; employment decisions remain with human reviewers.
 
+## Debugging assignments
+
+Debugging is an opt-in Hire round type intended for production-style code comprehension rather than blank-editor algorithm solving. Recruiters author a **versioned multi-file project** in the browser and choose one of two response modes:
+
+- **Code fix:** candidates edit source files, can run visible tests, and submit once for final visible + hidden deterministic test evaluation.
+- **Findings:** the project is read-only and candidates submit structured root cause, evidence, proposed fix, impact/risk, and testing strategy.
+
+The assignment project is immutable after publication from the candidate’s perspective. Candidate work is persisted as a patch over that baseline, so reload recovery does not duplicate the full project. Hidden-test files are excluded from every candidate payload and are inserted server-side only for final execution. Recruiter reports receive changed-path summaries and aggregate hidden-test counts, never hidden definitions or hidden diagnostics.
+
+V1 execution uses Judge0 multi-file mode (`language_id=89`) with server-owned runtime profiles. Recruiters cannot provide arbitrary shell commands. The current project limits are **100 files**, **256 KiB per file**, and **2 MiB total**. V1 assignments must be self-contained: do not depend on package installation, outbound network access, databases, or other external services inside the candidate runner.
+
+Before publication, code-fix assignments are dry-run validated: the project must execute successfully while still reproducing at least one failing test. Findings assignments validate their project structure without executing candidate code. Keep `ENABLE_DEBUGGING_ASSESSMENTS=false` until the feature and Judge0 configuration are intentionally enabled in an environment.
+
 ## Reliability and background processing
 
 When Redis is configured, BullMQ runs question preparation, bulk-feedback, and candidate-assessment workers. Candidate submissions atomically enter an `evaluating` state, retry failures, and recover stranded evaluation jobs on startup.
@@ -245,6 +261,7 @@ See [RUNBOOK.md](RUNBOOK.md) for production operations and recovery.
 - CAPTCHA protection for production authentication flows
 - File magic-byte/size validation and optional antivirus scanning
 - Opt-in Judge0 execution with host allowlisting
+- Debugging assignments use validated relative paths, immutable baselines, server-owned runtimes, and hidden-test isolation
 - Hashed candidate attempt credentials and non-indexable assessment URLs
 - Signed/idempotent Stripe webhooks
 - Organization-scoped hiring authorization
