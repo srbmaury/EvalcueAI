@@ -44,16 +44,19 @@ const installMedia = async (page) => {
         window.webkitSpeechRecognition = FakeRecognition;
 
         let paused = true;
-        window.speechSynthesis = {
-            cancel() {},
-            resume() { paused = false; },
-            getVoices() { return []; },
-            speak(utterance) {
-                if (paused) return;
-                window.__spoken.push(utterance.text);
-                setTimeout(() => utterance.onend?.(), 0);
+        Object.defineProperty(window, "speechSynthesis", {
+            configurable: true,
+            value: {
+                cancel() {},
+                resume() { paused = false; },
+                getVoices() { return []; },
+                speak(utterance) {
+                    if (paused) return;
+                    window.__spoken.push(utterance.text);
+                    setTimeout(() => utterance.onend?.(), 0);
+                },
             },
-        };
+        });
 
         const stream = () => new MediaStream();
         Object.defineProperty(navigator, "mediaDevices", {
