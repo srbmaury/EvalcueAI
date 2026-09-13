@@ -376,7 +376,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     }, [constraintsForDevice, enableServerTranscription, fallbackSTT, startLiveRecognition, startMeter, startRecorderSegment, supportsSTT]);
 
     const startHandsFree = useCallback(async (target) => {
-        if (!supportsSTT || !target) return false;
+        if (!supportsSTT || target === null || target === undefined) return false;
         activeTargetRef.current = target;
         if (handsFreeRef.current && micSessionActive) {
             setListeningTarget(target);
@@ -438,7 +438,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     }, [commitLiveTranscript, stopLiveRec, stopRecorder]);
 
     const resumeHandsFree = useCallback(async (target = activeTargetRef.current) => {
-        if (!handsFreeRef.current || !target || !supportsSTT) return false;
+        if (!handsFreeRef.current || target === null || target === undefined || !supportsSTT) return false;
         activeTargetRef.current = target;
         setListeningTarget(target);
         if (!handsFreePausedRef.current && listening) return true;
@@ -483,7 +483,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     }, [commitLiveTranscript, listeningTarget, pauseHandsFree, stopLiveRec, stopMeter, stopRecorder]);
 
     const retargetListening = useCallback((target) => {
-        if (!target) return;
+        if (target === null || target === undefined) return;
         activeTargetRef.current = target;
         if (listening || handsFreeRef.current) setListeningTarget(target);
     }, [listening]);
@@ -492,6 +492,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         try {
             if (!supportsTTS || !text) { resolve(false); return; }
             window.speechSynthesis.cancel();
+            window.speechSynthesis.resume?.();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.rate = 0.95;
             const preference = ["male", "female"].includes(user?.interviewerVoicePreference)
