@@ -26,10 +26,19 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
     };
     const updateDebugging = (patch) => emit({ debugging: { ...debugging, ...patch } });
     const changeResponseMode = (responseMode) => {
-        const files = responseMode === "findings"
-            ? debugging.files.filter((file) => file.kind === "source")
-            : debugging.files;
-        updateDebugging({ responseMode, files });
+        if (responseMode === "findings") {
+            const sourceOnlyFiles = debugging.files.filter((file) => file.kind === "source");
+            updateDebugging({ responseMode, files: sourceOnlyFiles });
+            if (!sourceOnlyFiles.length) {
+                notify("No source files found. Add at least one source file before selecting this mode.", "warning");
+            }
+        } else {
+            updateDebugging({ responseMode });
+            const hasTests = debugging.files.some((file) => file.kind === "hidden_test");
+            if (!hasTests) {
+                notify("Code-fix mode requires at least one hidden test file. Add test files before validating.", "warning");
+            }
+        }
     };
 
     const validateAssignment = async () => {
