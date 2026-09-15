@@ -361,3 +361,31 @@ export const submitCandidateDebuggingRound = async (req, res, next) => {
         return res.json({ summary, attempt: candidateAttemptPayload(attempt) });
     } catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }
 };
+
+// Findings-mode only: submitting doesn't run code or score anything immediately (that
+// happens later, asynchronously, once the whole interview is submitted), so letting a
+// candidate reopen and revise their findings before moving to the next round is cheap and
+// safe. Code-fix mode is deliberately excluded: submitting there runs the candidate's code
+// against hidden tests right away and returns the pass/fail result, so reopening it would
+// mean either re-running that execution on every revision or showing a stale grade — and
+// more importantly, letting candidates see results and keep retrying changes what a graded
+// hiring assessment is actually measuring, which isn't a UX call to make unilaterally.
+export const reopenCandidateDebuggingRound = async (req, res, next) => {
+    try {
+        const context = await loadDebuggingContext(req, res);
+        if (!context) return;
+        const { attempt, config, response, roundIndex } = context;
+        if (config.responseMode === "code_fix") return res.status(409).json({ message: "This debugging format cannot be reopened after submitting." });
+        if (!response.submittedAt) return res.status(409).json({ message: "This debugging round has not been submitted yet." });
+
+        const claim = await CandidateAttempt.updateOne(
+            { _id: attempt._id, debuggingResponses: { $elemMatch: { roundIndex, submittedAt: { $exists: true } } } },
+            { $unset: { "debuggingResponses.$[elem].submittedAt": "", "debuggingResponses.$[elem].finalEvaluation": "" } },
+            { arrayFilters: [{ "elem.roundIndex": roundIndex }] },
+        );
+        if (!claim.modifiedCount) return res.status(409).json({ message: "This debugging round has not been submitted yet." });
+        response.submittedAt = undefined;
+        response.finalEvaluation = undefined;
+        return res.json(workspacePayload(context));
+    } catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }
+};

@@ -215,4 +215,45 @@ describe("debugging assessment API", () => {
         expect(submitted.body.attempt.rounds[0].questions[0].answer).toMatch(/read-modify-write race/);
         expect(runDebuggingProject).toHaveBeenCalledTimes(callsAfterCreate);
     });
+
+    it("lets a candidate reopen and revise submitted findings, but rejects reopening a code-fix round", async () => {
+        process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
+        const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound({ responseMode: "findings", title: "Explain the race condition." }), { title: "Reopen screen" })).expect(201);
+        const started = await startCandidate(created.body.shareToken, "reopen@example.com");
+        const base = `/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/debugging/0`;
+        const token = { "x-attempt-token": started.body.attemptToken };
+
+        // Reopening before any submission has happened is rejected.
+        await write(agent.post(`${base}/reopen`)).set(token).send({}).expect(409);
+
+        await write(agent.put(`${base}/workspace`)).set(token).send({ findings: [{
+            filePath: "src/index.js", rootCause: "A read-modify-write race allows duplicate work.", evidence: "", proposedFix: "",
+        }] }).expect(200);
+        await write(agent.post(`${base}/submit`)).set(token).send({}).expect(200);
+
+        // Once submitted, the workspace is locked...
+        await write(agent.put(`${base}/workspace`)).set(token).send({ findings: [] }).expect(409);
+
+        // ...until the candidate reopens it, revises, and resubmits with the new content.
+        const reopened = await write(agent.post(`${base}/reopen`)).set(token).send({}).expect(200);
+        expect(reopened.body.submittedAt).toBeFalsy();
+        await write(agent.put(`${base}/workspace`)).set(token).send({ findings: [{
+            filePath: "src/index.js", rootCause: "Revised: the update isn't atomic across replicas.", evidence: "", proposedFix: "",
+        }] }).expect(200);
+        const resubmitted = await write(agent.post(`${base}/submit`)).set(token).send({}).expect(200);
+        expect(resubmitted.body.attempt.rounds[0].questions[0].answer).toMatch(/isn't atomic across replicas/);
+
+        // Reopening again after the resubmit still works (not a one-time allowance).
+        await write(agent.post(`${base}/reopen`)).set(token).send({}).expect(200);
+
+        // A code-fix round can never be reopened, submitted or not.
+        const codeFixCreated = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound({ responseMode: "code_fix" }), { title: "Reopen code-fix screen" })).expect(201);
+        const codeFixStarted = await startCandidate(codeFixCreated.body.shareToken, "reopen-codefix@example.com");
+        const codeFixBase = `/api/assessments/public/${codeFixCreated.body.shareToken}/attempts/${codeFixStarted.body.attempt._id}/debugging/0`;
+        const codeFixToken = { "x-attempt-token": codeFixStarted.body.attemptToken };
+        await write(agent.put(`${codeFixBase}/workspace`)).set(codeFixToken).send({ changedFiles: [{ path: "src/index.js", content: "fixed" }] }).expect(200);
+        runDebuggingProject.mockResolvedValueOnce({ status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] });
+        await write(agent.post(`${codeFixBase}/submit`)).set(codeFixToken).send({}).expect(200);
+        await write(agent.post(`${codeFixBase}/reopen`)).set(codeFixToken).send({}).expect(409);
+    });
 });

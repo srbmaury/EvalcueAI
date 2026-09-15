@@ -74,6 +74,8 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
     const [lastSavedAt, setLastSavedAt] = useState(null);
+    const [pendingSubmission, setPendingSubmission] = useState(null);
+    const [reopening, setReopening] = useState(false);
     const dirtyRef = useRef(false);
 
     const load = useCallback(async () => {
@@ -150,9 +152,29 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
             if (!saved) return;
             const { data } = await api.post(`${endpoint}/submit`, {}, { headers, skipAuthRedirect: true });
             setWorkspace((current) => ({ ...current, submittedAt: new Date().toISOString(), finalEvaluation: data.summary }));
-            onSubmitted?.(data.attempt, data.summary);
+            // Findings submissions don't score anything immediately, so there's no harm in
+            // letting the candidate revise before moving on — hold the round transition until
+            // they explicitly continue, instead of advancing the moment the request succeeds.
+            if (workspace?.responseMode === "findings") setPendingSubmission({ attempt: data.attempt, summary: data.summary });
+            else onSubmitted?.(data.attempt, data.summary);
         } catch (err) { setError(describeError(err, "The debugging round could not be submitted.")); }
         finally { setSubmitting(false); }
+    };
+
+    const continueToNextRound = () => { if (pendingSubmission) onSubmitted?.(pendingSubmission.attempt, pendingSubmission.summary); };
+
+    const editFindings = async () => {
+        setReopening(true); setError("");
+        try {
+            const { data } = await api.post(`${endpoint}/reopen`, {}, { headers, skipAuthRedirect: true });
+            const safe = candidateSafeWorkspace(data);
+            setWorkspace(safe);
+            setFiles(safe.files);
+            setFindings(safe.findings);
+            setPendingSubmission(null);
+            dirtyRef.current = false;
+        } catch (err) { setError(describeError(err, "This round could not be reopened for editing.")); }
+        finally { setReopening(false); }
     };
 
     const latestRun = useMemo(() => workspace?.testRuns?.[workspace.testRuns.length - 1], [workspace?.testRuns]);
@@ -171,6 +193,7 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
             </Stack>
         </Box>
         {error && <Alert severity="error">{error}</Alert>}
+        {pendingSubmission && <Alert severity="success">Findings submitted. You can still edit them before continuing to the next round.</Alert>}
 
         {workspace.responseMode === "findings" ? <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0,1.35fr) minmax(320px,.65fr)" }, gap: 2, alignItems: "start" }}>
             <DebuggingProjectWorkspace files={files} runtime={workspace.runtime} readOnly hideHidden />
@@ -190,6 +213,10 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1} alignItems={{ sm: "center" }}>
             <Typography variant="caption" color="text.secondary">Autosave keeps your work on the server.</Typography>
             {!submitted && <Button variant="contained" endIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <SendRounded />} disabled={submitting || saving} onClick={submitRound}>{submitting ? "Submitting…" : workspace.responseMode === "code_fix" ? "Submit solution" : "Submit findings"}</Button>}
+            {pendingSubmission && <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Button variant="outlined" disabled={reopening} onClick={editFindings}>{reopening ? "Reopening…" : "Edit findings"}</Button>
+                <Button variant="contained" onClick={continueToNextRound}>Continue to next round</Button>
+            </Stack>}
         </Stack>
     </Stack></Paper>;
 }

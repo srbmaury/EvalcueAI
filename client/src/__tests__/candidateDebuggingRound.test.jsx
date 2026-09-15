@@ -159,6 +159,45 @@ describe("CandidateDebuggingRound", () => {
         }
     });
 
+    it("lets a candidate edit and resubmit findings before continuing to the next round", async () => {
+        const onSubmitted = vi.fn();
+        const findingsWorkspace = {
+            responseMode: "findings",
+            runtime: "node-22",
+            instructions: "Diagnose the concurrency defect.",
+            baseFiles,
+            files: baseFiles,
+            findings: [{ filePath: "src/payment.js", rootCause: "Two requests can charge the same order.", evidence: "", proposedFix: "" }],
+            testRuns: [],
+        };
+        mocks.get.mockResolvedValue({ data: findingsWorkspace });
+        mocks.put.mockImplementation(async (_url, body) => ({ data: { ...findingsWorkspace, findings: body.findings } }));
+        mocks.post.mockResolvedValueOnce({ data: { summary: { status: "submitted", findings: true }, attempt: { _id: "attempt", rounds: [] } } });
+
+        render(<CandidateDebuggingRound endpoint={endpoint} headers={headers} onSubmitted={onSubmitted} />);
+        await screen.findByText("Diagnose the concurrency defect.");
+        fireEvent.click(screen.getByRole("button", { name: "Submit findings" }));
+        await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(`${endpoint}/submit`, {}, { headers, skipAuthRedirect: true }));
+
+        // Submitting findings doesn't advance the round on its own — the candidate must
+        // explicitly continue, and can instead choose to reopen and revise first.
+        expect(await screen.findByText(/Findings submitted/)).toBeTruthy();
+        expect(onSubmitted).not.toHaveBeenCalled();
+        expect(screen.getByTestId("candidate-readonly").textContent).toBe("true");
+
+        mocks.post.mockResolvedValueOnce({ data: findingsWorkspace });
+        fireEvent.click(screen.getByRole("button", { name: "Edit findings" }));
+        await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(`${endpoint}/reopen`, {}, { headers, skipAuthRedirect: true }));
+        await waitFor(() => expect(screen.getByRole("button", { name: "Submit findings" })).toBeTruthy());
+        expect(screen.queryByText(/Findings submitted/)).toBeNull();
+
+        mocks.post.mockResolvedValueOnce({ data: { summary: { status: "submitted", findings: true }, attempt: { _id: "attempt-2", rounds: [] } } });
+        fireEvent.click(screen.getByRole("button", { name: "Submit findings" }));
+        await waitFor(() => expect(screen.getByRole("button", { name: "Continue to next round" })).toBeTruthy());
+        fireEvent.click(screen.getByRole("button", { name: "Continue to next round" }));
+        expect(onSubmitted).toHaveBeenCalledWith(expect.objectContaining({ _id: "attempt-2" }), expect.objectContaining({ findings: true }));
+    });
+
     it("shows a friendly message instead of the API's generic 'Invalid request' string, but passes through a specific server message unchanged", async () => {
         mocks.get.mockResolvedValue({ data: codeWorkspace() });
         render(<CandidateDebuggingRound endpoint={endpoint} headers={headers} />);
