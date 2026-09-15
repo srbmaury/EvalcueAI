@@ -2,7 +2,9 @@ import express from "express";
 import { z } from "zod";
 import protect from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
-import ProductFeedback from "../models/ProductFeedback.js";
+import { uploadFeedbackPhotosMulter } from "../middleware/multerMemory.js";
+import { uploadLimiter } from "../middleware/rateLimiters.js";
+import { createProductFeedback } from "../controllers/productFeedbackController.js";
 
 const router = express.Router();
 const schema = z.object({
@@ -11,13 +13,6 @@ const schema = z.object({
     page: z.string().trim().max(300).optional(),
 });
 
-router.post("/", protect, validate(schema), async (req, res, next) => {
-    try {
-        const feedback = await ProductFeedback.create({ ...req.body, user: req.user._id });
-        return res.status(201).json({ _id: feedback._id, message: "Feedback received" });
-    } catch (error) {
-        return next(error);
-    }
-});
+router.post("/", protect, uploadLimiter, uploadFeedbackPhotosMulter.array("photos", 4), validate(schema), createProductFeedback);
 
 export default router;
