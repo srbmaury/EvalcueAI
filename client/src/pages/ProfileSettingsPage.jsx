@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Button, Chip, CircularProgress, Container, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Button, Chip, Container, Paper, Skeleton, Stack, Typography } from "@mui/material";
 import ProfilePage from "./ProfilePage";
 import api from "../api/axios";
 import { describeError } from "../utils/errorFormatter";
@@ -25,7 +25,7 @@ function ReminderDeliveryHistory() {
                 <Button size="small" variant="outlined" onClick={load} disabled={loading}>Refresh</Button>
             </Stack>
             {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-            {loading ? <Stack py={3} alignItems="center"><CircularProgress size={24} /></Stack> : <Stack spacing={1.25} mt={2}>{items.length ? items.map((item, index) => <Stack key={`${item.reminderKey || item.scheduledFor}-${index}`} direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1} py={1} borderBottom={index === items.length - 1 ? 0 : "1px solid"} borderColor="divider"><div><Typography fontWeight={750}>{item.scheduledFor ? new Date(item.scheduledFor).toLocaleString() : "Weekly plan delivery"}</Typography><Typography variant="caption" color="text.secondary">{item.sentAt ? `Sent ${new Date(item.sentAt).toLocaleString()}` : `${item.attempts || 0} delivery attempt${item.attempts === 1 ? "" : "s"}`}{item.lastError ? ` · ${item.lastError}` : ""}</Typography></div><Chip size="small" label={item.status || "unknown"} color={statusColor(item.status)} variant="outlined" /></Stack>) : <Typography color="text.secondary">No weekly plans delivered yet.</Typography>}</Stack>}
+            {loading ? <Stack spacing={1.25} mt={2}>{[1, 2, 3].map((item) => <Skeleton key={item} variant="rounded" height={60} />)}</Stack> : <Stack spacing={1.25} mt={2}>{items.length ? items.map((item, index) => <Stack key={`${item.reminderKey || item.scheduledFor}-${index}`} direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1} py={1} borderBottom={index === items.length - 1 ? 0 : "1px solid"} borderColor="divider"><div><Typography fontWeight={750}>{item.scheduledFor ? new Date(item.scheduledFor).toLocaleString() : "Weekly plan delivery"}</Typography><Typography variant="caption" color="text.secondary">{item.sentAt ? `Sent ${new Date(item.sentAt).toLocaleString()}` : `${item.attempts || 0} delivery attempt${item.attempts === 1 ? "" : "s"}`}{item.lastError ? ` · ${item.lastError}` : ""}</Typography></div><Chip size="small" label={item.status || "unknown"} color={statusColor(item.status)} variant="outlined" /></Stack>) : <Typography color="text.secondary">No weekly plans delivered yet.</Typography>}</Stack>}
         </Paper>
     </Container>;
 }
