@@ -265,6 +265,8 @@ const CreateInterviewPage = () => {
                         value={formData.jobRole}
                         onChange={handleChange}
                         required
+                        helperText={formData.jobRole ? "✓ Role specified" : "Required — describe the target role"}
+                        error={!formData.jobRole}
                     />
                     <TextField
                         label="Job description"
@@ -274,7 +276,8 @@ const CreateInterviewPage = () => {
                         rows={4}
                         onChange={handleChange}
                         required
-                        helperText="Include responsibilities, seniority, required skills, and success criteria; these directly shape generated questions."
+                        helperText={formData.jobDescription ? `✓ ${formData.jobDescription.length} characters — Include responsibilities, seniority, required skills, and success criteria.` : "Required — describe the role, responsibilities, and requirements"}
+                        error={!formData.jobDescription}
                     />
 
                     <Divider sx={{ my: 2.5 }} />

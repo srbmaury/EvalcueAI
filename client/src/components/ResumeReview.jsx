@@ -153,6 +153,8 @@ const ResumeReview = ({ value, onChange, title = "Resume Review" }) => {
                             value={selectedResumeId}
                             onChange={(e) => handleLocalChange(e.target.value)}
                             required
+                            helperText={selectedResumeId ? "✓ Resume selected" : "Select a resume or upload a new one"}
+                            error={!selectedResumeId}
                         >
                             {resumes.map((r) => (
                                 <MenuItem key={r._id} value={r._id}>
