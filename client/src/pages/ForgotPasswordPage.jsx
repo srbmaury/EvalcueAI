@@ -5,6 +5,7 @@ import { Box, Card, CardContent, Link, Stack, Typography, TextField, Button, Ale
 import Captcha from "../components/Captcha";
 import { getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
 import { productLoginPath, workspaceForSurface, surfaceForPath } from "../utils/productRoutes";
+import { describeError } from "../utils/errorFormatter";
 
 const ForgotPasswordPage = () => {
     const { forgotPassword } = useContext(AuthContext);
@@ -38,7 +39,7 @@ const ForgotPasswordPage = () => {
             const r = await forgotPassword(email, captchaToken, workspace);
             setMessage(r?.message || "If the email exists, a reset link has been sent.");
         } catch (e) {
-            setError(e?.response?.data?.message || "We couldn’t request a reset link. Try again.");
+            setError(describeError(e, "We couldn’t request a reset link. Try again."));
         } finally {
             setCaptchaToken("");
             captchaRef.current?.reset();

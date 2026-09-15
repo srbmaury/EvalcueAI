@@ -36,6 +36,7 @@ import { useResumes } from "../hooks/useResumes";
 import { useResumePdf } from "../hooks/useResumePdf";
 import { useNotify } from "../context/NotificationContext";
 import { resumeFileError } from "../utils/resumeFileValidation";
+import { describeError } from "../utils/errorFormatter";
 
 const PAGE_SIZE = 6;
 
@@ -85,7 +86,7 @@ const ResumesPage = () => {
             } catch (error) {
                 if (!active) return;
                 setResumes([]);
-                notify(error?.response?.data?.message || "Could not load resumes.", "error");
+                notify(describeError(error, "Could not load resumes."), "error");
             } finally {
                 if (active) setLoading(false);
             }

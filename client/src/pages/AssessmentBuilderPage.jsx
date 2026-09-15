@@ -38,6 +38,7 @@ import { OrganizationContext } from "../context/OrganizationContext";
 import { useNotify } from "../context/NotificationContext";
 import { hiringPermissionsFor } from "../utils/hiringPermissions";
 import { trackEvent } from "../utils/analytics";
+import { describeError } from "../utils/errorFormatter";
 import { buildEditableAssessmentPayload, formatLocalDateTimeInput, localDateTimeToIso } from "../utils/hiringAssessmentPayload";
 import { parseCandidateInvites } from "../utils/hiringInvites";
 
@@ -238,7 +239,7 @@ export default function AssessmentBuilderPage() {
                 }
             } catch (err) {
                 if (!active) return;
-                setError(err?.response?.data?.message || "The assessment draft could not be loaded.");
+                setError(describeError(err, "The assessment draft could not be loaded."));
             } finally {
                 if (active) {
                     setLoadingBuilder(false);
@@ -320,7 +321,7 @@ export default function AssessmentBuilderPage() {
             }));
             updateRound(roundIndex, { questions: generated.length ? generated : round.questions });
         } catch (err) {
-            setError(err?.response?.data?.message || "AI couldn’t generate questions right now. Add them manually or try again.");
+            setError(describeError(err, "AI couldn’t generate questions right now. Add them manually or try again."));
         } finally {
             setGeneratingRound(null);
         }
@@ -406,7 +407,7 @@ export default function AssessmentBuilderPage() {
             notify(publishNow ? "Assessment published." : schedule ? "Assessment scheduled." : isEditing ? "Draft updated." : "Draft saved.", "success");
             navigate(`/hire/assessments/${savedAssessment._id}`);
         } catch (err) {
-            setError(err?.response?.data?.message || "The assessment couldn’t be saved. Check the details and try again.");
+            setError(describeError(err, "The assessment couldn’t be saved. Check the details and try again."));
         } finally {
             setSaving(false);
         }

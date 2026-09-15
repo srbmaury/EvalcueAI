@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import api, { setOrganizationId as setApiOrganizationId } from "../api/axios";
 import { AuthContext } from "./AuthContext";
+import { describeError } from "../utils/errorFormatter";
 
 const defaultOrganizationContext = {
     organizations: [],
@@ -66,7 +67,7 @@ export const OrganizationProvider = ({ children }) => {
         } catch (err) {
             setOrganizations([]);
             selectOrganization(null);
-            setError(err?.response?.data?.message || "Could not load hiring organizations");
+            setError(describeError(err, "Could not load hiring organizations"));
             return [];
         } finally {
             setLoading(false);

@@ -5,6 +5,7 @@ import Captcha from "../components/Captcha";
 import AuthShell from "../components/AuthShell";
 import { getWorkspaceHome, getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
 import { productLoginPath, surfaceForPath, workspaceForSurface } from "../utils/productRoutes";
+import { describeError } from "../utils/errorFormatter";
 
 import {
     Box,
@@ -87,7 +88,7 @@ const RegisterPage = () => {
             setSubmittedEmail(email);
             setSuccessMsg(resp?.message || "Verification email sent. Please check your inbox.");
         } catch (err) {
-            const apiMsg = err?.response?.data?.message;
+            const apiMsg = describeError(err, "");
             const apiDetails = err?.response?.data?.details;
             let pwdError = "";
             if (Array.isArray(apiDetails)) {

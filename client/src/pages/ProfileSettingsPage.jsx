@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, Button, Chip, CircularProgress, Container, Paper, Stack, Typography } from "@mui/material";
 import ProfilePage from "./ProfilePage";
 import api from "../api/axios";
+import { describeError } from "../utils/errorFormatter";
 
 const statusColor = (status) => ({ sent: "success", failed: "error", pending: "warning", skipped: "default" }[status] || "default");
 
@@ -12,7 +13,7 @@ function ReminderDeliveryHistory() {
     const load = useCallback(async () => {
         setLoading(true); setError("");
         try { const { data } = await api.get("/auth/reminders/deliveries"); setItems(data?.items || []); }
-        catch (err) { setError(err?.response?.data?.message || "Could not load weekly plan delivery history."); }
+        catch (err) { setError(describeError(err, "Could not load weekly plan delivery history.")); }
         finally { setLoading(false); }
     }, []);
     useEffect(() => { load(); }, [load]);

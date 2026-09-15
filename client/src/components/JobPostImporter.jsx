@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Alert, Box, Button, CircularProgress, Collapse, Link, Stack, TextField, Typography } from "@mui/material";
 import { ExpandMoreRounded, LinkRounded } from "@mui/icons-material";
 import api from "../api/axios";
+import { describeError } from "../utils/errorFormatter";
 
 const safeHostname = (value) => {
     try {
@@ -25,7 +26,7 @@ export default function JobPostImporter({ onImport }) {
             const { data } = await api.post("/job-posts/import", { url: url.trim() });
             setResult(data); onImport?.(data); setExpanded(false);
         } catch (requestError) {
-            setError(requestError?.response?.data?.message || "The job post couldn’t be imported. Enter the details manually instead.");
+            setError(describeError(requestError, "The job post couldn’t be imported. Enter the details manually instead."));
         } finally { setLoading(false); }
     };
 

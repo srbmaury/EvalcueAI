@@ -23,6 +23,7 @@ import OAForm from "../components/OAForm";
 import InterviewRoundsOverview from "../components/InterviewRoundsOverview";
 import { composeAnswerParts } from "../utils/answerParts";
 import { storage, storageKeys } from "../utils/interviewStorage";
+import { describeError } from "../utils/errorFormatter";
 
 const outlinedInputSx = {
     "& .MuiOutlinedInput-root": {
@@ -230,7 +231,7 @@ const InterviewPage = () => {
             await handleCompleteRound();
             return true;
         } catch (error) {
-            showToast("error", error?.response?.data?.message || "Could not save the system-design discussion.");
+            showToast("error", describeError(error, "Could not save the system-design discussion."));
             return false;
         } finally {
             setSystemDesignEnding(false);

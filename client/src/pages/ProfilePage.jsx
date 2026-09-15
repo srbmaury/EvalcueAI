@@ -5,6 +5,7 @@ import { ExpandMoreRounded, FlagOutlined, LockOutlined, NotificationsActiveOutli
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import { useNotify } from "../context/NotificationContext";
+import { describeError } from "../utils/errorFormatter";
 
 const passwordError = (value) => !value ? "Password is required" : value.length < 8 ? "Use at least 8 characters" : !/[a-z]/.test(value) ? "Add a lowercase letter" : !/[A-Z]/.test(value) ? "Add an uppercase letter" : !/\d/.test(value) ? "Add a number" : !/[^A-Za-z0-9]/.test(value) ? "Add a symbol" : "";
 const isValidTimezone = (value) => { try { new Intl.DateTimeFormat("en", { timeZone: value }); return true; } catch { return false; } };
@@ -158,7 +159,7 @@ export default function ProfilePage() {
                         <Autocomplete options={timezones} value={reminderTimezone} onChange={(_, value) => setReminderTimezone(value || detectedTimezone)} disableClearable fullWidth renderInput={(params) => <TextField {...params} label="Timezone" helperText={reminderTimezone === detectedTimezone ? "Detected timezone" : "Search by city or region"} />} />
                     </Stack>}
 
-                    {reminderEnabled && <Alert severity={changed ? "info" : "success"} sx={{ mt: 2 }} action={!changed && user?.role === "admin" ? <Button color="inherit" size="small" disabled={testSending} onClick={async () => { try { setTestSending(true); await api.post("/auth/reminders/test"); notify("Test weekly plan sent. Check your inbox and spam folder.", "success"); } catch (e) { notify(e?.response?.data?.message || "Test weekly plan failed", "error"); } finally { setTestSending(false); } }}>{testSending ? "Sending…" : "Send test plan"}</Button> : undefined}>
+                    {reminderEnabled && <Alert severity={changed ? "info" : "success"} sx={{ mt: 2 }} action={!changed && user?.role === "admin" ? <Button color="inherit" size="small" disabled={testSending} onClick={async () => { try { setTestSending(true); await api.post("/auth/reminders/test"); notify("Test weekly plan sent. Check your inbox and spam folder.", "success"); } catch (e) { notify(describeError(e, "Test weekly plan failed"), "error"); } finally { setTestSending(false); } }}>{testSending ? "Sending…" : "Send test plan"}</Button> : undefined}>
                         {changed ? "Save changes to activate this weekly plan." : `${weeklyTarget} tailored session${weeklyTarget === 1 ? "" : "s"} will be sent every ${reminderDay.charAt(0).toUpperCase() + reminderDay.slice(1)} at ${reminderTime} (${reminderTimezone}).`}
                     </Alert>}
                 </Box>

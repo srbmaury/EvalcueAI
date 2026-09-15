@@ -5,6 +5,7 @@ import Captcha from "../components/Captcha";
 import AuthShell from "../components/AuthShell";
 import { getWorkspaceHome, getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
 import { productRegisterPath, surfaceForPath, workspaceForSurface } from "../utils/productRoutes";
+import { describeError } from "../utils/errorFormatter";
 
 import {
     Alert,
@@ -81,7 +82,7 @@ const LoginPage = () => {
             const authenticatedUser = await login(email, password, captchaToken);
             navigate(authenticatedDestinationFor(authenticatedUser), { replace: true });
         } catch (err) {
-            const msg = err?.response?.data?.message || "Invalid credentials";
+            const msg = describeError(err, "Invalid credentials");
             if (msg === "Email not verified") {
                 setErrors((prev) => ({ ...prev, password: msg }));
             } else {

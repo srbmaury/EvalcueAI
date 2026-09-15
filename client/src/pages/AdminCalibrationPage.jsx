@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import api from "../api/axios";
 import { calibrationHealth } from "../utils/calibrationHealth";
+import { describeError } from "../utils/errorFormatter";
 
 const Metric = ({ label, value, helper }) => (
     <Paper variant="outlined" sx={{ p: 2.25, minHeight: 118 }}>
@@ -57,7 +58,7 @@ export default function AdminCalibrationPage() {
         let cancelled = false;
         api.get("/admin/calibration")
             .then(({ data: response }) => { if (!cancelled) setData(response); })
-            .catch((err) => { if (!cancelled) setError(err?.response?.data?.message || "Could not load calibration analytics."); });
+            .catch((err) => { if (!cancelled) setError(describeError(err, "Could not load calibration analytics.")); });
         return () => { cancelled = true; };
     }, []);
 

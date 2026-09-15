@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Button, Card, CardContent, Chip, Container, LinearProgress, Stack, Typography } from "@mui/material";
 import api from "../api/axios";
+import { describeError } from "../utils/errorFormatter";
 
 const labelForPlan = (plan) => ({
     none: "No Hiring access",
@@ -21,7 +22,7 @@ export default function HiringPilotPage() {
     useEffect(() => {
         api.get("/billing/hiring/entitlements")
             .then(({ data }) => setBilling(data))
-            .catch((requestError) => setError(requestError?.response?.data?.message || "Could not load the Launch Pilot offer."))
+            .catch((requestError) => setError(describeError(requestError, "Could not load the Launch Pilot offer.")))
             .finally(() => setLoading(false));
     }, []);
 

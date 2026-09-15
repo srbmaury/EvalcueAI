@@ -4,6 +4,7 @@ import PlayArrowRounded from "@mui/icons-material/PlayArrowRounded";
 import api from "../api/axios";
 import DebuggingProjectWorkspace from "./DebuggingProjectWorkspace";
 import { createDebuggingRound, DEBUGGING_RUNTIMES } from "../utils/debuggingProject";
+import { describeError } from "../utils/errorFormatter";
 
 export default function DebuggingRoundEditor({ round, onChange, validation, onValidationChange }) {
     const fallback = createDebuggingRound();
@@ -36,7 +37,7 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
             const { data } = await api.post("/assessments/debugging/validate", { instructions: instruction, debugging });
             onValidationChange?.(data);
         } catch (err) {
-            const message = err?.response?.data?.message || "The assignment could not be validated.";
+            const message = describeError(err, "The assignment could not be validated.");
             setValidationError(message);
             onValidationChange?.({ valid: false, message });
         } finally {

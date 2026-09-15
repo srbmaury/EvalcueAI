@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { Alert, Box, Button, Card, CardContent, CircularProgress, Container, Grid, Paper, Stack, Typography } from "@mui/material";
 import api from "../api/axios";
+import { describeError } from "../utils/errorFormatter";
 
 const cards = [
     ["Users", "users"],
@@ -25,7 +26,7 @@ export default function AdminOverviewPage() {
             const response = await api.get("/admin/overview");
             setData(response.data || {});
         } catch (err) {
-            setError(err?.response?.data?.message || "Could not load the admin overview.");
+            setError(describeError(err, "Could not load the admin overview."));
         } finally {
             setLoading(false);
         }

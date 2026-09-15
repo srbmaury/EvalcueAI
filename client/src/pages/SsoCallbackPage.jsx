@@ -3,6 +3,7 @@ import { Alert, Box, CircularProgress, Container, Stack, Typography } from "@mui
 import { useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { setWorkspacePreference } from "../utils/workspacePreference";
+import { describeError } from "../utils/errorFormatter";
 
 export default function SsoCallbackPage() {
     const { search } = useLocation();
@@ -33,7 +34,7 @@ export default function SsoCallbackPage() {
                 // server session and the trusted organization preference in one deterministic pass.
                 window.location.replace("/hire/assessments");
             })
-            .catch((err) => setError(err?.response?.data?.message || err?.message || "SSO sign-in failed."));
+            .catch((err) => setError(describeError(err, err?.message || "SSO sign-in failed.")));
     }, [authLoading, completeSsoLogin, search]);
 
     return (

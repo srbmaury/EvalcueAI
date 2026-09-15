@@ -3,6 +3,7 @@ import api from "../api/axios";
 import { storage, storageKeys } from "../utils/interviewStorage";
 import { pollJobStatus } from "../utils/pollJobStatus";
 import { trackEvent } from "../utils/analytics";
+import { describeError } from "../utils/errorFormatter";
 
 const pendingFollowUpFor = (item) => {
     const followUps = Array.isArray(item?.followUps) ? item.followUps : [];
@@ -149,7 +150,7 @@ export const useConversational = ({
             }
         } catch (error) {
             console.error("answer submit error", error);
-            showToast("error", error?.response?.data?.message || "Failed to save your answer.");
+            showToast("error", describeError(error, "Failed to save your answer."));
         } finally {
             setConvSubmitting(false);
             setConvRoundSubmitting(false);
@@ -181,7 +182,7 @@ export const useConversational = ({
             }
         } catch (error) {
             console.error("follow-up submit error", error);
-            showToast("warning", error?.response?.data?.message || "Follow-up answer could not be saved.");
+            showToast("warning", describeError(error, "Follow-up answer could not be saved."));
         } finally {
             setConvSubmitting(false);
             setConvRoundSubmitting(false);
@@ -196,7 +197,7 @@ export const useConversational = ({
             return (data?.answer || "").toString();
         } catch (error) {
             console.error("clarify error", error);
-            const errorMessage = error?.response?.data?.message || "Failed to clarify.";
+            const errorMessage = describeError(error, "Failed to clarify.");
             showToast("error", errorMessage);
             return "";
         }
@@ -243,7 +244,7 @@ export const useConversational = ({
             if (feedbackResult !== "timeout") showToast("success", completedRoundMessage(feedbackResult));
         } catch (error) {
             console.error("complete round error", error);
-            showToast("error", error?.response?.data?.message || "Failed to complete round.");
+            showToast("error", describeError(error, "Failed to complete round."));
         } finally {
             setConvRoundSubmitting(false);
             setConvFeedbackProgress(0);

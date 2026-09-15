@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useResumes } from "../hooks/useResumes";
 import { useResumePdf } from "../hooks/useResumePdf";
 
+// Utilities
+import { describeError } from "../utils/errorFormatter";
+
 // UI Components
 import {
     Box,
@@ -108,7 +111,7 @@ const ResumeReview = ({ value, onChange, title = "Resume Review" }) => {
         try {
             await downloadResume(resume);
         } catch (error) {
-            notify(error?.response?.data?.message || "Resume download failed.", "error");
+            notify(describeError(error, "Resume download failed."), "error");
         }
     };
 
