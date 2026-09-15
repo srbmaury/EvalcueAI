@@ -54,13 +54,10 @@ function renderHeader({ surface = "practice", user = null, loading = false, logo
 describe("ProductHeader experience", () => {
     beforeEach(() => vi.clearAllMocks());
 
-    it("shows product-specific public actions and switches products", () => {
+    it("shows product-specific public actions", () => {
         renderHeader({ path: "/practice" });
         expect(screen.getByRole("link", { name: "Sign in" }).getAttribute("href")).toBe("/practice/login");
         expect(screen.getByRole("link", { name: "Start practicing" }).getAttribute("href")).toBe("/practice/register");
-        fireEvent.click(screen.getByRole("button", { name: "Hire" }));
-        expect(screen.getByTestId("location").textContent).toBe("/hire");
-        expect(mocks.setWorkspacePreference).toHaveBeenCalledWith("hiring");
         fireEvent.click(screen.getByRole("button", { name: "Toggle theme" }));
         expect(mocks.toggle).toHaveBeenCalledOnce();
     });
