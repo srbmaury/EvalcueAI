@@ -69,9 +69,12 @@ export default function CandidateAssessmentPage() {
     const [spokenNotes, setSpokenNotes] = useState({});
     const [focusedField, setFocusedField] = useState("answer");
     const [clockNow, setClockNow] = useState(Date.now());
+    const [oaSpeaking, setOaSpeaking] = useState(false);
 
     const focusedVoiceTargetRef = useRef("");
     const diagramSceneRef = useRef("");
+    const oaSpokenQuestionKeysRef = useRef(new Set());
+    const oaRoundIntroducedRef = useRef(false);
 
     const onTranscript = useCallback((target, text) => {
         if (window.speechSynthesis?.speaking) return;
@@ -350,6 +353,54 @@ export default function CandidateAssessmentPage() {
         setCodingEnabled(isActiveOA || (!isActiveSystemDesign && !isActiveDebugging && /\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(activeQuestion?.text || "")));
     }, [activeQuestion?._id, activeQuestion?.text, isActiveDebugging, isActiveOA, isActiveSystemDesign]);
     useEffect(() => { setFocusedField(activePendingFollowUp ? "followup" : "answer"); }, [activePendingFollowUp, activeQuestion?._id]);
+
+    // Brings the Coding round's voice experience up to parity with Practice's OAForm: the
+    // interviewer narrates each problem and the mic listens hands-free, instead of a bare
+    // push-to-talk button with no narration. Mirrors OAForm's structure exactly, including
+    // keeping the resume call in a separate effect (driven by oaSpeaking/handsFreePaused
+    // state) rather than at the end of this same effect — that was the actual OAForm bug
+    // fixed earlier: if the resume call sat at the end of this async chain, any re-render
+    // mid-utterance would cancel the effect before that final call ever ran, leaving the mic
+    // paused forever. Keeping the same shape here is cheap insurance against that recurring,
+    // even though useVoiceInput's callbacks are referentially stable now.
+    useEffect(() => {
+        oaSpokenQuestionKeysRef.current = new Set();
+        oaRoundIntroducedRef.current = false;
+    }, [activeRound?._id]);
+    useEffect(() => {
+        if (!isActiveOA || !activeQuestion?.text) return undefined;
+        const key = activeQuestion._id || `${activeRoundIndex}:${activeQuestionIndex}`;
+        if (oaSpokenQuestionKeysRef.current.has(key)) return undefined;
+        let cancelled = false;
+        (async () => {
+            if (supportsSTT) await startHandsFree?.(voiceTarget);
+            if (cancelled) return;
+            if (supportsTTS) {
+                setOaSpeaking(true);
+                await pauseHandsFree?.();
+                const isRoundIntroduction = !oaRoundIntroducedRef.current;
+                await new Promise((resolve) => setTimeout(resolve, isRoundIntroduction ? 900 : 450));
+                if (cancelled) return;
+                const prompt = isRoundIntroduction
+                    ? `Hi, welcome to the ${activeRound?.name || "coding"} round. Take a moment to understand the problem. Here's your first question: ${activeQuestion.text}`
+                    : `Let's move to the next problem: ${activeQuestion.text}`;
+                oaSpokenQuestionKeysRef.current.add(key);
+                oaRoundIntroducedRef.current = true;
+                await speakNow?.(prompt);
+                setOaSpeaking(false);
+            } else {
+                oaSpokenQuestionKeysRef.current.add(key);
+                oaRoundIntroducedRef.current = true;
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isActiveOA, activeQuestion?._id, activeQuestion?.text, activeRoundIndex, activeQuestionIndex, activeRound?.name, pauseHandsFree, speakNow, startHandsFree, supportsSTT, supportsTTS, voiceTarget]);
+    useEffect(() => {
+        if (!isActiveOA || !supportsSTT || !micSessionActive || !handsFreePaused || oaSpeaking || busy) return undefined;
+        let cancelled = false;
+        (async () => { await resumeHandsFree?.(voiceTarget); if (cancelled) return; })();
+        return () => { cancelled = true; };
+    }, [isActiveOA, supportsSTT, micSessionActive, handsFreePaused, oaSpeaking, busy, resumeHandsFree, voiceTarget]);
 
     const finishRoundSoftly = useCallback((nextAttempt, roundIndex) => {
         const currentRound = nextAttempt?.rounds?.[roundIndex];
@@ -634,7 +685,7 @@ export default function CandidateAssessmentPage() {
                                     <Box sx={{ p: 2.5, borderRight: { lg: "1px solid" }, borderBottom: { xs: "1px solid", lg: 0 }, borderColor: "divider" }}>
                                         <Typography variant="caption" color="text.secondary" fontWeight={850}>PROBLEM STATEMENT</Typography>
                                         <Typography component="h2" variant="h5" fontWeight={850} sx={{ lineHeight: 1.45, mt: .5 }}>{activeQuestion.text}</Typography>
-                                        <Box sx={{ mt: 2 }}><VoiceControls target={voiceTarget} speakText={activeQuestion.text} supportsTTS={supportsTTS} supportsSTT={supportsSTT} listening={listening} listeningTarget={listeningTarget} onSpeak={speakNow} onStartListening={startListening} onStopListening={stopListening} micPermission={micPermission} micLevel={micLevel} inputDevices={inputDevices} selectedDeviceId={selectedDeviceId} onChangeDevice={setSelectedDeviceId} /></Box>
+                                        <Box sx={{ mt: 2 }}><VoiceControls target={voiceTarget} speakText={activeQuestion.text} supportsTTS={supportsTTS} supportsSTT={supportsSTT} listening={listening} listeningTarget={listeningTarget} onSpeak={speakNow} handsFree micSessionActive={micSessionActive} handsFreePaused={handsFreePaused} onStartHandsFree={startHandsFree} micPermission={micPermission} micLevel={micLevel} inputDevices={inputDevices} selectedDeviceId={selectedDeviceId} onChangeDevice={setSelectedDeviceId} /></Box>
                                         <Typography variant="caption" color="text.secondary" fontWeight={850} display="block" mt={3}>PROBLEM NAVIGATION</Typography>
                                         <Box sx={{ display: "flex", flexWrap: "wrap", gap: .75, mt: 1 }}>
                                             {activeRound.questions.map((question, index) => <Button key={question._id} size="small" variant={index === activeQuestionIndex ? "contained" : "outlined"} color={question.answer ? "success" : "primary"} onClick={() => { stopListening(); setActiveQuestionIndex(index); }}>{index + 1}</Button>)}

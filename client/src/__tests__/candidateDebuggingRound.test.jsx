@@ -158,4 +158,20 @@ describe("CandidateDebuggingRound", () => {
             vi.useRealTimers();
         }
     });
+
+    it("shows a friendly message instead of the API's generic 'Invalid request' string, but passes through a specific server message unchanged", async () => {
+        mocks.get.mockResolvedValue({ data: codeWorkspace() });
+        render(<CandidateDebuggingRound endpoint={endpoint} headers={headers} />);
+        await screen.findByText("Fix duplicate processing.");
+        fireEvent.click(screen.getByRole("button", { name: "Fix source" }));
+
+        mocks.post.mockRejectedValueOnce({ response: { data: { message: "Invalid request" } } });
+        fireEvent.click(screen.getByRole("button", { name: "Run tests" }));
+        expect(await screen.findByText("Tests could not be run.")).toBeTruthy();
+        expect(screen.queryByText("Invalid request")).toBeNull();
+
+        mocks.post.mockRejectedValueOnce({ response: { data: { message: "Code execution is temporarily unavailable." } } });
+        fireEvent.click(screen.getByRole("button", { name: "Run tests" }));
+        expect(await screen.findByText("Code execution is temporarily unavailable.")).toBeTruthy();
+    });
 });

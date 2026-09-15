@@ -17,6 +17,14 @@ const candidateSafeWorkspace = (data = {}) => ({
     testRuns: Array.isArray(data.testRuns) ? data.testRuns : [],
 });
 const emptyFinding = () => ({ filePath: "", rootCause: "", evidence: "", proposedFix: "" });
+// "Invalid request" is the generic message the API's shared validation middleware sends for
+// any schema failure — it isn't written for candidates and gives them nothing actionable.
+// Prefer it only when it's actually specific; otherwise fall back to the caller's own
+// friendlier, already-written copy for that action.
+const describeError = (err, fallback) => {
+    const message = err?.response?.data?.message;
+    return message && message !== "Invalid request" ? message : fallback;
+};
 
 function TestResult({ result, final = false }) {
     if (!result) return null;
@@ -79,7 +87,7 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
             setFindings(safe.findings);
             dirtyRef.current = false;
         } catch (err) {
-            setError(err?.response?.data?.message || "The debugging workspace could not be loaded.");
+            setError(describeError(err, "The debugging workspace could not be loaded."));
         } finally {
             setLoading(false);
         }
@@ -102,7 +110,7 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
             dirtyRef.current = false;
             return safe;
         } catch (err) {
-            setError(err?.response?.data?.message || "Your debugging work could not be saved.");
+            setError(describeError(err, "Your debugging work could not be saved."));
             return null;
         } finally {
             setSaving(false);
@@ -131,7 +139,7 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
             if (!saved) return;
             const { data } = await api.post(`${endpoint}/run-tests`, {}, { headers, skipAuthRedirect: true });
             setWorkspace((current) => ({ ...current, testRuns: [...(current?.testRuns || []), data] }));
-        } catch (err) { setError(err?.response?.data?.message || "Tests could not be run."); }
+        } catch (err) { setError(describeError(err, "Tests could not be run.")); }
         finally { setRunning(false); }
     };
 
@@ -143,7 +151,7 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
             const { data } = await api.post(`${endpoint}/submit`, {}, { headers, skipAuthRedirect: true });
             setWorkspace((current) => ({ ...current, submittedAt: new Date().toISOString(), finalEvaluation: data.summary }));
             onSubmitted?.(data.attempt, data.summary);
-        } catch (err) { setError(err?.response?.data?.message || "The debugging round could not be submitted."); }
+        } catch (err) { setError(describeError(err, "The debugging round could not be submitted.")); }
         finally { setSubmitting(false); }
     };
 

@@ -216,6 +216,11 @@ export default function AssessmentBuilderPage() {
                     setActiveStep(localIsNewer ? Math.max(0, Math.min(3, Number(local.activeStep) || 0)) : 0);
                     if (localIsNewer) {
                         setDraftSavedAt(local.savedAt);
+                        // Restored alongside form/rounds from the same saved snapshot, so the
+                        // indices still line up. Without this, a debugging round validated
+                        // before a reload showed the "validate before publishing" warning
+                        // again even though its config hadn't changed, forcing a re-validate.
+                        setDebuggingValidations(local.debuggingValidations || {});
                         notify("Recovered unsaved draft changes from this device.", "info");
                     }
                 } else {
@@ -224,6 +229,7 @@ export default function AssessmentBuilderPage() {
                         setForm({ ...initialForm, ...local.form });
                         setActiveStep(Math.max(0, Math.min(3, Number(local.activeStep) || 0)));
                         setDraftSavedAt(local.savedAt || null);
+                        setDebuggingValidations(local.debuggingValidations || {});
                     } else {
                         setForm(initialForm);
                         setActiveStep(0);
@@ -248,11 +254,11 @@ export default function AssessmentBuilderPage() {
         if (!hydrated || !activeOrganization?._id) return;
         const timer = window.setTimeout(() => {
             const savedAt = new Date().toISOString();
-            writeLocalDraft(draftKey, { form, activeStep, savedAt });
+            writeLocalDraft(draftKey, { form, activeStep, savedAt, debuggingValidations });
             setDraftSavedAt(savedAt);
         }, 300);
         return () => window.clearTimeout(timer);
-    }, [activeOrganization?._id, activeStep, draftKey, form, hydrated]);
+    }, [activeOrganization?._id, activeStep, debuggingValidations, draftKey, form, hydrated]);
 
     const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
     const updateRound = (index, patch) => setForm((current) => ({
