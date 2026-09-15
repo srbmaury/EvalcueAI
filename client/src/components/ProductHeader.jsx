@@ -193,46 +193,6 @@ export default function ProductHeader({ surface = "practice" }) {
         return <Button key={`${item.label}-${item.hash || ""}`} onClick={() => openNavItem(item)} sx={navButtonSx(active)}>{item.label}</Button>;
     };
 
-    const renderProductSwitcher = () => (
-        <Box
-            role="group"
-            aria-label="Choose Evalcue AI product"
-            sx={{
-                display: { xs: "none", sm: "flex" },
-                alignItems: "center",
-                gap: .25,
-                p: .35,
-                ml: { sm: .75, lg: 1.5 },
-                border: "1px solid",
-                borderColor: "divider",
-                bgcolor: "action.hover",
-                borderRadius: 999,
-                flexShrink: 0,
-            }}
-        >
-            <Button
-                size="small"
-                startIcon={<SchoolOutlined fontSize="small" />}
-                onClick={() => openProduct("practice")}
-                aria-current={surface === "practice" ? "page" : undefined}
-                title="Open Evalcue AI Practice"
-                sx={productSwitchButtonSx(surface === "practice")}
-            >
-                Practice
-            </Button>
-            <Button
-                size="small"
-                startIcon={<WorkOutlineRounded fontSize="small" />}
-                onClick={() => openProduct("hiring")}
-                aria-current={surface === "hiring" ? "page" : undefined}
-                title="Open Evalcue AI Hire"
-                sx={productSwitchButtonSx(surface === "hiring")}
-            >
-                Hire
-            </Button>
-        </Box>
-    );
-
     return (
         <>
             <AppBar position="sticky" color="transparent" elevation={0} sx={{ bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider", color: "text.primary", backdropFilter: "blur(18px)", zIndex: 1200 }}>
@@ -245,8 +205,6 @@ export default function ProductHeader({ surface = "practice" }) {
                                 <Typography variant="caption" color="text.secondary" fontWeight={800} lineHeight={1} sx={{ display: { xs: "none", sm: "block" } }}>{config.label}</Typography>
                             </Box>
                         </Stack>
-
-                        {renderProductSwitcher()}
 
                         {surface === "hiring" && user && hasHiringOrganization && organizations.length > 0 && (
                             <>
@@ -288,10 +246,6 @@ export default function ProductHeader({ surface = "practice" }) {
                             </>}
                             <IconButton onClick={(event) => setMobileAnchor(event.currentTarget)} aria-label="Open navigation" sx={{ display: { xs: "inline-flex", md: "none" } }}><MenuIcon /></IconButton>
                             <Menu anchorEl={mobileAnchor} open={Boolean(mobileAnchor?.isConnected)} onClose={() => setMobileAnchor(null)} PaperProps={{ sx: { minWidth: 250 } }}>
-                                <Box px={2} pt={1.25} pb={.5}><Typography variant="overline" color="text.secondary" fontWeight={850}>Choose product</Typography></Box>
-                                <MenuItem selected={surface === "practice"} onClick={() => { setMobileAnchor(null); openProduct("practice"); }}><SchoolOutlined sx={{ mr: 1.25 }} />Practice</MenuItem>
-                                <MenuItem selected={surface === "hiring"} onClick={() => { setMobileAnchor(null); openProduct("hiring"); }}><WorkOutlineRounded sx={{ mr: 1.25 }} />Hire</MenuItem>
-                                <Divider />
                                 {user ? <>
                                     {navigation.map((item) => renderNavItem(item, true))}
                                     {(surface === "practice" || permissions.canManageAssessments) && <MenuItem onClick={openPrimaryAction}><AddRounded sx={{ mr: 1.25 }} />{surface === "hiring" ? "New assessment" : "New practice"}</MenuItem>}
