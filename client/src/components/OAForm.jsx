@@ -54,6 +54,7 @@ const OAForm = ({
 }) => {
     const [activeIndex, setActiveIndex] = useState(0);
     const [localDrafts, setLocalDrafts] = useState({});
+    const [aiSpeaking, setAiSpeaking] = useState(false);
     const spokenQuestionKeysRef = useRef(new Set());
     const roundIntroducedRef = useRef(false);
     const total = questions?.length || 0;
@@ -77,6 +78,10 @@ const OAForm = ({
             if (supportsSTT) await onStartHandsFree?.(safeIndex);
             if (cancelled) return;
             if (supportsTTS) {
+                // Set before the pause and the pre-speech delay below (not just around the
+                // onSpeak call): the resume effect reacts to aiSpeaking, and this whole window
+                // — pause, delay, then speak — is time the mic must stay paused for.
+                setAiSpeaking(true);
                 await onPauseHandsFree?.();
                 const isRoundIntroduction = !roundIntroducedRef.current;
                 await new Promise((resolve) => setTimeout(resolve, isRoundIntroduction ? 900 : 450));
@@ -87,14 +92,27 @@ const OAForm = ({
                 spokenQuestionKeysRef.current.add(activeQuestionKey);
                 roundIntroducedRef.current = true;
                 await onSpeak?.(prompt);
+                setAiSpeaking(false);
             } else {
                 spokenQuestionKeysRef.current.add(activeQuestionKey);
                 roundIntroducedRef.current = true;
             }
-            if (!cancelled && supportsSTT) await onResumeHandsFree?.(safeIndex);
         })();
         return () => { cancelled = true; };
-    }, [activeQuestionKey, activeQuestionText, onPauseHandsFree, onResumeHandsFree, onSpeak, onStartHandsFree, roundName, safeIndex, supportsSTT, supportsTTS]);
+    }, [activeQuestionKey, activeQuestionText, onPauseHandsFree, onSpeak, onStartHandsFree, roundName, safeIndex, supportsSTT, supportsTTS]);
+
+    useEffect(() => {
+        // A separate effect, deliberately not folded into the speak effect above: onResumeHandsFree
+        // isn't referentially stable across renders, so if it sat in that effect's dependency array,
+        // an unrelated prop-identity change mid-utterance would cancel the effect before the resume
+        // call at the end ever ran, leaving the mic paused ("interviewer speaking") forever even after
+        // TTS actually finished. Driving the resume off aiSpeaking/handsFreePaused state instead means
+        // it retries on every re-render until the mic is actually resumed.
+        if (!supportsSTT || !micSessionActive || !handsFreePaused || aiSpeaking || submitting) return;
+        let cancelled = false;
+        (async () => { await onResumeHandsFree?.(safeIndex); if (cancelled) return; })();
+        return () => { cancelled = true; };
+    }, [aiSpeaking, handsFreePaused, micSessionActive, onResumeHandsFree, safeIndex, submitting, supportsSTT]);
 
     useEffect(() => () => { onStopHandsFree?.(); }, [onStopHandsFree]);
 
