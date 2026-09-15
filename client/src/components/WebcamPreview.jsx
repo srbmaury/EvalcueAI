@@ -35,7 +35,13 @@ const WebcamPreview = ({ autoStart = false, required = false, monitorFaces = fal
     }, []);
 
     useEffect(() => {
-        if (on && videoRef.current && streamRef.current) videoRef.current.srcObject = streamRef.current;
+        if (!on || !videoRef.current || !streamRef.current) return;
+        videoRef.current.srcObject = streamRef.current;
+        // The autoPlay attribute alone isn't reliable here: browsers can silently defer or
+        // skip autoplay in some conditions (e.g. a backgrounded tab at the moment the stream
+        // attaches), leaving the tile frozen on a black frame with no error and no visible
+        // sign anything is wrong. An explicit play() catches that and actually starts it.
+        videoRef.current.play?.().catch(() => {});
     }, [on]);
 
     useEffect(() => {

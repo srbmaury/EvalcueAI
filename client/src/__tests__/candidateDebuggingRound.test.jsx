@@ -122,4 +122,40 @@ describe("CandidateDebuggingRound", () => {
         }, { headers, skipAuthRedirect: true }));
         expect(mocks.post).not.toHaveBeenCalledWith(`${endpoint}/run-tests`, expect.anything(), expect.anything());
     });
+
+    it("does not autosave a freshly added finding before it has a file selected", async () => {
+        // The server rejects a finding with an empty filePath (min length 1). Autosaving
+        // immediately after "Add finding" — before the candidate has picked a file — used to
+        // surface a raw "Invalid request" error for completely normal, in-progress input.
+        const findingsWorkspace = {
+            responseMode: "findings",
+            runtime: "node-22",
+            instructions: "Diagnose the concurrency defect.",
+            baseFiles,
+            files: baseFiles,
+            findings: [],
+            testRuns: [],
+        };
+        mocks.get.mockResolvedValue({ data: findingsWorkspace });
+        mocks.put.mockImplementation(async (_url, body) => ({ data: { ...findingsWorkspace, findings: body.findings } }));
+
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        try {
+            render(<CandidateDebuggingRound endpoint={endpoint} headers={headers} />);
+            await screen.findByText("Diagnose the concurrency defect.");
+
+            fireEvent.click(screen.getByRole("button", { name: "Add finding" }));
+            await vi.advanceTimersByTimeAsync(1200);
+            expect(mocks.put).not.toHaveBeenCalled();
+
+            fireEvent.mouseDown(screen.getByLabelText("Finding file"));
+            fireEvent.click(screen.getByRole("option", { name: "src/payment.js" }));
+            await vi.advanceTimersByTimeAsync(1200);
+            expect(mocks.put).toHaveBeenCalledWith(`${endpoint}/workspace`, {
+                findings: [expect.objectContaining({ filePath: "src/payment.js" })],
+            }, { headers, skipAuthRedirect: true });
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 });

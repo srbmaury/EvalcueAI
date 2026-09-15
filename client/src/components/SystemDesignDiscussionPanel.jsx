@@ -83,7 +83,15 @@ export default function SystemDesignDiscussionPanel({
         return "";
     }, [needsCamera, needsMic]);
 
-    useEffect(() => () => { mountedRef.current = false; stopHandsFree?.(); }, [stopHandsFree]);
+    // Split from the stopHandsFree cleanup below: mountedRef must only flip on a genuine
+    // unmount. A single effect keyed on stopHandsFree would also flip it on every re-render
+    // where stopHandsFree's identity changes (including React StrictMode's dev-only mount ->
+    // cleanup -> remount cycle, which runs this cleanup once even on the very first mount) —
+    // with nothing to ever set it back to true, speakInterviewer's `if (mountedRef.current)
+    // setAiSpeaking(false)` would then silently never fire, leaving the UI stuck on
+    // "Interviewer speaking" forever after the first such re-render.
+    useEffect(() => () => { mountedRef.current = false; }, []);
+    useEffect(() => () => { stopHandsFree?.(); }, [stopHandsFree]);
 
     const speakInterviewer = useCallback(async (text, { resumeAfter = true } = {}) => {
         if (!text) return;

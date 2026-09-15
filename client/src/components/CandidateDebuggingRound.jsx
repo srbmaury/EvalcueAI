@@ -111,6 +111,12 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
 
     useEffect(() => {
         if (!workspace || !dirtyRef.current || workspace.submittedAt) return undefined;
+        // A freshly added finding starts with an empty filePath (the candidate hasn't picked
+        // a file yet) — the server requires a non-empty filePath, so autosaving right after
+        // "Add finding" would surface an "Invalid request" error for completely normal,
+        // in-progress input. Wait until every finding has a file selected before autosaving;
+        // Submit still validates immediately, which is the right place for that feedback.
+        if (findings.some((finding) => !finding.filePath?.trim())) return undefined;
         const timer = window.setTimeout(() => { save(); }, 900);
         return () => window.clearTimeout(timer);
     }, [files, findings, save, workspace]);

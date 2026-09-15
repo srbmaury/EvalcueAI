@@ -11,6 +11,14 @@ const SpeechRecognitionCtor =
 
 const HANDS_FREE_SEGMENT_MS = 20000;
 const TRANSCRIPT_OVERLAP_WINDOW_MS = 2500;
+// Hoisted so the default reference is stable across calls: an inline `{}` default is a new
+// object literal every time the argument is omitted, which otherwise cascades through
+// transcribeBlob -> startRecorderSegment -> startHandsFree/resumeHandsFree, making those
+// callbacks unstable on every re-render of whichever component calls this hook without
+// passing its own transcribeHeaders (e.g. the interview page re-rendering once a second for
+// its elapsed-time display) — that instability can cancel an in-progress effect elsewhere
+// (like OAForm's speak sequence) before it ever completes.
+const EMPTY_TRANSCRIBE_HEADERS = {};
 
 export const composeLiveTranscript = (finalText, interimText) => `${finalText || ""} ${interimText || ""}`.trim();
 
@@ -26,7 +34,7 @@ const safeTranscript = (value) => sanitizeTranscriptSegment(value);
  * MediaRecorder + server transcription is used as the fallback layer when the
  * browser did not already produce usable speech for that segment.
  */
-export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcribe", transcribeHeaders = {}, enableServerTranscription = true, skipAuthRedirect = false }) => {
+export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcribe", transcribeHeaders = EMPTY_TRANSCRIBE_HEADERS, enableServerTranscription = true, skipAuthRedirect = false }) => {
     const { user } = useContext(AuthContext);
     const [listening, setListening] = useState(false);
     const [listeningTarget, setListeningTarget] = useState(null);
