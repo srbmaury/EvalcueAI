@@ -59,6 +59,10 @@ export default function ResumeReviewPage() {
 
     const selected = useMemo(() => resumes.find((r) => r._id === resumeId), [resumes, resumeId]);
 
+    // Switching the selected résumé (dropdown, or a fresh upload) must not leave a
+    // previous résumé's review visibly attached to the newly-selected one.
+    useEffect(() => { setReview(null); }, [resumeId]);
+
     const handleUpload = async (e) => {
         const file = e.target.files && e.target.files[0];
         if (!file) return;

@@ -73,6 +73,7 @@ const ConversationalPanel = ({
     const lastVoiceActivityRef = useRef(Date.now());
     const lastObservedAnswerRef = useRef("");
     const autoSubmittedTurnRef = useRef("");
+    const spokenReadinessRef = useRef("");
     const elapsedLabel = useElapsed();
 
     const questionNumber = useMemo(() => (convState?.index ?? 0) + 1, [convState?.index]);
@@ -130,19 +131,35 @@ const ConversationalPanel = ({
     }, [convRoundSubmitting, convSubmitting, isDone, onPauseHandsFree, onResumeHandsFree, onSpeak, supportsTTS, target]);
 
     useEffect(() => {
-        if (!supportsSTT || !activeText || isDone || convRoundSubmitting) return;
+        // Deliberately does not depend on aiSpeaking: the readiness-prompt effect below
+        // speaks while mic permission is still pending, and toggles aiSpeaking around that
+        // speech. If this effect also depended on aiSpeaking it would retry getUserMedia
+        // on every nag, which produces more state churn and re-triggers the nag again —
+        // a feedback loop that made the interviewer's greeting restart repeatedly.
+        if (!supportsSTT || !activeText || isDone || convRoundSubmitting || micSessionActive) return;
         let cancelled = false;
-        (async () => {
-            if (!micSessionActive) await onStartHandsFree?.(target);
-            else if (handsFreePaused && !aiSpeaking && !convSubmitting) await onResumeHandsFree?.(target);
-            if (cancelled) return;
-        })();
+        (async () => { await onStartHandsFree?.(target); if (cancelled) return; })();
         return () => { cancelled = true; };
-    }, [activeText, aiSpeaking, convRoundSubmitting, convSubmitting, handsFreePaused, isDone, micSessionActive, onResumeHandsFree, onStartHandsFree, supportsSTT, target]);
+    }, [activeText, convRoundSubmitting, isDone, micSessionActive, onStartHandsFree, supportsSTT, target]);
 
     useEffect(() => {
-        if (!supportsTTS || !readinessNeeded || !readinessPrompt) return;
-        const timer = setTimeout(() => { triggerSpeak(readinessPrompt, { resumeAfter: false }); }, 250);
+        if (!supportsSTT || !activeText || isDone || convRoundSubmitting || !micSessionActive) return;
+        if (!handsFreePaused || aiSpeaking || convSubmitting) return;
+        let cancelled = false;
+        (async () => { await onResumeHandsFree?.(target); if (cancelled) return; })();
+        return () => { cancelled = true; };
+    }, [activeText, aiSpeaking, convRoundSubmitting, convSubmitting, handsFreePaused, isDone, micSessionActive, onResumeHandsFree, supportsSTT, target]);
+
+    useEffect(() => {
+        // One-shot per distinct prompt: triggerSpeak's identity can churn if a caller's
+        // onSpeak/onPauseHandsFree/onResumeHandsFree props aren't referentially stable,
+        // which would otherwise re-fire this effect and repeat the nag mid-utterance.
+        if (!supportsTTS || !readinessNeeded || !readinessPrompt) { spokenReadinessRef.current = ""; return; }
+        if (spokenReadinessRef.current === readinessPrompt) return;
+        const timer = setTimeout(() => {
+            spokenReadinessRef.current = readinessPrompt;
+            triggerSpeak(readinessPrompt, { resumeAfter: false });
+        }, 250);
         return () => clearTimeout(timer);
     }, [readinessNeeded, readinessPrompt, supportsTTS, triggerSpeak]);
 

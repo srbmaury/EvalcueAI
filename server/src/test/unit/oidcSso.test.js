@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createOidcLoginState, decryptSsoSecret, encryptSsoSecret, hashSsoToken, normalizeSsoDomain } from "../../services/oidcSso.js";
-import { refreshCookieOptions } from "../../routes/ssoRoutes.js";
+import { refreshCookieOptions } from "../../utils/tokens.js";
 
 describe("OIDC SSO security helpers", () => {
     const previousKey = process.env.SSO_ENCRYPTION_KEY;
@@ -40,9 +40,9 @@ describe("OIDC SSO security helpers", () => {
         expect(normalizeSsoDomain(" @Example.COM ")).toBe("example.com");
     });
 
-    it("uses a cross-site compatible secure refresh cookie in production", () => {
+    it("uses the same strict, secure refresh cookie config as password/Google login (SSO exchange is a same-site XHR, not a cross-site redirect)", () => {
         process.env.NODE_ENV = "production";
         delete process.env.COOKIE_SAMESITE;
-        expect(refreshCookieOptions()).toMatchObject({ httpOnly: true, secure: true, sameSite: "none", path: "/api/auth" });
+        expect(refreshCookieOptions()).toMatchObject({ httpOnly: true, secure: true, sameSite: "strict", path: "/api/auth" });
     });
 });

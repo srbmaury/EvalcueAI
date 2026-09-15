@@ -9,9 +9,16 @@ vi.mock("../../services/debuggingProjectRunner.js", async (importOriginal) => {
     return { ...actual, runDebuggingProject };
 });
 
+// HIRING_PLAN_LIMITS is frozen at module import time, so this must be set before app.js
+// (which transitively imports hiringEntitlements.js) is imported below. This file's
+// single shared organization starts several candidates across its test cases, more than
+// the default trial cap of 5.
+process.env.HIRING_TRIAL_CANDIDATE_INTERVIEWS = "50";
+
 const { default: app } = await import("../../app.js");
 const { default: connectDB } = await import("../../config/db.js");
 const { default: User } = await import("../../models/User.js");
+const { default: CandidateAttempt } = await import("../../models/CandidateAttempt.js");
 const { signAccessToken } = await import("../../utils/tokens.js");
 
 let replset;
@@ -125,6 +132,71 @@ describe("debugging assessment API", () => {
         expect(submitted.body.summary.tests).toEqual([{ name: "handles boundary values", passed: true }]);
         expect(JSON.stringify(submitted.body)).not.toMatch(/boundary\.test\.js|INTERNAL_ASSERTION/i);
         expect(submitted.body.attempt.rounds[0].questions[0].answer).toMatch(/Tests: 1\/1/);
+    });
+
+    it("lets only one of two concurrent submits execute Judge0, rejecting the other with 409", async () => {
+        process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
+        const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound(), { title: "Concurrent submit" })).expect(201);
+        const callsAfterCreate = runDebuggingProject.mock.calls.length; // publish validation dry-runs once
+        const started = await startCandidate(created.body.shareToken, "concurrent@example.com");
+        const base = `/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/debugging/0`;
+        await write(agent.put(`${base}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ changedFiles: [{ path: "src/index.js", content: "fixed" }] }).expect(200);
+        runDebuggingProject.mockResolvedValue({ status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] });
+
+        const [first, second] = await Promise.all([
+            write(agent.post(`${base}/submit`)).set("x-attempt-token", started.body.attemptToken).send({}),
+            write(agent.post(`${base}/submit`)).set("x-attempt-token", started.body.attemptToken).send({}),
+        ]);
+        const statuses = [first.status, second.status].sort();
+        expect(statuses).toEqual([200, 409]);
+        expect(runDebuggingProject.mock.calls.length - callsAfterCreate).toBe(1);
+    });
+
+    it("never leaks another round's pre-review AI evaluation into a debugging-round submit response", async () => {
+        process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
+        // Round type doesn't matter for this fix (the sanitizer applies uniformly to every
+        // round); a findings-mode debugging round avoids pulling in AI question generation.
+        const firstRound = debuggingRound({ responseMode: "findings", title: "Explain the race condition." });
+        const created = await write(agent.post("/api/assessments"), ownerAuth)
+            .send(assessmentInput(debuggingRound(), { title: "Two round leak check", rounds: [firstRound, debuggingRound()] }))
+            .expect(201);
+        const started = await startCandidate(created.body.shareToken, "leak-check@example.com");
+
+        // Rounds must be completed in order — finish round 0 (findings mode, no Judge0)
+        // before round 1 is reachable.
+        const round0 = `/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/debugging/0`;
+        await write(agent.put(`${round0}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ findings: [{
+            filePath: "src/index.js", rootCause: "A read-modify-write race allows duplicate work.", evidence: "Both requests observe pending.", proposedFix: "Use an atomic conditional update.",
+        }] }).expect(200);
+        await write(agent.post(`${round0}/submit`)).set("x-attempt-token", started.body.attemptToken).send({}).expect(200);
+
+        // Simulate an adaptive round that was scored by AI before any human review —
+        // this must never reach the candidate in any subsequent round's response.
+        await CandidateAttempt.updateOne(
+            { _id: started.body.attempt._id },
+            { $set: {
+                "rounds.0.questions.0.adaptiveEvaluated": true,
+                "rounds.0.questions.0.quickEvaluation": { competencyCoverage: { communication: 0.8 } },
+                "rounds.0.questions.0.score": 7,
+                "rounds.0.questions.0.suggestions": ["Be more specific about the fix."],
+                "rounds.0.questions.0.feedbackComment": "Solid answer overall.",
+            } },
+        );
+
+        const base = `/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/debugging/1`;
+        await write(agent.put(`${base}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ changedFiles: [{ path: "src/index.js", content: "fixed" }] }).expect(200);
+        runDebuggingProject.mockResolvedValueOnce({ status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] });
+        const submitted = await write(agent.post(`${base}/submit`)).set("x-attempt-token", started.body.attemptToken).send({}).expect(200);
+
+        expect(submitted.body.attempt.rounds[0].name).toBe("Debugging");
+        expect(submitted.body.attempt.rounds[0].questions[0]).not.toHaveProperty("quickEvaluation");
+        expect(submitted.body.attempt.rounds[0].questions[0]).not.toHaveProperty("score");
+        expect(submitted.body.attempt.rounds[0].questions[0]).not.toHaveProperty("adaptiveEvaluated");
+        expect(submitted.body.attempt.rounds[0].questions[0]).not.toHaveProperty("suggestions");
+        expect(submitted.body.attempt.rounds[0].questions[0]).not.toHaveProperty("feedbackComment");
+        expect(submitted.body.attempt).not.toHaveProperty("overallScore");
+        expect(submitted.body.attempt).not.toHaveProperty("evaluationMetadata");
+        expect(JSON.stringify(submitted.body)).not.toMatch(/competencyCoverage|Be more specific|Solid answer overall/i);
     });
 
     it("saves file-specific findings without invoking Judge0", async () => {

@@ -64,4 +64,45 @@ describe("Practice dashboard history filters", () => {
             expect(get).toHaveBeenCalledWith("/interviews", { params: { page: 1, limit: 10, status: "completed" } });
         });
     });
+
+    it("fetches exactly once for a new filter when switching away from a page beyond 1, instead of racing a stale-page fetch against the page-1 reset", async () => {
+        const interviewsCalls = [];
+        get.mockImplementation((url, config = {}) => {
+            if (url === "/interviews/analytics/progress") return Promise.resolve({ data: { completed: 1, averageScore: 7, improvement: 0 } });
+            if (url === "/recommendations") return Promise.resolve({ data: { actions: [] } });
+            if (url === "/billing/practice/entitlements") return Promise.resolve({ data: { plan: "free", period: "2026-09", limits: { interviews: 3, resumeReviews: 3 }, used: { interviews: 2, resumeReviews: 1 } } });
+            if (url === "/resumes") return Promise.resolve({ data: { items: [], total: 1 } });
+            if (url === "/interviews") {
+                interviewsCalls.push({ ...config.params });
+                if (config?.params?.status === "completed") return Promise.resolve({ data: { items: [], total: 0, totalPages: 1 } });
+                return Promise.resolve({
+                    data: {
+                        items: [{ _id: `i-${config.params.page}`, company: "Acme", jobRole: "Backend Engineer", createdAt: "2026-09-10T00:00:00.000Z", isCompleted: false, roundsCompleted: 0, roundsTotal: 1 }],
+                        total: 20,
+                        totalPages: 2,
+                    },
+                });
+            }
+            return Promise.reject(new Error(`Unexpected GET ${url}`));
+        });
+
+        render(
+            <MemoryRouter>
+                <AuthContext.Provider value={{ user: { _id: "u-1", name: "Candidate", targetRole: "Backend Engineer" } }}>
+                    <DashboardPage />
+                </AuthContext.Provider>
+            </MemoryRouter>,
+        );
+
+        await screen.findByRole("button", { name: "Completed" });
+        fireEvent.click(await screen.findByRole("button", { name: "Go to page 2" }));
+        await waitFor(() => expect(interviewsCalls.at(-1)).toMatchObject({ page: 2 }));
+
+        interviewsCalls.length = 0;
+        fireEvent.click(screen.getByRole("button", { name: "Completed" }));
+
+        await waitFor(() => expect(interviewsCalls.some((call) => call.status === "completed")).toBe(true));
+        // A stale (page:2, status:"completed") fetch must never have been issued alongside the correct (page:1, status:"completed") one.
+        expect(interviewsCalls).toEqual([{ page: 1, limit: 10, status: "completed" }]);
+    });
 });

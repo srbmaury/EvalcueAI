@@ -30,12 +30,22 @@ export function useFacePresenceMonitor({ enabled, video, stream, onEvent }) {
                 const { FaceDetector, FilesetResolver } = await import("@mediapipe/tasks-vision");
                 const fileset = await FilesetResolver.forVisionTasks(WASM_ROOT);
                 if (cancelled) return;
-                detectorRef.current = await FaceDetector.createFromOptions(fileset, {
-                    baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" },
+                const createDetector = (delegate) => FaceDetector.createFromOptions(fileset, {
+                    baseOptions: { modelAssetPath: MODEL_PATH, delegate },
                     runningMode: "VIDEO",
                     minDetectionConfidence: 0.6,
                 });
-                if (cancelled) return;
+                let detector;
+                try {
+                    detector = await createDetector("GPU");
+                } catch {
+                    // Some browsers/devices lack a WebGL-backed GPU delegate for the WASM
+                    // runtime; fall back to CPU rather than disabling face monitoring outright.
+                    if (cancelled) return;
+                    detector = await createDetector("CPU");
+                }
+                if (cancelled) { detector?.close?.(); return; }
+                detectorRef.current = detector;
                 setStatus("checking");
                 timer = window.setInterval(() => {
                     if (video.readyState < 2 || track?.readyState !== "live") return;

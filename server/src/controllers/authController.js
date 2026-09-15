@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import User from "../models/User.js";
-import { bumpTokenVersion, signAccessToken, issueRefreshToken, validateRefreshToken, revokeRefreshToken, revokeAllRefreshTokens } from "../utils/tokens.js";
+import { bumpTokenVersion, signAccessToken, issueRefreshToken, validateRefreshToken, revokeRefreshToken, revokeAllRefreshTokens, setRefreshCookie, refreshCookieOptions } from "../utils/tokens.js";
 import { OAuth2Client } from "google-auth-library";
 import metrics from "../metrics/index.js";
 import { sendMail, buildVerificationEmail } from "../utils/mailer.js";
@@ -28,21 +28,6 @@ import OrganizationMembership from "../models/OrganizationMembership.js";
 import cloudinary from "../config/cloudinaryConfig.js";
 
 const REFRESH_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS || 7);
-
-const refreshCookieOptions = () => ({
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.COOKIE_SAMESITE || (process.env.NODE_ENV === "production" ? "strict" : "lax"),
-    domain: process.env.COOKIE_DOMAIN || undefined,
-    path: "/api/auth",
-});
-
-const setRefreshCookie = (res, raw, expiresAt) => {
-    res.cookie("refreshToken", raw, {
-        ...refreshCookieOptions(),
-        expires: expiresAt,
-    });
-};
 
 const clearRefreshCookie = (res) => {
     res.clearCookie("refreshToken", refreshCookieOptions());
@@ -115,8 +100,12 @@ export const loginUser = async (req, res, next) => {
             return res.status(401).json({ message: "Invalid email or password" });
         }
         if (user.provider !== "local") {
+            // Same status/message/metric as "no such user" and "wrong password" below —
+            // revealing which provider an email uses would let an attacker enumerate
+            // whether an account exists and how it authenticates.
             await recordLoginFailure((email || "").toLowerCase());
-            return res.status(400).json({ message: user.provider === "sso" ? "Use work SSO for this account" : "Use Google Sign-In for this account" });
+            try { metrics.authLoginAttemptsTotal.labels("local", "failure").inc(); } catch {}
+            return res.status(401).json({ message: "Invalid email or password" });
         }
         if (!(await user.matchPassword(password))) {
             await recordLoginFailure((email || "").toLowerCase());

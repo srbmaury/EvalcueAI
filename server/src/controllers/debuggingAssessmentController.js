@@ -12,7 +12,7 @@ import {
 } from "../services/debuggingProject.js";
 import { buildDebuggingArchive, runDebuggingProject } from "../services/debuggingProjectRunner.js";
 import { getDebuggingRuntimeProfile, supportedDebuggingRuntimes } from "../services/debuggingRuntimeProfiles.js";
-import { createAdaptiveAssessment } from "./hiringAdaptiveAssessmentController.js";
+import { createAdaptiveAssessment, publicAttempt } from "./hiringAdaptiveAssessmentController.js";
 
 const tokenHash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const cleanText = (value, max = 10000) => String(value || "").trim().slice(0, max);
@@ -196,24 +196,27 @@ export const enforceDebuggingPublishValidation = async (req, res, next) => {
 
 const candidateAttemptPayload = (attempt) => {
     const value = attempt.toObject ? attempt.toObject() : structuredClone(attempt);
-    delete value.accessTokenHash;
-    delete value.reviewerScore;
-    delete value.reviewerDecision;
-    delete value.reviewerNotes;
-    delete value.reviewerRatings;
-    delete value.reviewedAt;
-    value.debuggingResponses = (value.debuggingResponses || []).map((response) => ({
-        roundIndex: response.roundIndex,
-        responseMode: response.responseMode,
-        changedFiles: response.changedFiles || [],
-        createdFiles: response.createdFiles || [],
-        deletedFiles: response.deletedFiles || [],
-        findings: response.findings || [],
-        testRuns: response.testRuns || [],
-        finalEvaluation: response.finalEvaluation,
-        submittedAt: response.submittedAt,
-    }));
-    return value;
+    // Reuse the same allowlist-based sanitizer every other candidate-facing attempt
+    // response uses (hiringAdaptiveAssessmentController's publicAttempt), rather than a
+    // second copy that can drift — a denylist copy here previously leaked overallScore,
+    // evaluationMetadata, and per-question score/quickEvaluation/suggestions from other
+    // (e.g. adaptive conversational) rounds in the same attempt straight to the candidate.
+    // It also keeps this response's rounds shape consistent with the rest of the attempt
+    // object the client holds in state, which this response fully replaces.
+    return {
+        ...publicAttempt(attempt),
+        debuggingResponses: (value.debuggingResponses || []).map((response) => ({
+            roundIndex: response.roundIndex,
+            responseMode: response.responseMode,
+            changedFiles: response.changedFiles || [],
+            createdFiles: response.createdFiles || [],
+            deletedFiles: response.deletedFiles || [],
+            findings: response.findings || [],
+            testRuns: response.testRuns || [],
+            finalEvaluation: response.finalEvaluation,
+            submittedAt: response.submittedAt,
+        })),
+    };
 };
 
 const loadDebuggingContext = async (req, res) => {
@@ -318,8 +321,31 @@ export const submitCandidateDebuggingRound = async (req, res, next) => {
     try {
         const context = await loadDebuggingContext(req, res);
         if (!context) return;
-        const { attempt, attemptRound, config, response } = context;
+        const { attempt, attemptRound, config, response, roundIndex } = context;
         if (response.submittedAt) return res.status(409).json({ message: "This debugging round has already been submitted" });
+
+        let findings;
+        if (config.responseMode !== "code_fix") {
+            findings = Array.isArray(response.findings) ? response.findings : [];
+            if (!findings.length || findings.some((finding) => !cleanText(finding.filePath, 500) || !cleanText(finding.rootCause))) {
+                return res.status(400).json({ message: "Add at least one finding with a project file and finding/root cause before submitting." });
+            }
+        }
+
+        // Atomically claim the submission before doing any expensive/external work
+        // (Judge0 execution): two concurrent submit requests for the same round must
+        // not both execute and both persist a result — the loser gets a clean 409
+        // instead of racing attempt.save() into an unhandled VersionError after
+        // Judge0 already ran twice.
+        const claimedAt = new Date();
+        const claim = await CandidateAttempt.updateOne(
+            { _id: attempt._id, debuggingResponses: { $elemMatch: { roundIndex, submittedAt: { $exists: false } } } },
+            { $set: { "debuggingResponses.$[elem].submittedAt": claimedAt } },
+            { arrayFilters: [{ "elem.roundIndex": roundIndex }] },
+        );
+        if (!claim.modifiedCount) return res.status(409).json({ message: "This debugging round has already been submitted" });
+        response.submittedAt = claimedAt;
+
         let summary;
         if (config.responseMode === "code_fix") {
             const execution = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime, includeHiddenTests: true });
@@ -327,13 +353,10 @@ export const submitCandidateDebuggingRound = async (req, res, next) => {
             response.finalEvaluation = summary;
             attemptRound.questions[0].answer = `Debugging solution submitted. Tests: ${execution.passed}/${execution.total}. Files changed: ${summary.diff.changed + summary.diff.created + summary.diff.deleted}.`;
         } else {
-            const findings = Array.isArray(response.findings) ? response.findings : [];
-            if (!findings.length || findings.some((finding) => !cleanText(finding.filePath, 500) || !cleanText(finding.rootCause))) return res.status(400).json({ message: "Add at least one finding with a project file and finding/root cause before submitting." });
             summary = { status: "submitted", findings: true, findingCount: findings.length };
             response.finalEvaluation = summary;
             attemptRound.questions[0].answer = findingsAnswer(findings);
         }
-        response.submittedAt = new Date();
         await attempt.save();
         return res.json({ summary, attempt: candidateAttemptPayload(attempt) });
     } catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }

@@ -98,6 +98,14 @@ const organizationSchema = new mongoose.Schema(
             type: Date,
             default: null,
         },
+        // When a subscription sync last applied, by the Stripe event's own creation time
+        // (not our processing time) — guards against an out-of-order/retried webhook
+        // overwriting a newer subscription state with a stale one.
+        hiringBillingSyncedEventAt: {
+            type: Date,
+            default: null,
+            select: false,
+        },
         sso: { type: ssoSchema, default: () => ({}) },
     },
     { timestamps: true }

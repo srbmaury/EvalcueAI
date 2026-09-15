@@ -1,12 +1,11 @@
 import bullmqPkg from "bullmq";
-const { Queue, Worker, QueueScheduler } = bullmqPkg;
+const { Queue, Worker } = bullmqPkg;
 import getRedisClient from "../config/redis.js";
 import metrics from "../metrics/index.js";
 import productionMetrics from "../metrics/production.js";
 
 let connection = null;
 let queues = new Map();
-let schedulers = new Map();
 let workers = new Set();
 let depthTimers = new Set();
 
@@ -46,13 +45,14 @@ export const getQueue = async (name) => {
     const conn = await getConnection();
     if (!conn) return null;
     if (queues.has(name)) return queues.get(name);
-    const defaultTimeout = Math.max(parseInt(process.env.QUEUE_JOB_TIMEOUT_MS || "60000", 10) || 60000, 1000);
+    // Note: BullMQ v5's JobsOptions has no "timeout" field — a per-job execution time
+    // limit has to be enforced by the worker's processor wrapper (see createWorker),
+    // not here.
     const q = new Queue(name, {
         connection: conn,
         defaultJobOptions: {
             attempts: 3,
             backoff: { type: "exponential", delay: 500 },
-            timeout: defaultTimeout,
         },
     });
     queues.set(name, q);
@@ -69,20 +69,33 @@ export const getQueue = async (name) => {
     const depthTimer = setInterval(refreshDepth, 30000);
     depthTimer.unref?.();
     depthTimers.add(depthTimer);
-    if (!schedulers.has(name)) {
-        try {
-            const sch = new QueueScheduler(name, { connection: conn });
-            schedulers.set(name, sch);
-        } catch {}
-    }
     return q;
+};
+
+// Rejects if the processor is still running after QUEUE_JOB_TIMEOUT_MS. Without this, a
+// hung call (e.g. an LLM request with no timeout of its own) occupies the worker's
+// concurrency slot indefinitely — BullMQ's own lock/stalled-job detection only catches a
+// crashed worker process, not a processor that's alive but never returning.
+const withJobTimeout = (processor, timeoutMs) => async (job, ...rest) => {
+    let timer;
+    try {
+        return await Promise.race([
+            processor(job, ...rest),
+            new Promise((_, reject) => {
+                timer = setTimeout(() => reject(new Error(`Job timed out after ${timeoutMs}ms`)), timeoutMs);
+            }),
+        ]);
+    } finally {
+        clearTimeout(timer);
+    }
 };
 
 export const createWorker = async (name, processor) => {
     const conn = await getConnection();
     if (!conn) return null;
     const concurrency = Math.max(parseInt(process.env.WORKER_CONCURRENCY || "1", 10) || 1, 1);
-    const worker = new Worker(name, processor, { connection: conn, concurrency });
+    const timeoutMs = Math.max(parseInt(process.env.QUEUE_JOB_TIMEOUT_MS || "60000", 10) || 60000, 1000);
+    const worker = new Worker(name, withJobTimeout(processor, timeoutMs), { connection: conn, concurrency });
     workers.add(worker);
     const activeJobs = new Set();
 
@@ -135,10 +148,6 @@ export const closeQueues = async () => {
     const queueList = [...queues.values()];
     queues = new Map();
     await Promise.allSettled(queueList.map((queue) => queue.close()));
-
-    const schedulerList = [...schedulers.values()];
-    schedulers = new Map();
-    await Promise.allSettled(schedulerList.map((scheduler) => scheduler.close()));
     connection = null;
 };
 

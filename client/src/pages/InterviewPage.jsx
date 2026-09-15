@@ -89,6 +89,7 @@ const InterviewPage = () => {
     const [oaCodingEnabled, setOaCodingEnabled] = useState([]);
 
     const onTranscript = useCallback((target, text) => {
+        if (window.speechSynthesis?.speaking) return;
         if (target === "conv") {
             if (convCodingEnabled && !isSystemDesign) setConvSpokenAnswer((previous) => (previous ? `${previous} ${text}` : text));
             else convAnswerSetterRef.current?.((previous) => (previous ? `${previous} ${text}` : text));

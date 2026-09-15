@@ -8,7 +8,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../models/User.js", () => ({ default: { findOne: mocks.findOne, findById: mocks.findById, create: mocks.createUser } }));
-vi.mock("../../utils/tokens.js", () => ({
+// setRefreshCookie/refreshCookieOptions are pure aside from res.cookie (already a test
+// double via response()), so keep the real implementations via importOriginal and only
+// mock the functions with real side effects (DB/crypto).
+vi.mock("../../utils/tokens.js", async (importOriginal) => ({
+    ...(await importOriginal()),
     signAccessToken: mocks.signAccessToken,
     issueRefreshToken: mocks.issueRefreshToken,
     validateRefreshToken: mocks.validateRefreshToken,
@@ -84,17 +88,21 @@ describe("authentication controller", () => {
         expect(mocks.recordLoginFailure).toHaveBeenCalledWith("user@example.com");
     });
 
-    it("directs federated users correctly and blocks unverified local users", async () => {
+    it("gives federated-provider accounts the same generic failure as a bad password, to avoid leaking which accounts exist or how they authenticate", async () => {
         mocks.findOne.mockResolvedValueOnce({ provider: "google" });
         const google = response();
         await loginUser(request({ body: { email: "google@example.com", password: "x" } }), google, vi.fn());
-        expect(google.json).toHaveBeenCalledWith({ message: "Use Google Sign-In for this account" });
+        expect(google.status).toHaveBeenCalledWith(401);
+        expect(google.json).toHaveBeenCalledWith({ message: "Invalid email or password" });
 
         mocks.findOne.mockResolvedValueOnce({ provider: "sso" });
         const sso = response();
         await loginUser(request({ body: { email: "sso@example.com", password: "x" } }), sso, vi.fn());
-        expect(sso.json).toHaveBeenCalledWith({ message: "Use work SSO for this account" });
+        expect(sso.status).toHaveBeenCalledWith(401);
+        expect(sso.json).toHaveBeenCalledWith({ message: "Invalid email or password" });
+    });
 
+    it("blocks unverified local users", async () => {
         mocks.findOne.mockResolvedValueOnce({ provider: "local", isVerified: false, matchPassword: vi.fn().mockResolvedValue(true) });
         const unverified = response();
         await loginUser(request({ body: { email: "pending@example.com", password: "x" } }), unverified, vi.fn());

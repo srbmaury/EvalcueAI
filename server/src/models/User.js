@@ -122,6 +122,10 @@ const userSchema = new mongoose.Schema(
         practiceBillingCustomerId: { type: String, default: "", select: false },
         practiceBillingSubscriptionId: { type: String, default: "", select: false },
         practiceCurrentPeriodEnd: { type: Date, default: null },
+        // When a subscription sync last applied, by the Stripe event's own creation time
+        // (not our processing time) — guards against an out-of-order/retried webhook
+        // overwriting a newer subscription state with a stale one.
+        practiceBillingSyncedEventAt: { type: Date, default: null, select: false },
         // Trial eligibility is user-level anti-abuse state only. Hiring billing and usage remain organization-owned.
         hiringTrialClaimed: { type: Boolean, default: false, select: false },
         tokenVersion: {

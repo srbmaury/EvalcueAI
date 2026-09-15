@@ -26,9 +26,13 @@ const hiringPlanFromSubscription = (subscription) => {
     throw new Error("Unknown Hiring subscription plan");
 };
 
-const currentPeriodEnd = (subscription) => subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000)
-    : null;
+// current_period_end lives on the subscription item, not the subscription itself, as of
+// Stripe API version 2026-08-26.dahlia. These subscriptions are always single-item (see
+// priceIdOf), so the first item's period end is the subscription's period end.
+export const currentPeriodEnd = (subscription) => {
+    const end = subscription.items?.data?.[0]?.current_period_end;
+    return end ? new Date(end * 1000) : null;
+};
 
 const clearedHiringGrant = () => ({
     type: "none",
@@ -42,24 +46,40 @@ const clearedHiringGrant = () => ({
     stripeCheckoutSessionId: "",
 });
 
-const syncPracticeSubscription = async (subscription) => {
+// Guards a subscription sync against out-of-order webhook delivery/retries: only apply
+// an update if it is not older than the last one actually applied for this row. Live
+// fetches (invoice events, checkout completion) pass no eventCreatedAt and always win,
+// since a fresh read from Stripe is by definition not stale.
+const notStaleFilter = (baseFilter, syncedAtField, eventCreatedAt) => {
+    if (!eventCreatedAt) return baseFilter;
+    return { ...baseFilter, $or: [{ [syncedAtField]: null }, { [syncedAtField]: { $lte: eventCreatedAt } }] };
+};
+
+export const syncPracticeSubscription = async (subscription, eventCreatedAt) => {
     const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
     const userId = subscription.metadata?.userId;
     const filter = userId ? { _id: userId } : { practiceBillingCustomerId: customerId };
     if (!userId && !customerId) return;
-    await User.updateOne(filter, {
-        $set: {
-            practiceBillingProvider: "stripe",
-            practiceBillingCustomerId: customerId || "",
-            practiceBillingSubscriptionId: subscription.id,
-            practiceSubscriptionStatus: subscription.status,
-            practicePlan: practicePlanFromSubscription(subscription),
-            practiceCurrentPeriodEnd: currentPeriodEnd(subscription),
-        },
-    });
+    const update = {
+        practiceBillingProvider: "stripe",
+        practiceBillingCustomerId: customerId || "",
+        practiceBillingSubscriptionId: subscription.id,
+        practiceSubscriptionStatus: subscription.status,
+        practiceCurrentPeriodEnd: currentPeriodEnd(subscription),
+        ...(eventCreatedAt ? { practiceBillingSyncedEventAt: eventCreatedAt } : {}),
+    };
+    try {
+        update.practicePlan = practicePlanFromSubscription(subscription);
+    } catch (error) {
+        // Status (including a cancellation) must still be recorded even when the plan
+        // can't be resolved (e.g. stale price/metadata after a catalog rotation) —
+        // revocation must never silently fail to persist just because plan lookup failed.
+        console.error("Unable to resolve Practice subscription plan; status will still sync", subscription.id, error.message);
+    }
+    await User.updateOne(notStaleFilter(filter, "practiceBillingSyncedEventAt", eventCreatedAt), { $set: update });
 };
 
-const syncHiringSubscription = async (subscription) => {
+export const syncHiringSubscription = async (subscription, eventCreatedAt) => {
     const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
     const organizationId = subscription.metadata?.organizationId;
     const filter = organizationId ? { _id: organizationId } : { hiringBillingCustomerId: customerId };
@@ -69,20 +89,25 @@ const syncHiringSubscription = async (subscription) => {
         hiringBillingCustomerId: customerId || "",
         hiringBillingSubscriptionId: subscription.id,
         hiringSubscriptionStatus: subscription.status,
-        hiringPlan: hiringPlanFromSubscription(subscription),
         hiringCurrentPeriodEnd: currentPeriodEnd(subscription),
+        ...(eventCreatedAt ? { hiringBillingSyncedEventAt: eventCreatedAt } : {}),
     };
+    try {
+        update.hiringPlan = hiringPlanFromSubscription(subscription);
+    } catch (error) {
+        console.error("Unable to resolve Hiring subscription plan; status will still sync", subscription.id, error.message);
+    }
     if (activeStatuses.has(subscription.status)) {
         update.hiringTrialEligible = false;
         update.hiringGrant = clearedHiringGrant();
     }
-    await Organization.updateOne(filter, { $set: update });
+    await Organization.updateOne(notStaleFilter(filter, "hiringBillingSyncedEventAt", eventCreatedAt), { $set: update });
 };
 
-const syncSubscription = async (subscription) => {
+export const syncSubscription = async (subscription, eventCreatedAt) => {
     const product = subscription.metadata?.billingProduct;
-    if (product === "practice") await syncPracticeSubscription(subscription);
-    else if (product === "hiring") await syncHiringSubscription(subscription);
+    if (product === "practice") await syncPracticeSubscription(subscription, eventCreatedAt);
+    else if (product === "hiring") await syncHiringSubscription(subscription, eventCreatedAt);
     else throw new Error("Subscription is missing billingProduct metadata");
     metrics.billingSubscriptionTransitionsTotal.labels(subscription.status || "unknown").inc();
 };
@@ -248,7 +273,9 @@ export const stripeWebhook = async (req, res) => {
                 await activatePaidPilot(session);
             }
         } else if (["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"].includes(event.type)) {
-            await syncSubscription(event.data.object);
+            // Stripe does not guarantee delivery order; this event's own snapshot can be
+            // stale relative to one already applied. Gate on event.created (not processedAt).
+            await syncSubscription(event.data.object, new Date(event.created * 1000));
         } else if (["invoice.payment_failed", "invoice.payment_succeeded"].includes(event.type)) {
             // Stripe subscription status is the source of truth. Re-fetch it instead of
             // inferring subscription state from an individual invoice or charge event.

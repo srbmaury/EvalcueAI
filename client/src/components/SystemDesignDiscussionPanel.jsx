@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    Alert, Box, Button, CircularProgress, Paper, Skeleton, Stack, TextField, Typography,
+    Alert, Box, Button, Chip, CircularProgress, Paper, Skeleton, Stack, TextField, Typography,
 } from "@mui/material";
 import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
 import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
@@ -49,21 +49,43 @@ export default function SystemDesignDiscussionPanel({
     onEnd,
     ending = false,
     cameraSlot,
+    cameraOn,
+    requireCamera,
 }) {
     const [aiSpeaking, setAiSpeaking] = useState(false);
+    const [defaultCameraState, setDefaultCameraState] = useState({ on: false, denied: false });
     const spokenProblemRef = useRef("");
+    const spokenReadinessRef = useRef("");
     const mountedRef = useRef(true);
     const chatEndRef = useRef(null);
     const isListening = listening && listeningTarget === target;
     const discussionWords = countDiscussionWords(transcript || "");
     const canEndDiscussion = discussionWords >= MIN_END_DISCUSSION_WORDS;
-    const resolvedCameraSlot = cameraSlot === undefined
-        ? <WebcamPreview autoStart required monitorFaces />
+    const usingDefaultCameraSlot = cameraSlot === undefined;
+    const resolvedCameraSlot = usingDefaultCameraSlot
+        ? <WebcamPreview autoStart required onCameraStatusChange={setDefaultCameraState} />
         : cameraSlot;
+    // Callers that supply their own cameraSlot (e.g. Hiring, driven by org integrity
+    // settings) pass cameraOn/requireCamera explicitly; the built-in slot (Practice)
+    // tracks its own camera state and requires it by default, matching ConversationalPanel.
+    const effectiveRequireCamera = requireCamera ?? usingDefaultCameraSlot;
+    const effectiveCameraOn = usingDefaultCameraSlot ? defaultCameraState.on : (cameraOn ?? true);
+
+    const micReady = !supportsSTT || micSessionActive;
+    const camReady = !effectiveRequireCamera || effectiveCameraOn;
+    const needsMic = Boolean(supportsSTT && problem && !micReady && !ending);
+    const needsCamera = Boolean(effectiveRequireCamera && problem && !camReady && !ending);
+    const readinessNeeded = needsMic || needsCamera;
+    const readinessPrompt = useMemo(() => {
+        if (needsMic && needsCamera) return "Hi, I’m your interviewer. Before we start, please turn on your microphone and camera so this feels like a real mock interview.";
+        if (needsMic) return "Hi, I’m your interviewer. Please turn on your microphone before we begin.";
+        if (needsCamera) return "Hi, I’m your interviewer. Please turn on your camera before we begin.";
+        return "";
+    }, [needsCamera, needsMic]);
 
     useEffect(() => () => { mountedRef.current = false; stopHandsFree?.(); }, [stopHandsFree]);
 
-    const speakInterviewer = useCallback(async (text) => {
+    const speakInterviewer = useCallback(async (text, { resumeAfter = true } = {}) => {
         if (!text) return;
         await pauseHandsFree?.();
         if (supportsTTS) {
@@ -71,7 +93,7 @@ export default function SystemDesignDiscussionPanel({
             await speakNow?.(text);
             if (mountedRef.current) setAiSpeaking(false);
         }
-        if (mountedRef.current) await resumeHandsFree?.(target);
+        if (resumeAfter && mountedRef.current) await resumeHandsFree?.(target);
     }, [pauseHandsFree, resumeHandsFree, speakNow, supportsTTS, target]);
 
     const onInterjection = useCallback(async (item) => {
@@ -93,26 +115,42 @@ export default function SystemDesignDiscussionPanel({
     });
 
     useEffect(() => {
-        if (!problem || spokenProblemRef.current === problem) return;
+        // Deliberately excludes aiSpeaking: the readiness-prompt effect below speaks
+        // while the mic is still connecting and toggles aiSpeaking around that speech.
+        // Depending on aiSpeaking here would retry getUserMedia on every nag and
+        // re-trigger the nag again — the same feedback loop fixed in ConversationalPanel.
+        if (!supportsSTT || !problem || micSessionActive) return;
         let cancelled = false;
-        (async () => {
-            if (supportsSTT) await startHandsFree?.(target);
-            if (cancelled) return;
-            if (supportsTTS) {
-                spokenProblemRef.current = problem;
-                await speakInterviewer(problem);
-            } else {
-                spokenProblemRef.current = problem;
-                if (supportsSTT) await resumeHandsFree?.(target);
-            }
-        })();
+        (async () => { await startHandsFree?.(target); if (cancelled) return; })();
         return () => { cancelled = true; };
-    }, [problem, resumeHandsFree, speakInterviewer, startHandsFree, supportsSTT, supportsTTS, target]);
+    }, [micSessionActive, problem, startHandsFree, supportsSTT, target]);
 
     useEffect(() => {
-        if (!problem || aiSpeaking || ending || !supportsSTT || !micSessionActive || !handsFreePaused) return;
+        if (!supportsTTS || !readinessNeeded || !readinessPrompt) { spokenReadinessRef.current = ""; return; }
+        if (spokenReadinessRef.current === readinessPrompt) return;
+        const timer = setTimeout(() => {
+            spokenReadinessRef.current = readinessPrompt;
+            speakInterviewer(readinessPrompt, { resumeAfter: false });
+        }, 250);
+        return () => clearTimeout(timer);
+    }, [readinessNeeded, readinessPrompt, supportsTTS]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (!problem || readinessNeeded || spokenProblemRef.current === problem) return;
+        let cancelled = false;
+        (async () => {
+            spokenProblemRef.current = problem;
+            if (supportsTTS) await speakInterviewer(problem);
+            if (cancelled) return;
+            if (!supportsTTS && supportsSTT) await resumeHandsFree?.(target);
+        })();
+        return () => { cancelled = true; };
+    }, [problem, readinessNeeded, resumeHandsFree, speakInterviewer, supportsSTT, supportsTTS, target]);
+
+    useEffect(() => {
+        if (!problem || aiSpeaking || ending || readinessNeeded || !supportsSTT || !micSessionActive || !handsFreePaused) return;
         resumeHandsFree?.(target);
-    }, [aiSpeaking, ending, handsFreePaused, micSessionActive, problem, resumeHandsFree, supportsSTT, target]);
+    }, [aiSpeaking, ending, handsFreePaused, micSessionActive, problem, readinessNeeded, resumeHandsFree, supportsSTT, target]);
 
     const persistedTurns = useMemo(() => (Array.isArray(discussionTurns) ? discussionTurns : [])
         .filter((turn) => ["candidate", "interviewer"].includes(turn?.speaker) && clean(turn?.text))
@@ -163,14 +201,26 @@ export default function SystemDesignDiscussionPanel({
     return (
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1fr) 300px" }, gap: 2, alignItems: "start" }}>
             <Paper variant="outlined" sx={{ p: { xs: 1, md: 1.25 }, borderRadius: 3, minWidth: 0, position: "relative" }}>
-                <Suspense fallback={<Skeleton variant="rounded" height={660} />}>
-                    <SystemDesignCanvas
-                        value={diagramData || ""}
-                        onChange={onDiagramChange}
-                        label="Architecture whiteboard"
-                    />
-                </Suspense>
-                {resolvedCameraSlot && <Box sx={{ position: "absolute", right: 18, bottom: 18, zIndex: 4 }}>{resolvedCameraSlot}</Box>}
+                {readinessNeeded ? (
+                    <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 660, px: { xs: 2, sm: 6 }, textAlign: "center" }}>
+                        <Typography component="h2" variant="h6" fontWeight={800}>{readinessPrompt}</Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="center">
+                            <Chip size="small" color={micReady ? "success" : "warning"} label={micReady ? "Mic ready" : "Mic needed"} />
+                            {effectiveRequireCamera && <Chip size="small" color={camReady ? "success" : "warning"} label={camReady ? "Camera ready" : "Camera needed"} />}
+                        </Stack>
+                        {needsMic && supportsSTT && <Button variant="contained" onClick={() => startHandsFree?.(target)}>Turn on mic</Button>}
+                        {needsCamera && <Typography variant="body2" color="text.secondary">Use the camera tile in the bottom-right corner to turn your camera on.</Typography>}
+                    </Stack>
+                ) : (
+                    <Suspense fallback={<Skeleton variant="rounded" height={660} />}>
+                        <SystemDesignCanvas
+                            value={diagramData || ""}
+                            onChange={onDiagramChange}
+                            label="Architecture whiteboard"
+                        />
+                    </Suspense>
+                )}
+                {resolvedCameraSlot}
             </Paper>
 
             <Paper

@@ -60,6 +60,7 @@ export default function CandidateAssessmentPage() {
     const [lastSavedAt, setLastSavedAt] = useState(null);
     const [restoreNotice, setRestoreNotice] = useState("");
     const [faceStatus, setFaceStatus] = useState("off");
+    const [roundCameraOn, setRoundCameraOn] = useState(false);
     const [fullscreenActive, setFullscreenActive] = useState(Boolean(document.fullscreenElement));
     const [activeRoundIndex, setActiveRoundIndex] = useState(0);
     const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
@@ -570,7 +571,9 @@ export default function CandidateAssessmentPage() {
                                 speakNow={speakNow}
                                 onEnd={completeSystemDesign}
                                 ending={busy}
-                                cameraSlot={<WebcamPreview autoStart={assessment.integrity?.requireCamera} required={assessment.integrity?.requireCamera} monitorFaces={assessment.integrity?.enabled && assessment.integrity?.monitorFacePresence} onIntegrityEvent={recordIntegrityEvent} onFaceStatusChange={setFaceStatus} />}
+                                cameraOn={roundCameraOn}
+                                requireCamera={Boolean(assessment.integrity?.requireCamera)}
+                                cameraSlot={<WebcamPreview autoStart={assessment.integrity?.requireCamera} required={assessment.integrity?.requireCamera} monitorFaces={assessment.integrity?.enabled && assessment.integrity?.monitorFacePresence} onIntegrityEvent={recordIntegrityEvent} onFaceStatusChange={setFaceStatus} onCameraStatusChange={(status) => setRoundCameraOn(status.on)} />}
                             />
                         ) : isActiveConversation && activeQuestion ? (
                             <ConversationalPanel
@@ -620,7 +623,7 @@ export default function CandidateAssessmentPage() {
                                 }}
                             />
                         ) : isActiveOA && activeQuestion ? (
-                            <Paper variant="outlined" sx={{ overflow: "hidden", borderRadius: 3 }}>
+                            <Paper variant="outlined" sx={{ overflow: "hidden", borderRadius: 3, position: "relative" }}>
                                 <Box sx={{ px: 2.5, py: 1.5, bgcolor: "action.hover", borderBottom: "1px solid", borderColor: "divider" }}>
                                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1} alignItems={{ sm: "center" }}>
                                         <Box><Typography variant="overline" color="primary.main" fontWeight={850}>Online assessment · Problem {activeQuestionIndex + 1} of {activeRound.questions.length}</Typography><Typography variant="body2" color="text.secondary">Move freely between problems. The round only finishes after every problem has a saved response.</Typography></Box>
@@ -650,6 +653,7 @@ export default function CandidateAssessmentPage() {
                                         <Button variant="contained" disabled={busy || !activeQuestion.answer?.trim() || Boolean(activePendingFollowUp)} onClick={async () => { const nextAttempt = await saveAnswer(activeRoundIndex, activeQuestionIndex, false, spokenNotes[answerTarget] ?? activeQuestion.spokenExplanation); if (!nextAttempt) return; const nextRound = nextAttempt.rounds[activeRoundIndex]; const nextQuestion = nextRound.questions[activeQuestionIndex]; if (!pendingFollowUpFor(nextRound, nextQuestion)) goToNextQuestion(nextAttempt); }}>{busy ? "Saving…" : activeQuestionIndex === activeRound.questions.length - 1 ? "Save and review round" : "Save and continue"}</Button>
                                     </Stack>
                                 </Box>
+                                <WebcamPreview autoStart={assessment.integrity?.requireCamera} required={assessment.integrity?.requireCamera} monitorFaces={assessment.integrity?.enabled && assessment.integrity?.monitorFacePresence} onIntegrityEvent={recordIntegrityEvent} onFaceStatusChange={setFaceStatus} />
                             </Paper>
                         ) : (
                             <Paper variant="outlined" sx={{ p: 4 }}><Typography color="text.secondary">Preparing the next interview step…</Typography></Paper>

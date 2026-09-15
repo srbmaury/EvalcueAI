@@ -32,6 +32,9 @@ const baseProps = {
     stopHandsFree: vi.fn(),
     speakNow: vi.fn(),
     onEnd: vi.fn(),
+    // These tests exercise transcript/board rendering, not the readiness gate
+    // (covered separately); bypass it so the canvas mounts immediately.
+    requireCamera: false,
 };
 
 describe("SystemDesignDiscussionPanel", () => {

@@ -23,7 +23,10 @@ const ExperiencesPage = () => {
     }, []);
 
     const saveResult = async (item) => {
-        if (!item?.url || savedUrls.has(item.url)) return;
+        // savingUrl check closes the window between two fast clicks: savedUrls only
+        // updates after the request resolves, so relying on it alone lets a second click
+        // land before the first save completes and fire a duplicate POST.
+        if (!item?.url || savedUrls.has(item.url) || savingUrl === item.url) return;
         setSavingUrl(item.url);
         try {
             const { data } = await api.post("/experiences/saved", { ...item, company: expCompany.trim(), role: expRole.trim() });

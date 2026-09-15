@@ -367,6 +367,13 @@ export const revokeInvitation = async (req, res, next) => {
         const invitation = assessment.invitations.id(req.params.invitationId);
         if (!invitation) return res.status(404).json({ message: "Invitation not found" });
         invitation.status = "revoked"; invitation.revokedAt = new Date(); await assessment.save();
+        // Every candidate-facing endpoint rejects any attempt whose status isn't
+        // "started", so this alone cuts off access immediately through all of them —
+        // an in-progress attempt otherwise kept working indefinitely on a revoked link.
+        await CandidateAttempt.updateOne(
+            { assessment: assessment._id, invitation: invitation._id, status: "started" },
+            { $set: { status: "revoked" } },
+        );
         return res.json({ invitation });
     } catch (error) { return next(error); }
 };

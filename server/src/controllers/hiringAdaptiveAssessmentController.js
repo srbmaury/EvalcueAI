@@ -57,7 +57,7 @@ const combinedAnswer = (item) => [
         .map((followUp, index) => `Follow-up ${index + 1}: ${followUp.question}\nCandidate: ${followUp.answer}`),
 ].filter(Boolean).join("\n\n");
 
-const publicAttempt = (attempt) => ({
+export const publicAttempt = (attempt) => ({
     _id: attempt._id,
     candidateName: attempt.candidateName,
     status: attempt.status,
@@ -299,6 +299,7 @@ export const startAdaptiveCandidateAttempt = async (req, res, next) => {
             startedAt: new Date(),
             privacyConsentAt: new Date(),
             integrityConsentAt: assessment.integrity?.enabled && req.body.integrityConsent ? new Date() : undefined,
+            invitation: validInvitation?._id || null,
         });
         if (validInvitation) validInvitation.status = "started";
         await attempt.save();

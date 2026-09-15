@@ -106,26 +106,35 @@ export const createBulkFeedback = async (req, res, next) => {
         const byId = new Map(qDocs.map((q) => [String(q._id), q]));
 
         const results = [];
+        const failures = [];
         for (const it of items) {
             const q = byId.get(String(it.questionId));
             if (!q) continue;
-            const gen = await generateFeedbackForAnswer({ questionText: q.text, userAnswer: it.answer });
-            const safeComment = (gen?.comment || "").toString().trim() || "Feedback unavailable.";
-            const rawScore = Number(gen?.score);
-            const clampedScore = Number.isFinite(rawScore) ? Math.min(10, Math.max(0, rawScore)) : undefined;
-            const safeSuggestions = Array.isArray(gen?.suggestions)
-                ? gen.suggestions.map((s) => (s || "").toString()).filter(Boolean).slice(0, 10)
-                : [];
-            const fb = await Feedback.create({
-                user: req.user._id,
-                question: q._id,
-                comment: safeComment,
-                score: clampedScore,
-                suggestions: safeSuggestions,
-            });
-            results.push(fb);
+            // One item's AI failure must not discard the HTTP response (and the DB writes
+            // already made for earlier items in this same batch) for the whole request —
+            // report it and continue, instead of throwing out of the loop.
+            try {
+                const gen = await generateFeedbackForAnswer({ questionText: q.text, userAnswer: it.answer });
+                const safeComment = (gen?.comment || "").toString().trim() || "Feedback unavailable.";
+                const rawScore = Number(gen?.score);
+                const clampedScore = Number.isFinite(rawScore) ? Math.min(10, Math.max(0, rawScore)) : undefined;
+                const safeSuggestions = Array.isArray(gen?.suggestions)
+                    ? gen.suggestions.map((s) => (s || "").toString()).filter(Boolean).slice(0, 10)
+                    : [];
+                const fb = await Feedback.create({
+                    user: req.user._id,
+                    question: q._id,
+                    comment: safeComment,
+                    score: clampedScore,
+                    suggestions: safeSuggestions,
+                });
+                results.push(fb);
+            } catch (error) {
+                console.error("createBulkFeedback item failed:", q._id, error?.message || error);
+                failures.push({ questionId: q._id });
+            }
         }
-        return res.status(201).json({ count: results.length, feedback: results });
+        return res.status(201).json({ count: results.length, feedback: results, failed: failures });
     } catch (error) {
         console.error("createBulkFeedback error:", error);
         return next(error instanceof Error ? error : new Error(String(error)));

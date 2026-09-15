@@ -50,6 +50,21 @@ export const revokeAllRefreshTokens = async (userId) => {
     await RefreshToken.deleteMany({ user: userId });
 };
 
+// Single source of truth for the refresh-token cookie: password, Google, and SSO
+// login previously each defined their own copy of these options and drifted apart
+// (SSO defaulted to SameSite=None in production while the others used Strict).
+export const refreshCookieOptions = () => ({
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.COOKIE_SAMESITE || (process.env.NODE_ENV === "production" ? "strict" : "lax"),
+    domain: process.env.COOKIE_DOMAIN || undefined,
+    path: "/api/auth",
+});
+
+export const setRefreshCookie = (res, raw, expiresAt) => {
+    res.cookie("refreshToken", raw, { ...refreshCookieOptions(), expires: expiresAt });
+};
+
 export default {
     signAccessToken,
     hashOpaqueToken,

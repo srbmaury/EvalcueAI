@@ -85,6 +85,21 @@ describe("AuthProvider", () => {
         expect(mocks.setAccessToken.mock.calls.map(([token]) => token)).toEqual(["local-token", "google-token", "sso-token"]);
     });
 
+    it("rejects login/googleLogin when the immediately-following profile fetch fails, instead of silently resolving with a null user", async () => {
+        renderAuth();
+        await screen.findByText("user@example.com");
+
+        mocks.post.mockResolvedValueOnce({ data: { token: "local-token" } });
+        mocks.get.mockRejectedValueOnce(new Error("profile fetch failed"));
+        await act(async () => { await expect(auth.login("user@example.com", "secret")).rejects.toThrow(/couldn't be loaded/i); });
+        expect(mocks.clearAccessToken).toHaveBeenCalledOnce();
+
+        mocks.post.mockResolvedValueOnce({ data: { token: "google-token" } });
+        mocks.get.mockRejectedValueOnce(new Error("profile fetch failed"));
+        await act(async () => { await expect(auth.googleLogin("google-id-token")).rejects.toThrow(/couldn't be loaded/i); });
+        expect(mocks.clearAccessToken).toHaveBeenCalledTimes(2);
+    });
+
     it("covers account recovery, profile updates, logout, and deletion", async () => {
         renderAuth();
         await screen.findByText("user@example.com");

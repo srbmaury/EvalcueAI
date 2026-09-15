@@ -56,6 +56,10 @@ const Captcha = forwardRef(function Captcha({ onVerify, onExpire, provider, them
         };
     }, [provider]);
 
+    // Local Vite dev skips mounting a real CAPTCHA unless explicitly opted in.
+    // Production builds are unaffected: import.meta.env.DEV is false there.
+    const skipLocally = import.meta.env.DEV && import.meta.env.VITE_CAPTCHA_LOCAL_ENABLED !== "true";
+
     const clearVerification = useCallback(() => {
         try { onExpireRef.current?.(); } catch { /* Consumer callback errors must not break the widget. */ }
     }, []);
@@ -76,6 +80,7 @@ const Captcha = forwardRef(function Captcha({ onVerify, onExpire, provider, them
     useImperativeHandle(ref, () => ({ reset }), [reset]);
 
     useEffect(() => {
+        if (skipLocally) return undefined;
         let cancelled = false;
         const init = async () => {
             try {
@@ -154,7 +159,9 @@ const Captcha = forwardRef(function Captcha({ onVerify, onExpire, provider, them
             } catch { /* Cleanup is best-effort. */ }
             widgetIdRef.current = null;
         };
-    }, [cfg.provider, cfg.turnstileSiteKey, cfg.recaptchaSiteKey, resolvedTheme, clearVerification]);
+    }, [cfg.provider, cfg.turnstileSiteKey, cfg.recaptchaSiteKey, resolvedTheme, clearVerification, skipLocally]);
+
+    if (skipLocally) return null;
 
     return (
         <div style={{ display: "grid", justifyContent: "center" }}>

@@ -71,4 +71,27 @@ describe("assessment lifecycle processing", () => {
         expect(mail.text).not.toContain("localhost");
         expect(assessment.save).toHaveBeenCalledOnce();
     });
+
+    it("saves each invitation's send outcome immediately, not once at the end of the whole assessment's batch", async () => {
+        // A crash or an overlapping tick partway through a multi-invitation batch must
+        // not leave an already-sent invitation looking "queued", which would resend it.
+        const invitations = [
+            { _id: "invite-1", email: "a@example.com", name: "A", status: "queued", attempts: 0 },
+            { _id: "invite-2", email: "b@example.com", name: "B", status: "queued", attempts: 0 },
+            { _id: "invite-3", email: "c@example.com", name: "C", status: "queued", attempts: 0 },
+        ];
+        const assessment = {
+            title: "Backend", jobRole: "Engineer", shareToken: "token", timezone: "UTC",
+            durationMinutes: 45, expiresAt: null, integrity: { enabled: false },
+            organization: { name: "Acme Labs" }, invitations, save: vi.fn(),
+        };
+        mockFind([assessment]);
+        sendMail.mockResolvedValue({ messageId: "provider-1" });
+
+        const result = await processAssessmentLifecycle(new Date("2026-08-12T12:00:00Z"));
+
+        expect(result.sent).toBe(3);
+        expect(assessment.save).toHaveBeenCalledTimes(3);
+        expect(invitations.every((invitation) => invitation.status === "sent")).toBe(true);
+    });
 });

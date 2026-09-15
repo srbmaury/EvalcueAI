@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import api from "../api/axios";
@@ -42,9 +42,18 @@ const DashboardPage = () => {
         api.get("/resumes", { params: { page: 1, limit: 1 } }).then(({ data }) => setResumeCount(Array.isArray(data) ? data.length : Number(data?.total) || 0)).catch(() => {});
     }, [user]);
 
-    useEffect(() => { setPage(1); }, [statusFilter]);
+    const previousStatusFilterRef = useRef(statusFilter);
 
     useEffect(() => {
+        if (!user?._id) return undefined;
+        // Changing the filter while on page > 1 must reset to page 1 and fetch exactly
+        // once for the new filter — not fire a stale-page fetch for the old page/new
+        // filter combination and then immediately a second fetch for page 1.
+        const filterChanged = previousStatusFilterRef.current !== statusFilter;
+        previousStatusFilterRef.current = statusFilter;
+        if (filterChanged && page !== 1) { setPage(1); return undefined; }
+
+        let active = true;
         const fetchInterviews = async () => {
             setLoading(true);
             setError("");
@@ -52,6 +61,7 @@ const DashboardPage = () => {
                 const params = { page, limit };
                 if (statusFilter !== "all") params.status = statusFilter;
                 const { data } = await api.get("/interviews", { params });
+                if (!active) return;
                 if (Array.isArray(data)) {
                     setInterviews(data);
                     setTotalPages(1);
@@ -62,16 +72,18 @@ const DashboardPage = () => {
                     setTotalInterviews(Number(data?.total) || 0);
                 }
             } catch (err) {
+                if (!active) return;
                 console.error(err);
                 setInterviews([]);
                 setTotalPages(1);
                 setTotalInterviews(0);
                 setError("We couldn't load your practice history. Please refresh and try again.");
             } finally {
-                setLoading(false);
+                if (active) setLoading(false);
             }
         };
-        if (user?._id) fetchInterviews();
+        fetchInterviews();
+        return () => { active = false; };
     }, [user, page, limit, statusFilter]);
 
     const completedCount = interviews.filter((item) => item.isCompleted).length;

@@ -5,7 +5,7 @@ import { verifyEmailProvider } from "./utils/mailer.js";
 import cron from "node-cron";
 import cloudinary from "./config/cloudinaryConfig.js";
 import Resume from "./models/Resume.js";
-import { createWorker, getQueue, closeQueues } from "./queues/index.js";
+import { createWorker, closeQueues } from "./queues/index.js";
 import prepareQuestionsProcessor from "./queues/workers/prepareQuestions.js";
 import bulkFeedbackProcessor from "./queues/workers/bulkFeedback.js";
 import candidateAssessmentProcessor from "./queues/workers/candidateAssessment.js";
@@ -17,7 +17,7 @@ import { startOtlpPush } from "./metrics/otlpPush.js";
 import { deliverDuePracticeReminders } from "./services/practiceReminders.js";
 import CandidateAttempt from "./models/CandidateAttempt.js";
 import Assessment from "./models/Assessment.js";
-import { createJobId } from "./queues/jobIds.js";
+import { recoverCandidateEvaluations } from "./services/candidateEvaluationRecovery.js";
 import { processAssessmentLifecycle } from "./services/assessmentLifecycle.js";
 
 try {
@@ -107,26 +107,6 @@ const scheduleTask = (...args) => {
     return task;
 };
 let stopOtlpPush = () => {};
-
-const candidateEvaluationJobOptions = (attempt) => ({
-    jobId: createJobId("candidate-assessment", { attemptId: String(attempt._id), evaluationStartedAt: attempt.evaluationStartedAt.toISOString() }),
-    removeOnComplete: { age: 86400, count: 1000 },
-    removeOnFail: { age: 604800, count: 1000 },
-});
-
-const recoverCandidateEvaluations = async ({ olderThanMs = 0 } = {}) => {
-    if (!process.env.REDIS_URL) return 0;
-    const evaluationFilter = { status: "evaluating", evaluationStartedAt: { $ne: null } };
-    if (olderThanMs > 0) evaluationFilter.evaluationStartedAt.$lte = new Date(Date.now() - olderThanMs);
-    const strandedAttempts = await CandidateAttempt.find(evaluationFilter).select("evaluationStartedAt").lean();
-    if (!strandedAttempts.length) return 0;
-    const assessmentQueue = await getQueue("candidate-assessment");
-    if (!assessmentQueue) return 0;
-    for (const attempt of strandedAttempts) {
-        await assessmentQueue.add("evaluate", { attemptId: String(attempt._id) }, candidateEvaluationJobOptions(attempt));
-    }
-    return strandedAttempts.length;
-};
 
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, async () => {
@@ -219,12 +199,15 @@ const server = app.listen(PORT, async () => {
     } catch (error) { console.warn("[REMINDERS] Scheduler failed", error?.message || error); }
 
     try {
+        // noOverlap: a slow invitation-mail batch (or a crash) must not let the next
+        // minute's tick re-enter while this one is still running and re-send duplicate
+        // invitation emails for rows this run hasn't saved as "sent" yet.
         scheduleTask("* * * * *", async () => {
             try {
                 const result = await processAssessmentLifecycle();
                 if (result.opened || result.closed || result.sent || result.failed) console.log(`[ASSESSMENTS] opened=${result.opened} closed=${result.closed} sent=${result.sent} failed=${result.failed}`);
             } catch (error) { console.warn("[ASSESSMENTS] Lifecycle processing failed", error?.message || error); }
-        });
+        }, { noOverlap: true });
     } catch (error) { console.warn("[ASSESSMENTS] Lifecycle scheduler failed", error?.message || error); }
 
     try {
@@ -254,7 +237,12 @@ const shutdown = async (signal) => {
     shuttingDown = true;
     try { console.log(`[${signal}] draining HTTP, schedulers and workers...`); } catch {}
 
-    const timeoutMs = Math.max(Number(process.env.SHUTDOWN_TIMEOUT_MS || 15000), 1000);
+    // closeQueues() waits (gracefully, not forced) for each worker's current job to
+    // finish, which can itself take up to QUEUE_JOB_TIMEOUT_MS. A shutdown window
+    // shorter than that force-kills the process mid-job far more often than it needs
+    // to, stranding a candidate-assessment attempt at status "evaluating".
+    const jobTimeoutMs = Math.max(parseInt(process.env.QUEUE_JOB_TIMEOUT_MS || "60000", 10) || 60000, 1000);
+    const timeoutMs = Math.max(Number(process.env.SHUTDOWN_TIMEOUT_MS || jobTimeoutMs + 15000), 1000);
     const forceExit = setTimeout(() => {
         console.error(`[${signal}] graceful shutdown exceeded ${timeoutMs}ms; forcing exit`);
         process.exit(1);

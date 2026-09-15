@@ -39,7 +39,18 @@ export const AuthProvider = ({ children }) => {
         if (captchaToken) payload.captchaToken = captchaToken;
         const { data } = await api.post(`/auth/login`, payload);
         if (data?.token) setAccessToken(data.token);
-        return fetchProfile();
+        const profile = await fetchProfile();
+        if (!profile) {
+            // fetchProfile() swallows its own errors (correct for the silent-refresh-on-load
+            // path, where a visitor who isn't logged in shouldn't see an error) but that
+            // means a successful login whose immediately-following profile fetch has a
+            // transient failure would otherwise resolve with a null user and no error at
+            // all — the caller would just navigate the user forward only for a route guard
+            // to silently bounce them back to login with zero explanation of what happened.
+            clearAccessToken();
+            throw new Error("Signed in, but your profile couldn't be loaded. Please try again.");
+        }
+        return profile;
     };
 
     const register = async (name, email, password, captchaToken) => {
@@ -52,7 +63,12 @@ export const AuthProvider = ({ children }) => {
     const googleLogin = async (idToken) => {
         const { data } = await api.post(`/auth/google`, { idToken });
         if (data?.token) setAccessToken(data.token);
-        return fetchProfile();
+        const profile = await fetchProfile();
+        if (!profile) {
+            clearAccessToken();
+            throw new Error("Signed in, but your profile couldn't be loaded. Please try again.");
+        }
+        return profile;
     };
 
     const startSsoLogin = async (email) => {

@@ -29,6 +29,28 @@ const startHealthSampler = () => {
     healthTimer.unref?.();
 };
 
+// The client's own reconnectStrategy (below) always returns a backoff delay and never a
+// "give up" signal, so its connect()/reconnect loop retries forever and never settles on
+// its own when Redis is unreachable. Race it against a bounded wait for the "ready" event
+// instead of awaiting it directly, so a caller degrades gracefully (this function returns
+// null) instead of hanging forever — every route gated by getRedisClient() (quotas, rate
+// limiting) would otherwise hang indefinitely whenever Redis is unreachable.
+const waitForReady = (c, timeoutMs) => new Promise((resolve) => {
+    if (c.isReady) { resolve(true); return; }
+    let settled = false;
+    const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        c.off("ready", onReady);
+        resolve(value);
+    };
+    const onReady = () => finish(true);
+    c.once("ready", onReady);
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    timer.unref?.();
+});
+
 const ensureNoEvictionPolicy = async (c) => {
     if (!c || policyChecked) return;
     try {
@@ -53,11 +75,11 @@ const ensureNoEvictionPolicy = async (c) => {
 
 export const getRedisClient = async () => {
     try {
-        if (client && client.isOpen) return client;
+        if (client && client.isReady) return client;
         const url = process.env.REDIS_URL;
         if (!url) return null;
+        const connectTimeoutMs = Number(process.env.REDIS_CONNECT_TIMEOUT_MS || 15000);
         if (!client) {
-            const connectTimeoutMs = Number(process.env.REDIS_CONNECT_TIMEOUT_MS || 15000);
             const retryBaseMs = Number(process.env.REDIS_RETRY_BASE_MS || 500);
             const retryMaxMs = Number(process.env.REDIS_RETRY_MAX_MS || 30000);
             client = createClient({
@@ -88,16 +110,18 @@ export const getRedisClient = async () => {
         if (!client.isOpen && !initializing) {
             initializing = true;
             try {
-                await client.connect();
-                // Best-effort: enforce noeviction policy for reliability
-                await ensureNoEvictionPolicy(client);
+                await Promise.race([client.connect().catch(() => {}), waitForReady(client, connectTimeoutMs)]);
             } finally {
                 initializing = false;
             }
+        } else if (!client.isReady) {
+            // A connect/reconnect attempt is already under way in the background (its
+            // strategy never gives up on its own); wait up to the same budget for it to
+            // become ready rather than blocking this caller indefinitely.
+            await waitForReady(client, connectTimeoutMs);
         }
-        // If connection is already open and policy not checked (e.g., hot path), check once
-        if (client.isOpen) await ensureNoEvictionPolicy(client);
-        return client.isOpen ? client : null;
+        if (client.isReady) await ensureNoEvictionPolicy(client);
+        return client.isReady ? client : null;
     } catch (e) {
         productionMetrics.redisConnectionReady.set(0);
         return null;

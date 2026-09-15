@@ -32,6 +32,15 @@ export default async function bulkFeedbackProcessor(job) {
         const roundItem = Number.isInteger(index) && index >= 0 && index < (round.questions?.length || 0)
             ? round.questions[index]
             : null;
+        // Idempotent on BullMQ retry: a prior attempt may have already generated and
+        // attached feedback for this item before the job failed partway through a later
+        // item. Without this, a retry regenerates (duplicate LLM cost) and re-creates a
+        // Feedback doc for every already-succeeded item, orphaning the first batch.
+        if (attach && roundItem?.feedback) {
+            attachedCount++;
+            await job.updateProgress(Math.round(((i + 1) / total) * 100));
+            continue;
+        }
         const gen = await generateFeedbackForAnswer({
             questionText: q.text,
             userAnswer: (it.answer || "").toString(),
@@ -65,9 +74,11 @@ export default async function bulkFeedbackProcessor(job) {
         if (attach && roundItem) {
             roundItem.feedback = fb._id;
             attachedCount++;
+            // Persist immediately, not just once at the end: if a later item in this
+            // loop throws, this item's attachment must not be lost/regenerated on retry.
+            await round.save();
         }
         await job.updateProgress(Math.round(((i + 1) / total) * 100));
     }
-    if (attach && attachedCount > 0) await round.save();
     return { count: createdCount, attached: attachedCount };
 }

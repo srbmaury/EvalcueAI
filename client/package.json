@@ -12,11 +12,11 @@
     "check:entry-bundle": "node scripts/check-entry-bundle.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
+    "test:coverage": "NODE_OPTIONS=--no-experimental-webstorage vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:production": "playwright test --config=playwright.production.config.js",
-    "test:watch": "vitest"
+    "test:watch": "NODE_OPTIONS=--no-experimental-webstorage vitest"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -266,6 +266,18 @@ const prepareConversationalRound = async ({ interview, round, limit, prefetch, e
 };
 
 const prepareFixedQuestions = async ({ interview, round, limit, prefetch, exclusionTexts }) => {
+    // Mirrors prepareConversationalRound's guard: a retried/duplicate prepare call (the
+    // direct route has no idempotency protection, and the queued job can be re-triggered)
+    // must reuse an already-prepared round instead of discarding answered questions and
+    // their feedback and silently un-completing the round.
+    if ((round.questions || []).length > 0) {
+        if (!prefetch && round.status === "pending") {
+            round.status = "in_progress";
+            round.conversationalIndex = 0;
+            await round.save();
+        }
+        return Round.findById(round._id).populate("questions.question");
+    }
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     let qTexts = [];
     let lastErr;
@@ -410,6 +422,10 @@ export const submitOAAnswers = async (req, res, next) => {
         if (!round) return res.status(404).json({ message: "Round not found" });
         if (round.deliveryMode !== "online-assessment") return res.status(400).json({ message: "Round is not OA" });
         if (!Array.isArray(answers)) return res.status(400).json({ message: "Invalid answers" });
+        // Matches submitConversationalAnswer's guard: once feedback has been generated for
+        // a completed round, a late/retried autosave must not silently rewrite answers out
+        // from under it, leaving stored feedback inconsistent with the stored answer.
+        if (round.status === "completed") return res.json({ success: true, replayed: true });
 
         const limit = Math.min(round.questions.length, round.questionLimit);
         for (let i = 0; i < limit; i++) {

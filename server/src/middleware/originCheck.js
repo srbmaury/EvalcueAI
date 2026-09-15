@@ -35,8 +35,11 @@ const originCheck = () => (req, res, next) => {
         const referer = req.get("referer");
         if (origin && sameOrigin(origin, allowed)) return next();
         if (referer && sameOrigin(referer, allowed)) return next();
-        // If neither header present, allow (non-browser clients) and rely on CSRF.
-        if (!origin && !referer) return next();
+        // Modern browsers always send Origin on state-changing cross-origin requests,
+        // so a request with neither header is either a non-browser client hitting a
+        // route it has no business calling, or a browser edge case worth blocking —
+        // there is no separate CSRF-token layer to fall back on. Webhook routes are
+        // mounted before this middleware and never reach this check.
         try { metrics.originDeniedTotal.labels(normalizeRoute(req)).inc(); } catch {}
         return res.status(403).json({ message: "Cross-origin request blocked" });
     } catch {

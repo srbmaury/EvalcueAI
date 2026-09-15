@@ -32,8 +32,13 @@ export const processAssessmentLifecycle = async (now = new Date()) => {
             if (!["queued", "failed"].includes(invitation.status) || invitation.attempts >= 5 || (invitation.nextAttemptAt && invitation.nextAttemptAt > now)) continue;
             try { const info = await sendMail(invitationMail(assessment, invitation)); invitation.status = "sent"; invitation.lastSentAt = now; invitation.attempts += 1; invitation.providerMessageId = info?.messageId || ""; invitation.lastError = ""; sent += 1; }
             catch (error) { invitation.status = "failed"; invitation.attempts += 1; invitation.nextAttemptAt = new Date(now.getTime() + Math.min(60, 2 ** invitation.attempts) * 60_000); invitation.lastError = String(error?.message || error).slice(0, 500); failed += 1; }
+            // Persist each invitation's outcome immediately, not once at the end of the
+            // whole assessment's loop: this cron tick can be re-entered every minute
+            // (see noOverlap on its schedule), and a slow batch or a crash partway
+            // through must not leave an already-sent invitation looking "queued" again,
+            // which would resend a duplicate email on the next tick.
+            await assessment.save();
         }
-        await assessment.save();
     }
     return { opened: opened.modifiedCount || 0, closed: closed.modifiedCount || 0, sent, failed };
 };

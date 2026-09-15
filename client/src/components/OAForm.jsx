@@ -198,7 +198,7 @@ const OAForm = ({
                             data-testid="online-assessment-camera-slot"
                             sx={{ position: "relative", height: { xs: 104, sm: 131 }, mt: 2 }}
                         >
-                            <WebcamPreview autoStart required monitorFaces />
+                            <WebcamPreview autoStart required />
                         </Box>
                     </Box>
                 </Box>

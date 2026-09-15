@@ -7,6 +7,7 @@ import { ThemeModeProvider } from "../context/ThemeContext";
 describe("Captcha reset", () => {
     beforeEach(() => {
         vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "test-turnstile-site-key");
+        vi.stubEnv("VITE_CAPTCHA_LOCAL_ENABLED", "true");
         window.turnstile = {
             render: vi.fn((_container, options) => {
                 options.callback("token-1");

@@ -10,7 +10,7 @@ import AuditLog from "../models/AuditLog.js";
 import protect from "../middleware/authMiddleware.js";
 import { organizationContext, requireOrganizationRole } from "../middleware/organizationContext.js";
 import validate from "../middleware/validate.js";
-import { issueRefreshToken, signAccessToken } from "../utils/tokens.js";
+import { issueRefreshToken, signAccessToken, setRefreshCookie } from "../utils/tokens.js";
 import { hiringClientOrigin } from "../config/clientOrigins.js";
 import { activeHiringSubscriptionPlan } from "../services/hiringEntitlements.js";
 import {
@@ -43,14 +43,6 @@ const DOMAIN_PATTERN = /^(?=.{1,253}$)(?!-)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9]
 const clientOrigin = hiringClientOrigin;
 const serverOrigin = (req) => (process.env.SERVER_ORIGIN || `${req.protocol}://${req.get("host")}`).replace(/\/+$/, "");
 const callbackUri = (req) => `${serverOrigin(req)}/api/sso/callback`;
-export const refreshCookieOptions = () => ({
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.COOKIE_SAMESITE || (process.env.NODE_ENV === "production" ? "none" : "lax"),
-    domain: process.env.COOKIE_DOMAIN || undefined,
-    path: "/api/auth",
-});
-const setRefreshCookie = (res, raw, expiresAt) => res.cookie("refreshToken", raw, { ...refreshCookieOptions(), expires: expiresAt });
 const ssoAvailableFor = (organization) => activeHiringSubscriptionPlan(organization) === "enterprise" || process.env.SSO_ALLOW_NON_ENTERPRISE === "true" || process.env.NODE_ENV !== "production";
 
 class SsoAccessError extends Error {}
@@ -71,6 +63,7 @@ const provisionSsoAccess = async ({ organization, metadata, claims, email }) => 
     try {
         await session.withTransaction(async () => {
             user = await User.findOne({ ssoIdentities: { $elemMatch: identityMatch } }).session(session);
+            const matchedByEmail = !user;
             if (!user) user = await User.findOne({ email }).session(session);
 
             if (user) {
@@ -80,8 +73,15 @@ const provisionSsoAccess = async ({ organization, metadata, claims, email }) => 
                 }
                 membership = await OrganizationMembership.findOne({ organization: organization._id, user: user._id }).session(session);
                 if (membership?.status === "disabled") throw new SsoAccessError("Your organization access is disabled");
-                if (!membership && !organization.sso.jitProvisioning) {
-                    throw new SsoAccessError("Ask your organization admin to add you before using SSO");
+                if (!membership) {
+                    // An unauthenticated SSO assertion must never be enough, on its own, to both
+                    // grant new org access AND silently take over a pre-existing user account
+                    // matched only by email — that would let anyone who controls an org's OIDC
+                    // issuer claim an unclaimed domain and impersonate any existing user on it.
+                    // JIT provisioning may only create brand-new accounts; an account matched by
+                    // email must already have been added to this organization by an admin.
+                    if (matchedByEmail) throw new SsoAccessError("An Evalcue AI account already exists for this email. Ask your organization admin to add you before using SSO.");
+                    if (!organization.sso.jitProvisioning) throw new SsoAccessError("Ask your organization admin to add you before using SSO");
                 }
 
                 if (!existingForOrganization) user.ssoIdentities.push(identityMatch);

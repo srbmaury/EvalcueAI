@@ -80,6 +80,10 @@ const WebcamPreview = ({ autoStart = false, required = false, monitorFaces = fal
                     position: "absolute",
                     bottom: { xs: 10, sm: 14 },
                     right: { xs: 10, sm: 14 },
+                    // Floating self-view tile: always stack above sibling content (canvas
+                    // libraries like Excalidraw create their own high-z-index layers that
+                    // would otherwise cover it regardless of DOM order).
+                    zIndex: 5,
                     width: { xs: 112, sm: 148 },
                     height: { xs: 84, sm: 111 },
                     borderRadius: 2.5,

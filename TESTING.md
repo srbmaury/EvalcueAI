@@ -15,6 +15,16 @@ npm test -- src/__tests__/assessmentsPage.test.jsx
 # Quality checks
 npm run lint
 npm run build
+```
+
+`npm test`/`test:watch`/`test:coverage` set `NODE_OPTIONS=--no-experimental-webstorage`.
+Node 22+'s experimental built-in `localStorage` global shadows jsdom's own
+implementation and leaves `window.localStorage` undefined otherwise. If you
+invoke `vitest` directly instead of through these npm scripts, set that flag
+yourself.
+
+```bash
+cd client
 
 # All browser E2E tests
 npm run test:e2e

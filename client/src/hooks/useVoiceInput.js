@@ -261,6 +261,11 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
 
     const startRecorderSegment = useCallback((stream, target, rotate = false) => {
         if (!stream || typeof MediaRecorder === "undefined") return false;
+        const existing = mediaRecorderRef.current;
+        if (existing && existing.state !== "inactive") {
+            existing.onstop = null;
+            try { existing.stop(); } catch { void 0; }
+        }
         let recorder;
         try { recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" }); }
         catch { try { recorder = new MediaRecorder(stream); } catch { return false; } }
@@ -286,6 +291,10 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
                 startRecorderSegment(sessionStreamRef.current, activeTargetRef.current || target, true);
                 return;
             }
+            // A newer recorder segment may already have replaced this one (e.g. pause
+            // immediately followed by resume while this onstop's network transcription
+            // was still in flight) — only touch shared state if we're still current.
+            if (mediaRecorderRef.current !== recorder) return;
             mediaRecorderRef.current = null;
             setListening(false);
             if (!handsFreeRef.current) {
@@ -407,13 +416,21 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
             setMicSessionActive(true);
             setListeningTarget(target);
             startMeter(stream);
+            if (handsFreePausedRef.current) {
+                // A pause (e.g. the interviewer started speaking) was requested while the
+                // permission prompt/getUserMedia call was still pending. Keep the stream
+                // open for a later resume, but don't start capturing over that speech.
+                return true;
+            }
             startLiveRecognition(target, true);
             if (!startRecorderSegment(stream, target, true) && !SpeechRecognitionCtor) throw new Error("No supported speech recorder");
             setListening(true);
             return true;
         } catch (error) {
             console.debug("Hands-free microphone start failed", error);
+            try { sessionStreamRef.current?.getTracks?.().forEach((track) => track.stop()); } catch { void 0; }
             sessionStreamRef.current = null;
+            stopMeter();
             handsFreeRef.current = false;
             handsFreePausedRef.current = false;
             setMicSessionActive(false);
@@ -425,7 +442,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
             setMicPermission("denied");
             return false;
         }
-    }, [constraintsForDevice, enableServerTranscription, fallbackSTT, startLiveRecognition, startMeter, startRecorderSegment, supportsSTT]);
+    }, [constraintsForDevice, enableServerTranscription, fallbackSTT, startLiveRecognition, startMeter, startRecorderSegment, stopMeter, supportsSTT]);
 
     const pauseHandsFree = useCallback(async () => {
         if (!handsFreeRef.current) return;
