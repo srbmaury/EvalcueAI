@@ -3,7 +3,16 @@ import { normalizeRoute } from "../metrics/routes.js";
 
 // Central error handler - keeps responses uniform and redacts sensitive data
 // eslint-disable-next-line no-unused-vars
+const MULTER_ERROR_MESSAGES = {
+    LIMIT_FILE_SIZE: "File is too large.",
+    LIMIT_FILE_COUNT: "Too many files.",
+    LIMIT_UNEXPECTED_FILE: "Too many files.",
+};
+
 const errorHandler = (err, req, res, next) => {
+    if (err.name === "MulterError") {
+        return res.status(400).json({ message: MULTER_ERROR_MESSAGES[err.code] || "The uploaded file could not be processed.", requestId: req.id || undefined });
+    }
     const status = err.statusCode && Number.isInteger(err.statusCode) ? err.statusCode : 500;
     const requestId = req.id || undefined;
     const payload = {

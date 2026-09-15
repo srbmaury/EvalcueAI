@@ -9,39 +9,13 @@ import metrics from "../metrics/index.js";
 import { generateJSON } from "../utils/generateQuestions/aiClient.js";
 import { rankResumesForJob } from "../services/resumeMatcher.js";
 import { publicResume, resumeStorageUrl, verifyResumeFileToken } from "../services/resumeAccess.js";
+import { optionalAntivirusScan } from "../utils/avScan.js";
 
 // Align with multer filter (PDF only) and use single source of truth for max bytes
 const ALLOWED_MIME = ["application/pdf"];
 const MAX_BYTES = Number(process.env.MAX_RESUME_BYTES || 5 * 1024 * 1024); // default 5MB
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const safeDownloadName = (value) => (value || "resume.pdf").replace(/[\r\n"\\/]/g, "_").slice(0, 180);
-
-const optionalAntivirusScan = async (buffer) => {
-    if (process.env.ENABLE_AV_SCAN !== "true") return { clean: true };
-    try {
-        const url = process.env.AV_SCAN_URL;
-        if (!url) return { clean: true };
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-        let resp;
-        try {
-            resp = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/octet-stream" },
-                body: buffer,
-                signal: controller.signal,
-            });
-        } finally { clearTimeout(timeout); }
-        if (!resp.ok) return { clean: false, reason: `scanner_http_${resp.status}` };
-        const data = await resp.json().catch(() => ({}));
-        // expected response: { clean: boolean, reason?: string }
-        if (typeof data.clean === "boolean") return { clean: !!data.clean, reason: data.reason };
-        return { clean: true };
-    } catch (e) {
-        // fail closed or open? Choose closed for security
-        return { clean: false, reason: "scanner_error" };
-    }
-};
 
 const streamResume = (res, resume, disposition = "inline") => {
     const sourceUrl = resumeStorageUrl(resume);
