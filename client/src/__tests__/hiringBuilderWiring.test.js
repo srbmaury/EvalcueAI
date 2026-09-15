@@ -27,4 +27,16 @@ describe("hiring assessment builder wiring", () => {
         expect(source).not.toContain("starterCode");
         expect(source).not.toContain("round.debugging?.tests");
     });
+
+    it("persists debugging validation status in the local draft alongside form and step, so a reload doesn't force re-validating an unchanged round", () => {
+        // debuggingValidations previously lived only in React state: reloading mid-build (a
+        // real scenario the local-draft recovery feature exists for) always showed "Validate
+        // every debugging assignment before publishing" again, even for a round nobody had
+        // touched since it was last validated, forcing an unnecessary re-click.
+        const writeCall = source.match(/writeLocalDraft\(draftKey, \{[^}]*\}\)/);
+        expect(writeCall?.[0]).toContain("debuggingValidations");
+        const restoreCalls = [...source.matchAll(/setDebuggingValidations\(local\.debuggingValidations \|\| \{\}\)/g)];
+        // One restore path for editing an existing assessment, one for a brand-new draft.
+        expect(restoreCalls.length).toBe(2);
+    });
 });

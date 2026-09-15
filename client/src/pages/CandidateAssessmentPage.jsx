@@ -69,9 +69,12 @@ export default function CandidateAssessmentPage() {
     const [spokenNotes, setSpokenNotes] = useState({});
     const [focusedField, setFocusedField] = useState("answer");
     const [clockNow, setClockNow] = useState(Date.now());
+    const [oaSpeaking, setOaSpeaking] = useState(false);
 
     const focusedVoiceTargetRef = useRef("");
     const diagramSceneRef = useRef("");
+    const oaSpokenQuestionKeysRef = useRef(new Set());
+    const oaRoundIntroducedRef = useRef(false);
 
     const onTranscript = useCallback((target, text) => {
         if (window.speechSynthesis?.speaking) return;
@@ -350,6 +353,54 @@ export default function CandidateAssessmentPage() {
         setCodingEnabled(isActiveOA || (!isActiveSystemDesign && !isActiveDebugging && /\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(activeQuestion?.text || "")));
     }, [activeQuestion?._id, activeQuestion?.text, isActiveDebugging, isActiveOA, isActiveSystemDesign]);
     useEffect(() => { setFocusedField(activePendingFollowUp ? "followup" : "answer"); }, [activePendingFollowUp, activeQuestion?._id]);
+
+    // Brings the Coding round's voice experience up to parity with Practice's OAForm: the
+    // interviewer narrates each problem and the mic listens hands-free, instead of a bare
+    // push-to-talk button with no narration. Mirrors OAForm's structure exactly, including
+    // keeping the resume call in a separate effect (driven by oaSpeaking/handsFreePaused
+    // state) rather than at the end of this same effect — that was the actual OAForm bug
+    // fixed earlier: if the resume call sat at the end of this async chain, any re-render
+    // mid-utterance would cancel the effect before that final call ever ran, leaving the mic
+    // paused forever. Keeping the same shape here is cheap insurance against that recurring,
+    // even though useVoiceInput's callbacks are referentially stable now.
+    useEffect(() => {
+        oaSpokenQuestionKeysRef.current = new Set();
+        oaRoundIntroducedRef.current = false;
+    }, [activeRound?._id]);
+    useEffect(() => {
+        if (!isActiveOA || !activeQuestion?.text) return undefined;
+        const key = activeQuestion._id || `${activeRoundIndex}:${activeQuestionIndex}`;
+        if (oaSpokenQuestionKeysRef.current.has(key)) return undefined;
+        let cancelled = false;
+        (async () => {
+            if (supportsSTT) await startHandsFree?.(voiceTarget);
+            if (cancelled) return;
+            if (supportsTTS) {
+                setOaSpeaking(true);
+                await pauseHandsFree?.();
+                const isRoundIntroduction = !oaRoundIntroducedRef.current;
+                await new Promise((resolve) => setTimeout(resolve, isRoundIntroduction ? 900 : 450));
+                if (cancelled) return;
+                const prompt = isRoundIntroduction
+                    ? `Hi, welcome to the ${activeRound?.name || "coding"} round. Take a moment to understand the problem. Here's your first question: ${activeQuestion.text}`
+                    : `Let's move to the next problem: ${activeQuestion.text}`;
+                oaSpokenQuestionKeysRef.current.add(key);
+                oaRoundIntroducedRef.current = true;
+                await speakNow?.(prompt);
+                setOaSpeaking(false);
+            } else {
+                oaSpokenQuestionKeysRef.current.add(key);
+                oaRoundIntroducedRef.current = true;
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isActiveOA, activeQuestion?._id, activeQuestion?.text, activeRoundIndex, activeQuestionIndex, activeRound?.name, pauseHandsFree, speakNow, startHandsFree, supportsSTT, supportsTTS, voiceTarget]);
+    useEffect(() => {
+        if (!isActiveOA || !supportsSTT || !micSessionActive || !handsFreePaused || oaSpeaking || busy) return undefined;
+        let cancelled = false;
+        (async () => { await resumeHandsFree?.(voiceTarget); if (cancelled) return; })();
+        return () => { cancelled = true; };
+    }, [isActiveOA, supportsSTT, micSessionActive, handsFreePaused, oaSpeaking, busy, resumeHandsFree, voiceTarget]);
 
     const finishRoundSoftly = useCallback((nextAttempt, roundIndex) => {
         const currentRound = nextAttempt?.rounds?.[roundIndex];
@@ -634,7 +685,7 @@ export default function CandidateAssessmentPage() {
                                     <Box sx={{ p: 2.5, borderRight: { lg: "1px solid" }, borderBottom: { xs: "1px solid", lg: 0 }, borderColor: "divider" }}>
                                         <Typography variant="caption" color="text.secondary" fontWeight={850}>PROBLEM STATEMENT</Typography>
                                         <Typography component="h2" variant="h5" fontWeight={850} sx={{ lineHeight: 1.45, mt: .5 }}>{activeQuestion.text}</Typography>
-                                        <Box sx={{ mt: 2 }}><VoiceControls target={voiceTarget} speakText={activeQuestion.text} supportsTTS={supportsTTS} supportsSTT={supportsSTT} listening={listening} listeningTarget={listeningTarget} onSpeak={speakNow} onStartListening={startListening} onStopListening={stopListening} micPermission={micPermission} micLevel={micLevel} inputDevices={inputDevices} selectedDeviceId={selectedDeviceId} onChangeDevice={setSelectedDeviceId} /></Box>
+                                        <Box sx={{ mt: 2 }}><VoiceControls target={voiceTarget} speakText={activeQuestion.text} supportsTTS={supportsTTS} supportsSTT={supportsSTT} listening={listening} listeningTarget={listeningTarget} onSpeak={speakNow} handsFree micSessionActive={micSessionActive} handsFreePaused={handsFreePaused} onStartHandsFree={startHandsFree} micPermission={micPermission} micLevel={micLevel} inputDevices={inputDevices} selectedDeviceId={selectedDeviceId} onChangeDevice={setSelectedDeviceId} /></Box>
                                         <Typography variant="caption" color="text.secondary" fontWeight={850} display="block" mt={3}>PROBLEM NAVIGATION</Typography>
                                         <Box sx={{ display: "flex", flexWrap: "wrap", gap: .75, mt: 1 }}>
                                             {activeRound.questions.map((question, index) => <Button key={question._id} size="small" variant={index === activeQuestionIndex ? "contained" : "outlined"} color={question.answer ? "success" : "primary"} onClick={() => { stopListening(); setActiveQuestionIndex(index); }}>{index + 1}</Button>)}
@@ -645,6 +696,12 @@ export default function CandidateAssessmentPage() {
                                         <Box mt={1}><CodeEditorField value={activeQuestion.answer || ""} onChange={(value) => updateLocal(activeRoundIndex, activeQuestionIndex, "answer", value)} onFocus={() => setFocusedField("answer")} minRows={16} draftKey={`candidate:${attempt._id}:${activeRound._id}:${activeQuestion._id}`} suggestCode={/\b(code|coding|implement|algorithm|function|class|program)\b/i.test(activeQuestion.text)} onModeChange={setCodingEnabled} executionEndpoint={`${candidateToolBase}/run-code`} executionHeaders={candidateToolHeaders} skipAuthRedirect canRun={assessment.capabilities?.codeExecution !== false} /></Box>
                                         {codingEnabled && <TextField fullWidth multiline minRows={3} sx={{ mt: 2 }} label="Explain your approach" value={spokenNotes[answerTarget] ?? activeQuestion.spokenExplanation ?? ""} onChange={(event) => { setSpokenNotes((current) => ({ ...current, [answerTarget]: event.target.value })); setDirty((current) => ({ ...current, [answerKey(activeRoundIndex, activeQuestionIndex)]: true })); }} />}
                                         {activePendingFollowUp && <Paper variant="outlined" sx={{ p: 2, mt: 2, borderColor: "primary.main" }}><Typography variant="caption" color="primary.main" fontWeight={850}>INTERVIEWER FOLLOW-UP</Typography><Typography fontWeight={750}>{activePendingFollowUp.question}</Typography><TextField fullWidth multiline minRows={3} sx={{ mt: 1 }} label="Your follow-up answer" value={activeQuestion.followUpAnswer || ""} onChange={(event) => updateLocal(activeRoundIndex, activeQuestionIndex, "followUpAnswer", event.target.value)} /><Button sx={{ mt: 1 }} variant="contained" disabled={busy || !activeQuestion.followUpAnswer?.trim()} onClick={async () => { const nextAttempt = await saveAnswer(activeRoundIndex, activeQuestionIndex, true); if (nextAttempt && !pendingFollowUpFor(nextAttempt.rounds[activeRoundIndex], nextAttempt.rounds[activeRoundIndex].questions[activeQuestionIndex])) goToNextQuestion(nextAttempt); }}>Save follow-up</Button></Paper>}
+                                        {/* Scoped to its own sized slot (matching Practice's OAForm) rather than
+                                            floating relative to the whole round Paper, which let the tile drift
+                                            over the footer's Save/Save-and-continue button and block clicks. */}
+                                        <Box data-testid="online-assessment-camera-slot" sx={{ position: "relative", height: { xs: 104, sm: 131 }, mt: 2 }}>
+                                            <WebcamPreview autoStart={assessment.integrity?.requireCamera} required={assessment.integrity?.requireCamera} monitorFaces={assessment.integrity?.enabled && assessment.integrity?.monitorFacePresence} onIntegrityEvent={recordIntegrityEvent} onFaceStatusChange={setFaceStatus} />
+                                        </Box>
                                     </Box>
                                 </Box>
                                 <Box sx={{ px: 2.5, py: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
@@ -653,7 +710,6 @@ export default function CandidateAssessmentPage() {
                                         <Button variant="contained" disabled={busy || !activeQuestion.answer?.trim() || Boolean(activePendingFollowUp)} onClick={async () => { const nextAttempt = await saveAnswer(activeRoundIndex, activeQuestionIndex, false, spokenNotes[answerTarget] ?? activeQuestion.spokenExplanation); if (!nextAttempt) return; const nextRound = nextAttempt.rounds[activeRoundIndex]; const nextQuestion = nextRound.questions[activeQuestionIndex]; if (!pendingFollowUpFor(nextRound, nextQuestion)) goToNextQuestion(nextAttempt); }}>{busy ? "Saving…" : activeQuestionIndex === activeRound.questions.length - 1 ? "Save and review round" : "Save and continue"}</Button>
                                     </Stack>
                                 </Box>
-                                <WebcamPreview autoStart={assessment.integrity?.requireCamera} required={assessment.integrity?.requireCamera} monitorFaces={assessment.integrity?.enabled && assessment.integrity?.monitorFacePresence} onIntegrityEvent={recordIntegrityEvent} onFaceStatusChange={setFaceStatus} />
                             </Paper>
                         ) : (
                             <Paper variant="outlined" sx={{ p: 4 }}><Typography color="text.secondary">Preparing the next interview step…</Typography></Paper>

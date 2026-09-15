@@ -17,6 +17,14 @@ const candidateSafeWorkspace = (data = {}) => ({
     testRuns: Array.isArray(data.testRuns) ? data.testRuns : [],
 });
 const emptyFinding = () => ({ filePath: "", rootCause: "", evidence: "", proposedFix: "" });
+// "Invalid request" is the generic message the API's shared validation middleware sends for
+// any schema failure — it isn't written for candidates and gives them nothing actionable.
+// Prefer it only when it's actually specific; otherwise fall back to the caller's own
+// friendlier, already-written copy for that action.
+const describeError = (err, fallback) => {
+    const message = err?.response?.data?.message;
+    return message && message !== "Invalid request" ? message : fallback;
+};
 
 function TestResult({ result, final = false }) {
     if (!result) return null;
@@ -66,6 +74,8 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
     const [lastSavedAt, setLastSavedAt] = useState(null);
+    const [pendingSubmission, setPendingSubmission] = useState(null);
+    const [reopening, setReopening] = useState(false);
     const dirtyRef = useRef(false);
 
     const load = useCallback(async () => {
@@ -79,7 +89,7 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
             setFindings(safe.findings);
             dirtyRef.current = false;
         } catch (err) {
-            setError(err?.response?.data?.message || "The debugging workspace could not be loaded.");
+            setError(describeError(err, "The debugging workspace could not be loaded."));
         } finally {
             setLoading(false);
         }
@@ -102,7 +112,7 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
             dirtyRef.current = false;
             return safe;
         } catch (err) {
-            setError(err?.response?.data?.message || "Your debugging work could not be saved.");
+            setError(describeError(err, "Your debugging work could not be saved."));
             return null;
         } finally {
             setSaving(false);
@@ -111,6 +121,12 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
 
     useEffect(() => {
         if (!workspace || !dirtyRef.current || workspace.submittedAt) return undefined;
+        // A freshly added finding starts with an empty filePath (the candidate hasn't picked
+        // a file yet) — the server requires a non-empty filePath, so autosaving right after
+        // "Add finding" would surface an "Invalid request" error for completely normal,
+        // in-progress input. Wait until every finding has a file selected before autosaving;
+        // Submit still validates immediately, which is the right place for that feedback.
+        if (findings.some((finding) => !finding.filePath?.trim())) return undefined;
         const timer = window.setTimeout(() => { save(); }, 900);
         return () => window.clearTimeout(timer);
     }, [files, findings, save, workspace]);
@@ -125,7 +141,7 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
             if (!saved) return;
             const { data } = await api.post(`${endpoint}/run-tests`, {}, { headers, skipAuthRedirect: true });
             setWorkspace((current) => ({ ...current, testRuns: [...(current?.testRuns || []), data] }));
-        } catch (err) { setError(err?.response?.data?.message || "Tests could not be run."); }
+        } catch (err) { setError(describeError(err, "Tests could not be run.")); }
         finally { setRunning(false); }
     };
 
@@ -136,9 +152,29 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
             if (!saved) return;
             const { data } = await api.post(`${endpoint}/submit`, {}, { headers, skipAuthRedirect: true });
             setWorkspace((current) => ({ ...current, submittedAt: new Date().toISOString(), finalEvaluation: data.summary }));
-            onSubmitted?.(data.attempt, data.summary);
-        } catch (err) { setError(err?.response?.data?.message || "The debugging round could not be submitted."); }
+            // Findings submissions don't score anything immediately, so there's no harm in
+            // letting the candidate revise before moving on — hold the round transition until
+            // they explicitly continue, instead of advancing the moment the request succeeds.
+            if (workspace?.responseMode === "findings") setPendingSubmission({ attempt: data.attempt, summary: data.summary });
+            else onSubmitted?.(data.attempt, data.summary);
+        } catch (err) { setError(describeError(err, "The debugging round could not be submitted.")); }
         finally { setSubmitting(false); }
+    };
+
+    const continueToNextRound = () => { if (pendingSubmission) onSubmitted?.(pendingSubmission.attempt, pendingSubmission.summary); };
+
+    const editFindings = async () => {
+        setReopening(true); setError("");
+        try {
+            const { data } = await api.post(`${endpoint}/reopen`, {}, { headers, skipAuthRedirect: true });
+            const safe = candidateSafeWorkspace(data);
+            setWorkspace(safe);
+            setFiles(safe.files);
+            setFindings(safe.findings);
+            setPendingSubmission(null);
+            dirtyRef.current = false;
+        } catch (err) { setError(describeError(err, "This round could not be reopened for editing.")); }
+        finally { setReopening(false); }
     };
 
     const latestRun = useMemo(() => workspace?.testRuns?.[workspace.testRuns.length - 1], [workspace?.testRuns]);
@@ -157,6 +193,7 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
             </Stack>
         </Box>
         {error && <Alert severity="error">{error}</Alert>}
+        {pendingSubmission && <Alert severity="success">Findings submitted. You can still edit them before continuing to the next round.</Alert>}
 
         {workspace.responseMode === "findings" ? <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0,1.35fr) minmax(320px,.65fr)" }, gap: 2, alignItems: "start" }}>
             <DebuggingProjectWorkspace files={files} runtime={workspace.runtime} readOnly hideHidden />
@@ -176,6 +213,10 @@ export default function CandidateDebuggingRound({ endpoint, headers, canRun = tr
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1} alignItems={{ sm: "center" }}>
             <Typography variant="caption" color="text.secondary">Autosave keeps your work on the server.</Typography>
             {!submitted && <Button variant="contained" endIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <SendRounded />} disabled={submitting || saving} onClick={submitRound}>{submitting ? "Submitting…" : workspace.responseMode === "code_fix" ? "Submit solution" : "Submit findings"}</Button>}
+            {pendingSubmission && <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Button variant="outlined" disabled={reopening} onClick={editFindings}>{reopening ? "Reopening…" : "Edit findings"}</Button>
+                <Button variant="contained" onClick={continueToNextRound}>Continue to next round</Button>
+            </Stack>}
         </Stack>
     </Stack></Paper>;
 }

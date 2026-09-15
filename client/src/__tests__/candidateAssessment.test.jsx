@@ -181,6 +181,36 @@ describe("candidate assessment interview UX", () => {
         expect(post).toHaveBeenCalledTimes(1);
     });
 
+    it("scopes the coding round's camera preview to its own sized slot instead of floating over the round footer", async () => {
+        // WebcamPreview used to render as a direct child of the round-spanning Paper, so its
+        // absolute bottom-right positioning floated over the ENTIRE round (problem statement,
+        // workspace, and footer) instead of just the workspace column — covering and blocking
+        // clicks on "Save and continue" at typical viewport heights. It must be scoped inside
+        // a small dedicated slot, the same pattern Practice's OAForm already uses.
+        get.mockResolvedValue({ data: {
+            title: "Coding screen", jobRole: "Engineer", durationMinutes: 30, followUpsEnabled: false,
+            capabilities: { transcription: false, codeExecution: false },
+            rounds: [{ name: "Coding", deliveryMode: "online-assessment", questionCount: 1 }],
+        } });
+        const question = { _id: "q1", text: "Implement a rate limiter.", answer: "" };
+        const baseAttempt = { _id: "attempt", startedAt: new Date().toISOString(), rounds: [{ _id: "round", name: "Coding", deliveryMode: "online-assessment", questions: [question] }] };
+        post.mockResolvedValue({ data: { attemptToken: "token", attempt: baseAttempt } });
+
+        renderCandidate();
+        await begin();
+        expect(await screen.findByRole("heading", { name: "Implement a rate limiter." })).toBeTruthy();
+
+        // The dedicated slot must exist at all (its absence is exactly the regression: a bare
+        // WebcamPreview positioned relative to the whole round instead of the workspace
+        // column), and it must be nested inside the workspace column alongside the code
+        // editor — not a sibling of the footer bar holding "Save and review round".
+        const cameraSlot = screen.getByTestId("online-assessment-camera-slot");
+        const workspaceHeading = screen.getByText("WORKSPACE");
+        expect(workspaceHeading.parentElement.contains(cameraSlot)).toBe(true);
+        const saveButton = screen.getByRole("button", { name: "Save and review round" });
+        expect(workspaceHeading.parentElement.contains(saveButton)).toBe(false);
+    });
+
     it("uses a soft conversational ending when a round finishes", async () => {
         get.mockResolvedValue({ data: {
             title: "One-round screen", jobRole: "Engineer", durationMinutes: 20, followUpsEnabled: false,
