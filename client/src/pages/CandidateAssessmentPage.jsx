@@ -112,7 +112,7 @@ export default function CandidateAssessmentPage() {
         capabilities: assessment?.capabilities || {},
     }), [assessment?.capabilities, attempt?._id, attemptToken, shareToken]);
     const {
-        listening, listeningTarget, interimText, micLevel, micPermission, micSessionActive, handsFreePaused,
+        listening, listeningTarget, interimText, micLevel, isSpeaking, micPermission, micSessionActive, handsFreePaused,
         inputDevices, selectedDeviceId, setSelectedDeviceId, supportsSTT, supportsTTS,
         startListening, stopListening, retargetListening, speakNow,
         startHandsFree, pauseHandsFree, resumeHandsFree, stopHandsFree,
@@ -613,6 +613,7 @@ export default function CandidateAssessmentPage() {
                                 listeningTarget={listeningTarget}
                                 interimText={interimText}
                                 micLevel={micLevel}
+                                isSpeaking={isSpeaking}
                                 micPermission={micPermission}
                                 micSessionActive={micSessionActive}
                                 handsFreePaused={handsFreePaused}
@@ -648,6 +649,8 @@ export default function CandidateAssessmentPage() {
                                 listening={listening}
                                 listeningTarget={listeningTarget}
                                 interimText={interimText}
+                                micLevel={micLevel}
+                                isSpeaking={isSpeaking}
                                 onSpeak={speakNow}
                                 savedAt={lastSavedAt}
                                 micSessionActive={micSessionActive}

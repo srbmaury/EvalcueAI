@@ -40,6 +40,7 @@ const ConversationalPanel = ({
     listeningTarget,
     interimText,
     micLevel = 0,
+    isSpeaking,
     onSpeak,
     outlinedInputSx,
     savedAt,
@@ -187,16 +188,20 @@ const ConversationalPanel = ({
 
     useEffect(() => {
         const currentAnswer = String(convAnswer || "");
+        // Prefer the hook's calibrated, hysteresis-smoothed isSpeaking signal when the caller
+        // provides it; fall back to a raw amplitude check only for callers that don't (e.g.
+        // older tests) so behavior stays sane without the full useVoiceInput wiring.
+        const hasVoiceEnergy = isSpeaking !== undefined ? isSpeaking : Number(micLevel) >= SPEECH_ACTIVITY_LEVEL;
         if (
             currentAnswer !== lastObservedAnswerRef.current
             || Boolean(interimText?.trim())
-            || (isRecording && Number(micLevel) >= SPEECH_ACTIVITY_LEVEL)
+            || (isRecording && hasVoiceEnergy)
         ) {
             lastVoiceActivityRef.current = Date.now();
             if (currentAnswer !== lastObservedAnswerRef.current) autoSubmittedTurnRef.current = "";
             lastObservedAnswerRef.current = currentAnswer;
         }
-    }, [convAnswer, interimText, isRecording, micLevel]);
+    }, [convAnswer, interimText, isRecording, isSpeaking, micLevel]);
 
     useEffect(() => () => { onStopHandsFree?.(); }, [onStopHandsFree]);
 

@@ -106,7 +106,7 @@ const InterviewPage = () => {
 
     const {
         listening, listeningTarget, interimText,
-        micLevel, micPermission, micSessionActive, handsFreePaused,
+        micLevel, isSpeaking, micPermission, micSessionActive, handsFreePaused,
         inputDevices, selectedDeviceId, setSelectedDeviceId,
         supportsSTT, supportsTTS,
         startListening, stopListening, speakNow,
@@ -258,7 +258,7 @@ const InterviewPage = () => {
         onSpeak: speakNow,
         onStartListening: startListening,
         onStopListening: stopListening,
-        micPermission, micLevel, micSessionActive, handsFreePaused,
+        micPermission, micLevel, isSpeaking, micSessionActive, handsFreePaused,
         inputDevices, selectedDeviceId,
         onChangeDevice: setSelectedDeviceId,
         onStartHandsFree: startHandsFree,
@@ -269,7 +269,7 @@ const InterviewPage = () => {
         outlinedInputSx,
     }), [
         supportsTTS, supportsSTT, listening, listeningTarget, interimText, speakNow,
-        startListening, stopListening, micPermission, micLevel, micSessionActive, handsFreePaused,
+        startListening, stopListening, micPermission, micLevel, isSpeaking, micSessionActive, handsFreePaused,
         inputDevices, selectedDeviceId, setSelectedDeviceId, startHandsFree, pauseHandsFree,
         resumeHandsFree, stopHandsFree,
     ]);
@@ -457,6 +457,7 @@ const InterviewPage = () => {
                                         listeningTarget={listeningTarget}
                                         interimText={interimText}
                                         micLevel={micLevel}
+                                        isSpeaking={isSpeaking}
                                         micPermission={micPermission}
                                         micSessionActive={micSessionActive}
                                         handsFreePaused={handsFreePaused}
