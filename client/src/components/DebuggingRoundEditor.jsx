@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Alert, Box, Button, Chip, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import PlayArrowRounded from "@mui/icons-material/PlayArrowRounded";
 import api from "../api/axios";
+import { useNotify } from "../context/NotificationContext";
 import DebuggingProjectWorkspace from "./DebuggingProjectWorkspace";
 import { createDebuggingRound, DEBUGGING_RUNTIMES } from "../utils/debuggingProject";
 import { describeError } from "../utils/errorFormatter";
 
 export default function DebuggingRoundEditor({ round, onChange, validation, onValidationChange }) {
+    const notify = useNotify();
     const fallback = createDebuggingRound();
     const debugging = {
         ...fallback.debugging,
@@ -36,8 +38,17 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
         try {
             const { data } = await api.post("/assessments/debugging/validate", { instructions: instruction, debugging });
             onValidationChange?.(data);
+            if (data?.valid) {
+                notify(data.message || "Assignment validated successfully.", "success");
+            } else {
+                const message = data?.message || "Assignment validation failed.";
+                notify(message, "error");
+                setValidationError(message);
+                onValidationChange?.({ valid: false, message });
+            }
         } catch (err) {
             const message = describeError(err, "The assignment could not be validated.");
+            notify(message, "error");
             setValidationError(message);
             onValidationChange?.({ valid: false, message });
         } finally {
