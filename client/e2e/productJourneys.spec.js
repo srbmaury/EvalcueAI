@@ -132,13 +132,15 @@ test("Practice and Hire stay separate while profile exposes core practice settin
         await expect(page.getByRole("button", { name: "Resume review" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Progress" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Company insights" })).toBeVisible();
-        await page.getByRole("button", { name: "Hire", exact: true }).click();
     } else {
         await page.getByRole("button", { name: "Open navigation" }).click();
         await expect(page.getByRole("menuitem", { name: "Resume review" })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "Company insights" })).toBeVisible();
-        await page.getByRole("menuitem", { name: "Hire", exact: true }).click();
     }
+    // The header no longer offers an in-app Practice/Hire switcher (workspace choice now
+    // happens at signup/login, not mid-session); reaching Hire from a Practice session is a
+    // direct navigation, same as a user following a link or typing the URL.
+    await page.goto("/hire/assessments");
     await expect(page).toHaveURL(/\/hire\/assessments$/);
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
     if ((page.viewportSize()?.width || 0) >= 900) {
@@ -340,7 +342,9 @@ test("recruiter coding assessment uses the full interview workspace", async ({ p
     await page.getByRole("button", { name: "Start assessment" }).click();
     await expect(page.getByRole("heading", { name: "Implement a function that removes duplicate IDs." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Speak question" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Start voice" })).toBeVisible();
+    // The coding round now narrates the problem and listens hands-free (matching Practice's
+    // OAForm), auto-starting the mic session instead of a push-to-talk "Start voice" button.
+    await expect(page.getByText(/Mic (live|ready)/)).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Editor content" })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Explain your approach" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Run" })).toBeVisible();
