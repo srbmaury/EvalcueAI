@@ -56,7 +56,7 @@ export default function HiringTeamPage() {
         setBillingLoading(true);
         api.get("/billing/hiring/entitlements")
             .then(({ data }) => setBilling(data))
-            .catch((err) => setError(describeError(err, "Could not load Hiring plan"))
+            .catch((err) => setError(describeError(err, "Could not load Hiring plan")))
             .finally(() => setBillingLoading(false));
     }, [activeOrganization?._id, canManageOrganization]);
 
@@ -70,7 +70,7 @@ export default function HiringTeamPage() {
         try {
             await api.patch(`/organizations/${activeOrganization._id}`, { name });
             await refreshOrganizations();
-        } catch (err) { setError(describeError(err, "Could not rename organization"); }
+        } catch (err) { setError(describeError(err, "Could not rename organization")); }
         finally { setRenaming(false); }
     };
 
@@ -85,7 +85,7 @@ export default function HiringTeamPage() {
             await loadMembers();
             await refreshOrganizations();
         } catch (err) {
-            setError(describeError(err, "Could not add team member");
+            setError(describeError(err, "Could not add team member"));
         } finally {
             setAdding(false);
         }
@@ -99,7 +99,7 @@ export default function HiringTeamPage() {
             setConfirmTarget(null);
             await loadMembers();
         } catch (err) {
-            setError(describeError(err, "Could not update role");
+            setError(describeError(err, "Could not update role"));
         } finally {
             setTeamActionLoading(false);
         }
@@ -114,7 +114,7 @@ export default function HiringTeamPage() {
             await refreshOrganizations();
             await loadMembers();
         } catch (err) {
-            setError(describeError(err, "Could not transfer ownership");
+            setError(describeError(err, "Could not transfer ownership"));
         } finally {
             setTeamActionLoading(false);
         }
@@ -129,7 +129,7 @@ export default function HiringTeamPage() {
             await loadMembers();
             await refreshOrganizations();
         } catch (err) {
-            setError(describeError(err, "Could not remove member");
+            setError(describeError(err, "Could not remove member"));
         } finally {
             setTeamActionLoading(false);
         }
@@ -143,7 +143,7 @@ export default function HiringTeamPage() {
             if (!data?.url) throw new Error("Missing billing URL");
             window.location.assign(data.url);
         } catch (err) {
-            setError(describeError(err, "Could not open Hiring billing");
+            setError(describeError(err, "Could not open Hiring billing"));
             setBillingActionLoading(false);
         }
     };
@@ -167,7 +167,7 @@ export default function HiringTeamPage() {
             await createOrganization(organizationName.trim());
             setOrganizationName("");
         } catch (err) {
-            setError(describeError(err, "Could not create organization");
+            setError(describeError(err, "Could not create organization"));
         }
     };
 

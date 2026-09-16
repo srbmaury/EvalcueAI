@@ -225,7 +225,7 @@ export default function CandidateAssessmentPage() {
             persist(data.attempt, data.attemptToken, {});
         } catch (err) {
             if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
-            const message = describeError(err, "We couldn't start your assessment.");
+            const message = describeError(err, "We couldn’t start your assessment.");
             setError(message);
             notify(message, "error");
         } finally { setBusy(false); }
@@ -413,8 +413,8 @@ export default function CandidateAssessmentPage() {
             nextRoundIndex: nextRound ? roundIndex + 1 : null,
             title: `Thanks — that wraps up ${currentRound.name}.`,
             message: nextRound
-                ? `That gives me what I need for this part. When you're ready, we'll move on to ${nextRound.name}.`
-                : "That gives me what I need from the interview. Review the completion summary, then submit when you're ready.",
+                ? `That gives me what I need for this part. When you’re ready, we’ll move on to ${nextRound.name}.`
+                : "That gives me what I need from the interview. Review the completion summary, then submit when you’re ready.",
         });
     }, [stopHandsFree]);
 
@@ -663,8 +663,8 @@ export default function CandidateAssessmentPage() {
                                 showRoundControls={false}
                                 allowFollowUpSkip={false}
                                 showFollowUpCount={false}
-                                submitAnswerLabel="I'm done"
-                                submitFollowUpLabel="I'm done"
+                                submitAnswerLabel="I’m done"
+                                submitFollowUpLabel="I’m done"
                                 cameraSlot={<WebcamPreview autoStart={assessment.integrity?.requireCamera} required={assessment.integrity?.requireCamera} monitorFaces={assessment.integrity?.enabled && assessment.integrity?.monitorFacePresence} onIntegrityEvent={recordIntegrityEvent} onFaceStatusChange={setFaceStatus} />}
                             />
                         ) : isActiveDebugging ? (
@@ -719,7 +719,7 @@ export default function CandidateAssessmentPage() {
                             <Paper variant="outlined" sx={{ p: 4 }}><Typography color="text.secondary">Preparing the next interview step…</Typography></Paper>
                         )}
 
-                        {assessment.integrity?.monitorFacePresence && ["missing", "multiple", "camera_interrupted", "unavailable"].includes(faceStatus) && <Alert severity={faceStatus === "unavailable" ? "info" : "warning"} sx={{ mt: 1 }}>{faceStatus === "missing" ? "We can't clearly see your face. Please return to the camera view." : faceStatus === "multiple" ? "More than one face is visible. Please ensure only you are in frame." : faceStatus === "camera_interrupted" ? "Your camera stopped. Restore camera access to continue the monitored interview." : "Face detection is unavailable in this browser. This is recorded as a technical event, not an automatic misconduct finding."}</Alert>}
+                        {assessment.integrity?.monitorFacePresence && ["missing", "multiple", "camera_interrupted", "unavailable"].includes(faceStatus) && <Alert severity={faceStatus === "unavailable" ? "info" : "warning"} sx={{ mt: 1 }}>{faceStatus === "missing" ? "We can’t clearly see your face. Please return to the camera view." : faceStatus === "multiple" ? "More than one face is visible. Please ensure only you are in frame." : faceStatus === "camera_interrupted" ? "Your camera stopped. Restore camera access to continue the monitored interview." : "Face detection is unavailable in this browser. This is recorded as a technical event, not an automatic misconduct finding."}</Alert>}
 
                         {allRoundsComplete && !roundTransition && (
                             <Paper id="assessment-submit" variant="outlined" sx={{ mt: 2, p: { xs: 2.5, md: 3 }, borderRadius: 3 }}>
@@ -738,7 +738,7 @@ export default function CandidateAssessmentPage() {
             <DialogContent>
                 <Stack spacing={1.5}>
                     <Typography>{attempt?.rounds?.length || 0} of {attempt?.rounds?.length || 0} rounds completed.</Typography>
-                    <Alert severity="info">Your responses are saved. After submission, you won't be able to change them.</Alert>
+                    <Alert severity="info">Your responses are saved. After submission, you won’t be able to change them.</Alert>
                 </Stack>
             </DialogContent>
             <DialogActions>
