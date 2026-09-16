@@ -183,7 +183,6 @@ export default function AssessmentBuilderPage() {
         const hydrationKey = `${activeOrganization._id}:${editId || "new"}`;
         if (hydrationKeyRef.current === hydrationKey) return;
         hydrationKeyRef.current = hydrationKey;
-        let active = true;
 
         const hydrate = async () => {
             setLoadingBuilder(isEditing);
@@ -193,7 +192,12 @@ export default function AssessmentBuilderPage() {
             try {
                 if (isEditing) {
                     const { data } = await api.get(`/assessments/${editId}`);
-                    if (!active) return;
+                    // hydrationKeyRef (not a per-invocation closure flag) is the source of
+                    // truth for whether this hydration is still current: it's shared across
+                    // React StrictMode's dev-only double-invoke of this effect, so unlike a
+                    // local `let active = true` severed by a synthetic remount's cleanup, it
+                    // only actually changes when the org/editId genuinely changes later.
+                    if (hydrationKeyRef.current !== hydrationKey) return;
                     const assessment = data?.assessment;
                     if (!assessment || assessment.status !== "draft" || data?.attempts?.length) {
                         notify("Only unused drafts can be edited. Create a new version instead.", "warning");
@@ -238,17 +242,16 @@ export default function AssessmentBuilderPage() {
                     }
                 }
             } catch (err) {
-                if (!active) return;
+                if (hydrationKeyRef.current !== hydrationKey) return;
                 setError(describeError(err, "The assessment draft could not be loaded."));
             } finally {
-                if (active) {
+                if (hydrationKeyRef.current === hydrationKey) {
                     setLoadingBuilder(false);
                     setHydrated(true);
                 }
             }
         };
         hydrate();
-        return () => { active = false; };
     }, [activeOrganization?._id, draftKey, editId, isEditing, navigate, notify]);
 
     useEffect(() => {
