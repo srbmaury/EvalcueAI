@@ -114,7 +114,7 @@ export default function CandidateAssessmentPage() {
     const {
         listening, listeningTarget, interimText, micLevel, isSpeaking, micPermission, micSessionActive, handsFreePaused,
         inputDevices, selectedDeviceId, setSelectedDeviceId, supportsSTT, supportsTTS,
-        startListening, stopListening, retargetListening, speakNow,
+        stopListening, retargetListening, speakNow,
         startHandsFree, pauseHandsFree, resumeHandsFree, stopHandsFree,
     } = useVoiceInput({
         onTranscript,

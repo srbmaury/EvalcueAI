@@ -36,8 +36,7 @@ import { OrganizationContext } from "../context/OrganizationContext";
 import { useThemeMode } from "../context/ThemeContext";
 import { useNotifications } from "../context/NotificationContext";
 import { hiringHomeForRole, hiringPermissionsFor } from "../utils/hiringPermissions";
-import { productHomePath, productLoginPath, productRegisterPath } from "../utils/productRoutes";
-import { configuredSurface, deploymentRedirectUrl } from "../utils/deploymentSurface";
+import { productLoginPath, productRegisterPath } from "../utils/productRoutes";
 import { setWorkspacePreference } from "../utils/workspacePreference";
 
 const ProductFeedbackDialog = lazy(() => import("./ProductFeedbackDialog"));
@@ -66,20 +65,6 @@ const navButtonSx = (active) => ({
     "&:hover": { bgcolor: "action.hover", color: "text.primary" },
 });
 
-const productSwitchButtonSx = (active) => ({
-    minWidth: 0,
-    px: 1.25,
-    borderRadius: 999,
-    fontWeight: 850,
-    textTransform: "none",
-    color: active ? "primary.contrastText" : "text.secondary",
-    bgcolor: active ? "primary.main" : "transparent",
-    "&:hover": {
-        bgcolor: active ? "primary.dark" : "action.selected",
-        color: active ? "primary.contrastText" : "text.primary",
-    },
-});
-
 export const isProductNavItemActive = (location, item) => {
     if (item.matchPrefix && location.pathname.startsWith(item.matchPrefix)) return true;
     if (location.pathname !== item.path) return false;
@@ -100,7 +85,6 @@ export default function ProductHeader({ surface = "practice" }) {
     const { notifications, unreadCount, markNotificationRead, markAllRead } = useNotifications();
     const location = useLocation();
     const navigate = useNavigate();
-    const deployedSurface = configuredSurface();
     const [mobileAnchor, setMobileAnchor] = useState(null);
     const [profileAnchor, setProfileAnchor] = useState(null);
     const [organizationAnchor, setOrganizationAnchor] = useState(null);
@@ -157,25 +141,6 @@ export default function ProductHeader({ surface = "practice" }) {
     const openPrimaryAction = () => {
         if (surface === "hiring") navigate("/hire/assessments?create=1", { state: { openCreate: Date.now() } });
         else navigate("/practice/new");
-    };
-
-    const openProduct = (nextWorkspace) => {
-        const nextConfig = CONFIG[nextWorkspace] || CONFIG.practice;
-        if (user?._id) setWorkspacePreference(nextWorkspace, user._id);
-        else setWorkspacePreference(nextWorkspace);
-
-        const targetPath = user ? productHomePath(nextWorkspace) : nextConfig.publicHome;
-        if (nextWorkspace === surface) {
-            navigate(targetPath);
-            return;
-        }
-
-        const deploymentUrl = deploymentRedirectUrl(deployedSurface, nextWorkspace, targetPath);
-        if (deploymentUrl) {
-            window.location.assign(deploymentUrl);
-            return;
-        }
-        navigate(targetPath);
     };
 
     const selectHiringOrganization = (organization) => {
