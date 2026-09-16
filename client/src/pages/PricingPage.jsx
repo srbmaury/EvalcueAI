@@ -4,6 +4,7 @@ import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Containe
 import { CheckCircleOutline } from "@mui/icons-material";
 import api from "../api/axios";
 import { trackEvent } from "../utils/analytics";
+import { describeError } from "../utils/errorFormatter";
 
 const plans = [
     {
@@ -53,7 +54,7 @@ export default function PricingPage() {
             if (!data?.url) throw new Error("Missing billing URL");
             window.location.assign(data.url);
         } catch (e) {
-            setError(e?.response?.data?.message || "Billing could not be opened.");
+            setError(describeError(e, "Billing could not be opened."));
             setLoading(false);
         }
     };

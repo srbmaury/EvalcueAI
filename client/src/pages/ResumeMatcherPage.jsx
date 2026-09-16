@@ -6,6 +6,7 @@ import api from "../api/axios";
 import JobPostImporter from "../components/JobPostImporter";
 import { useNotify } from "../context/NotificationContext";
 import { trackEvent } from "../utils/analytics";
+import { describeError } from "../utils/errorFormatter";
 
 export default function ResumeMatcherPage() {
     const navigate = useNavigate();
@@ -22,7 +23,7 @@ export default function ResumeMatcherPage() {
             const { data } = await api.post("/resumes/match", { role: role.trim(), jobDescription: jobDescription.trim() });
             setResult(data); trackEvent("resume_match_completed");
             notify(`Compared ${data.resumeCount} resume${data.resumeCount === 1 ? "" : "s"}.`, "success");
-        } catch (error) { notify(error?.response?.data?.message || "Resumes could not be matched to this job.", "error"); }
+        } catch (error) { notify(describeError(error, "Resumes could not be matched to this job."), "error"); }
         finally { setLoading(false); }
     };
 

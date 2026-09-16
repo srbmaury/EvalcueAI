@@ -3,6 +3,7 @@ import { Alert, Box, Button, Card, CardContent, Chip, Container, Grid, MenuItem,
 import { Link as RouterLink } from "react-router-dom";
 import api from "../api/axios";
 import { useNotify } from "../context/NotificationContext";
+import { describeError } from "../utils/errorFormatter";
 
 const categories = { idea: "Idea", problem: "Problem", praise: "Praise", other: "Other" };
 export default function AdminFeedbackPage() {
@@ -15,7 +16,7 @@ export default function AdminFeedbackPage() {
     const load = useCallback(async () => { try { setLoading(true); setError(""); const { data } = await api.get("/admin/feedback", { params: { page, limit: 20, status: status || undefined, category: category || undefined, q: query || undefined } }); setItems(data.items || []); setTotalPages(data.totalPages || 1); } catch (e) { setError(e?.response?.status === 403 ? "Administrator access is required." : "Feedback could not be loaded."); } finally { setLoading(false); } }, [page, status, category, query]);
     useEffect(() => { load(); }, [load]);
     useEffect(() => { api.get("/admin/overview").then(({ data }) => setOverview(data)).catch(() => {}); }, []);
-    const updateStatus = async (id, nextStatus) => { try { setUpdating(id); const { data } = await api.patch(`/admin/feedback/${id}`, { status: nextStatus }); setItems((current) => current.map((item) => item._id === id ? data : item)); notify(`Feedback marked ${nextStatus}.`, "success"); } catch (e) { notify(e?.response?.data?.message || "Status could not be updated.", "error"); } finally { setUpdating(""); } };
+    const updateStatus = async (id, nextStatus) => { try { setUpdating(id); const { data } = await api.patch(`/admin/feedback/${id}`, { status: nextStatus }); setItems((current) => current.map((item) => item._id === id ? data : item)); notify(`Feedback marked ${nextStatus}.`, "success"); } catch (e) { notify(describeError(e, "Status could not be updated."), "error"); } finally { setUpdating(""); } };
     return <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} gap={1}><Box><Typography variant="overline" color="primary.main" fontWeight={850}>Admin</Typography><Typography component="h1" variant="h3" fontWeight={850}>Product feedback</Typography></Box><Button component={RouterLink} to="/admin/audit" variant="outlined">View audit activity</Button></Stack><Typography color="text.secondary" mt={1} mb={3}>Review user-submitted ideas, problems, and praise. Status changes are written to the audit log.</Typography>
         {overview && <><Typography component="h2" variant="h5" fontWeight={800} mb={2}>Operating overview</Typography><Grid container spacing={2} mb={4}>{[

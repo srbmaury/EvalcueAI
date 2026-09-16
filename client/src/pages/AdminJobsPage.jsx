@@ -3,6 +3,7 @@ import { Alert, Box, Button, Chip, CircularProgress, Container, FormControl, Inp
 import api from "../api/axios";
 import { useNotify } from "../context/NotificationContext";
 import ConfirmActionDialog from "../components/ConfirmActionDialog";
+import { describeError } from "../utils/errorFormatter";
 
 const QUEUES = [
     { value: "prepare-questions", label: "Question preparation" },
@@ -21,7 +22,7 @@ export default function AdminJobsPage() {
     const load = useCallback(async () => {
         setLoading(true); setError("");
         try { const { data } = await api.get(`/jobs/failed/${queue}`); setItems(data?.items || []); }
-        catch (err) { setError(err?.response?.data?.message || "Could not load failed jobs."); }
+        catch (err) { setError(describeError(err, "Could not load failed jobs.")); }
         finally { setLoading(false); }
     }, [queue]);
 
@@ -35,7 +36,7 @@ export default function AdminJobsPage() {
             notify(action === "retry" ? "Job queued for retry." : "Job removed.", "success");
             setRemoveTarget(null);
             await load();
-        } catch (err) { setError(err?.response?.data?.message || `Could not ${action} this job.`); }
+        } catch (err) { setError(describeError(err, `Could not ${action} this job.`)); }
         finally { setBusyId(""); }
     };
 

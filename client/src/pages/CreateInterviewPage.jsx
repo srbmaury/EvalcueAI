@@ -5,6 +5,7 @@ import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
 import { useResumes } from "../hooks/useResumes";
 import { trackEvent } from "../utils/analytics";
+import { describeError } from "../utils/errorFormatter";
 
 import Alert from "@mui/material/Alert";
 import {
@@ -113,7 +114,7 @@ const CreateInterviewPage = () => {
             }
         } catch (err) {
             console.error("Upload failed", err);
-            notify(err?.response?.data?.message || err?.message || "Resume upload failed.", "error");
+            notify(describeError(err, "Resume upload failed."), "error");
         } finally {
             setUploading(false);
         }
@@ -221,7 +222,7 @@ const CreateInterviewPage = () => {
         } catch (error) {
             console.log("error", error);
             if (error?.response?.data?.code !== "PRACTICE_LIMIT_REACHED") {
-                notify(error?.response?.data?.message || "Interview could not be created.", "error");
+                notify(describeError(error, "Interview could not be created."), "error");
             }
         }
     };
@@ -264,6 +265,8 @@ const CreateInterviewPage = () => {
                         value={formData.jobRole}
                         onChange={handleChange}
                         required
+                        helperText={formData.jobRole ? "✓ Role specified" : "Required — describe the target role"}
+                        error={!formData.jobRole}
                     />
                     <TextField
                         label="Job description"
@@ -273,7 +276,8 @@ const CreateInterviewPage = () => {
                         rows={4}
                         onChange={handleChange}
                         required
-                        helperText="Include responsibilities, seniority, required skills, and success criteria; these directly shape generated questions."
+                        helperText={formData.jobDescription ? `✓ ${formData.jobDescription.length} characters — Include responsibilities, seniority, required skills, and success criteria.` : "Required — describe the role, responsibilities, and requirements"}
+                        error={!formData.jobDescription}
                     />
 
                     <Divider sx={{ my: 2.5 }} />

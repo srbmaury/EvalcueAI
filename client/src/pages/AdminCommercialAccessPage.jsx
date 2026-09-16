@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import api from "../api/axios";
 import ConfirmActionDialog from "../components/ConfirmActionDialog";
+import { describeError } from "../utils/errorFormatter";
 
 const planLabel = (plan) => ({
     none: "No access",
@@ -55,7 +56,7 @@ export default function AdminCommercialAccessPage() {
             setUsers(usersResponse.data?.users || []);
             setOrganizations(organizationsResponse.data?.organizations || []);
         } catch (requestError) {
-            setError(requestError?.response?.status === 403 ? "Administrator access is required." : requestError?.response?.data?.message || "Admin data could not be loaded.");
+            setError(requestError?.response?.status === 403 ? "Administrator access is required." : describeError(requestError, "Admin data could not be loaded."));
         } finally {
             setLoading(false);
         }
@@ -81,7 +82,7 @@ export default function AdminCommercialAccessPage() {
             setConfirmTarget(null);
             await load();
         } catch (requestError) {
-            setError(requestError?.response?.data?.message || "Could not change the user's role.");
+            setError(describeError(requestError, "Could not change the user's role."));
         } finally {
             setSaving("");
         }
@@ -114,7 +115,7 @@ export default function AdminCommercialAccessPage() {
             setConfirmTarget(null);
             await load();
         } catch (requestError) {
-            setError(requestError?.response?.data?.message || "Could not grant Hiring access.");
+            setError(describeError(requestError, "Could not grant Hiring access."));
         } finally {
             setSaving("");
         }
@@ -136,7 +137,7 @@ export default function AdminCommercialAccessPage() {
             setConfirmTarget(null);
             await load();
         } catch (requestError) {
-            setError(requestError?.response?.data?.message || "Could not revoke Hiring access.");
+            setError(describeError(requestError, "Could not revoke Hiring access."));
         } finally {
             setSaving("");
         }

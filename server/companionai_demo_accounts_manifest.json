@@ -1,0 +1,232 @@
+{
+  "sharedDemoPassword": "Demo@EvalCueA1",
+  "accounts": [
+    {
+      "email": "admin@srbmaury.com",
+      "name": "Platform Admin",
+      "platformRole": "admin",
+      "type": "platform_admin"
+    }, 
+    {
+      "email": "candidate01@srbmaury.com",
+      "name": "Demo Candidate 01",
+      "platformRole": "user",
+      "type": "candidate"
+    },
+    {
+      "email": "candidate02@srbmaury.com",
+      "name": "Demo Candidate 02",
+      "platformRole": "user",
+      "type": "candidate"
+    },
+    {
+      "email": "candidate03@srbmaury.com",
+      "name": "Demo Candidate 03",
+      "platformRole": "user",
+      "type": "candidate"
+    },
+    {
+      "email": "candidate04@srbmaury.com",
+      "name": "Demo Candidate 04",
+      "platformRole": "user",
+      "type": "candidate"
+    },
+    {
+      "email": "candidate05@srbmaury.com",
+      "name": "Demo Candidate 05",
+      "platformRole": "user",
+      "type": "candidate"
+    },
+    {
+      "email": "candidate06@srbmaury.com",
+      "name": "Demo Candidate 06",
+      "platformRole": "user",
+      "type": "candidate"
+    },
+    {
+      "email": "candidate07@srbmaury.com",
+      "name": "Demo Candidate 07",
+      "platformRole": "user",
+      "type": "candidate"
+    },
+    {
+      "email": "candidate08@srbmaury.com",
+      "name": "Demo Candidate 08",
+      "platformRole": "user",
+      "type": "candidate"
+    },
+    {
+      "email": "candidate09@srbmaury.com",
+      "name": "Demo Candidate 09",
+      "platformRole": "user",
+      "type": "candidate"
+    },
+    {
+      "email": "candidate10@srbmaury.com",
+      "name": "Demo Candidate 10",
+      "platformRole": "user",
+      "type": "candidate"
+    },
+    {
+      "email": "owner@srbmaury.com",
+      "name": "Demo Hiring Owner",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "recruiter1@srbmaury.com",
+      "name": "Demo Recruiter 1",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "recruiter2@srbmaury.com",
+      "name": "Demo Recruiter 2",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "manager1@srbmaury.com",
+      "name": "Demo Hiring Manager 1",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "reviewer1@srbmaury.com",
+      "name": "Demo Reviewer 1",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "reviewer2@srbmaury.com",
+      "name": "Demo Reviewer 2",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "owner2@srbmaury.com",
+      "name": "Demo Hiring Owner 2",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "orgadmin2@srbmaury.com",
+      "name": "Demo Organization Admin 2",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "recruiter3@srbmaury.com",
+      "name": "Demo Recruiter 3",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "recruiter4@srbmaury.com",
+      "name": "Demo Recruiter 4",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "manager2@srbmaury.com",
+      "name": "Demo Hiring Manager 2",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "reviewer3@srbmaury.com",
+      "name": "Demo Reviewer 3",
+      "platformRole": "user",
+      "type": "hire_user"
+    },
+    {
+      "email": "reviewer4@srbmaury.com",
+      "name": "Demo Reviewer 4",
+      "platformRole": "user",
+      "type": "hire_user"
+    }
+  ],
+  "organizations": [
+    {
+      "name": "Srbmaury Demo Engineering",
+      "ownerEmail": "owner@srbmaury.com",
+      "members": [
+        [
+          "owner@srbmaury.com",
+          "owner"
+        ],
+        [
+          "admin@srbmaury.com",
+          "admin"
+        ],
+        [
+          "recruiter1@srbmaury.com",
+          "recruiter"
+        ],
+        [
+          "recruiter2@srbmaury.com",
+          "recruiter"
+        ],
+        [
+          "manager1@srbmaury.com",
+          "hiring_manager"
+        ],
+        [
+          "reviewer1@srbmaury.com",
+          "reviewer"
+        ],
+        [
+          "reviewer2@srbmaury.com",
+          "reviewer"
+        ]
+      ]
+    },
+    {
+      "name": "Srbmaury Demo Talent",
+      "ownerEmail": "owner2@srbmaury.com",
+      "members": [
+        [
+          "owner2@srbmaury.com",
+          "owner"
+        ],
+        [
+          "orgadmin2@srbmaury.com",
+          "admin"
+        ],
+        [
+          "recruiter3@srbmaury.com",
+          "recruiter"
+        ],
+        [
+          "recruiter4@srbmaury.com",
+          "recruiter"
+        ],
+        [
+          "manager2@srbmaury.com",
+          "hiring_manager"
+        ],
+        [
+          "reviewer3@srbmaury.com",
+          "reviewer"
+        ],
+        [
+          "reviewer4@srbmaury.com",
+          "reviewer"
+        ],
+        [
+          "recruiter2@srbmaury.com",
+          "reviewer"
+        ],
+        [
+          "manager1@srbmaury.com",
+          "recruiter"
+        ]
+      ]
+    }
+  ],
+  "notes": [
+    "All accounts should be created as provider=local and isVerified=true.",
+    "No signup or verification-email flow is used.",
+    "Supported organization roles: owner, admin, recruiter, hiring_manager, reviewer."
+  ]
+}

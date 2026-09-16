@@ -31,6 +31,7 @@ import { writePracticeCreateDraft } from "../utils/practiceCreateDraft";
 import { publicSupportEmail } from "../utils/publicContact";
 import { setWorkspacePreference } from "../utils/workspacePreference";
 import { trackEvent } from "../utils/analytics";
+import { describeError } from "../utils/errorFormatter";
 
 const selectedFromSearch = (config, search) => {
     const params = new URLSearchParams(search);
@@ -101,7 +102,7 @@ export default function ProductResourcePage({ surface }) {
             notify("Draft assessment created from this template.", "success");
             navigate(`/hire/assessments/${data._id}`);
         } catch (error) {
-            notify(error?.response?.data?.message || "Could not create the draft assessment.", "error");
+            notify(describeError(error, "Could not create the draft assessment."), "error");
         } finally {
             setCreating(false);
         }

@@ -1,6 +1,7 @@
 import { useContext, useState } from "react";
 import { Alert, Box, Button, CircularProgress, Container, Divider, Paper, Stack, TextField, Typography } from "@mui/material";
 import { OrganizationContext } from "../context/OrganizationContext";
+import { describeError } from "../utils/errorFormatter";
 
 export default function HiringOrganizationGate({ children }) {
     const { activeOrganization, createOrganization, refreshOrganizations, loading, error } = useContext(OrganizationContext);
@@ -25,7 +26,7 @@ export default function HiringOrganizationGate({ children }) {
         try {
             await createOrganization(name.trim());
         } catch (err) {
-            setCreateError(err?.response?.data?.message || err?.message || "Could not create organization");
+            setCreateError(describeError(err, "Could not create organization"));
         } finally {
             setCreating(false);
         }
@@ -41,7 +42,7 @@ export default function HiringOrganizationGate({ children }) {
                 setAccessMessage("No organization access yet. Ask an organization owner or admin to add the email address you use for Evalcue AI, then check again.");
             }
         } catch (err) {
-            setCreateError(err?.response?.data?.message || err?.message || "Could not check organization access");
+            setCreateError(describeError(err, "Could not check organization access"));
         } finally {
             setChecking(false);
         }

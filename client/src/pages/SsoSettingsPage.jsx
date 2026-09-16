@@ -4,6 +4,7 @@ import { Navigate } from "react-router-dom";
 import api from "../api/axios";
 import { OrganizationContext } from "../context/OrganizationContext";
 import { hiringHomeForRole, hiringPermissionsFor } from "../utils/hiringPermissions";
+import { describeError } from "../utils/errorFormatter";
 
 const defaults = {
     enabled: false,
@@ -45,7 +46,7 @@ export default function SsoSettingsPage() {
                     defaultRole: data.defaultRole || "reviewer",
                 });
             })
-            .catch((err) => setError(err?.response?.data?.message || "Could not load SSO settings"))
+            .catch((err) => setError(describeError(err, "Could not load SSO settings")))
             .finally(() => setLoading(false));
     }, [activeOrganization?._id, canManageOrganization]);
 

@@ -38,6 +38,7 @@ export default function SystemDesignDiscussionPanel({
     listeningTarget,
     interimText,
     micLevel = 0,
+    isSpeaking,
     micPermission = "unknown",
     micSessionActive,
     handsFreePaused,
@@ -85,12 +86,17 @@ export default function SystemDesignDiscussionPanel({
 
     // Split from the stopHandsFree cleanup below: mountedRef must only flip on a genuine
     // unmount. A single effect keyed on stopHandsFree would also flip it on every re-render
-    // where stopHandsFree's identity changes (including React StrictMode's dev-only mount ->
-    // cleanup -> remount cycle, which runs this cleanup once even on the very first mount) —
-    // with nothing to ever set it back to true, speakInterviewer's `if (mountedRef.current)
+    // where stopHandsFree's identity changes. The explicit `mountedRef.current = true` in the
+    // setup phase (not just relying on the initial useRef(true)) matters even with empty deps:
+    // React StrictMode's dev-only mount -> cleanup -> remount cycle runs this effect's cleanup
+    // once on the very first mount too, and without re-arming it here nothing would ever set
+    // mountedRef back to true afterward — speakInterviewer's `if (mountedRef.current)
     // setAiSpeaking(false)` would then silently never fire, leaving the UI stuck on
-    // "Interviewer speaking" forever after the first such re-render.
-    useEffect(() => () => { mountedRef.current = false; }, []);
+    // "Interviewer speaking" forever after that first StrictMode cycle.
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => { mountedRef.current = false; };
+    }, []);
     useEffect(() => () => { stopHandsFree?.(); }, [stopHandsFree]);
 
     const speakInterviewer = useCallback(async (text, { resumeAfter = true } = {}) => {
@@ -116,6 +122,7 @@ export default function SystemDesignDiscussionPanel({
         diagramData,
         interimText,
         micLevel,
+        isSpeaking,
         listening: isListening,
         interviewerSpeaking: aiSpeaking,
         onInterjection,
@@ -248,6 +255,8 @@ export default function SystemDesignDiscussionPanel({
                     <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
                         <Typography fontWeight={850}>Conversation</Typography>
                         <Box
+                            role="status"
+                            aria-live="polite"
                             aria-label={aiSpeaking ? "Interviewer speaking" : isListening ? "Listening" : "Microphone idle"}
                             sx={{
                                 width: 34,

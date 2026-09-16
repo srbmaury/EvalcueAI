@@ -30,6 +30,7 @@ export const useSystemDesignDiscussion = ({
     diagramData = "",
     interimText = "",
     micLevel = 0,
+    isSpeaking,
     listening = false,
     interviewerSpeaking = false,
     onInterjection,
@@ -78,8 +79,11 @@ export const useSystemDesignDiscussion = ({
     }, [interimText, listening, markCandidateTurnStart]);
 
     useEffect(() => {
-        if (listening && Number(micLevel) >= SPEECH_LEVEL_THRESHOLD) markCandidateTurnStart();
-    }, [listening, markCandidateTurnStart, micLevel]);
+        // Same calibrated/hysteresis signal ConversationalPanel prefers; falls back to a raw
+        // threshold only when a caller doesn't pass isSpeaking (e.g. existing tests).
+        const hasVoiceEnergy = isSpeaking !== undefined ? isSpeaking : Number(micLevel) >= SPEECH_LEVEL_THRESHOLD;
+        if (listening && hasVoiceEnergy) markCandidateTurnStart();
+    }, [isSpeaking, listening, markCandidateTurnStart, micLevel]);
 
     useEffect(() => {
         interviewerSpeakingRef.current = Boolean(interviewerSpeaking);

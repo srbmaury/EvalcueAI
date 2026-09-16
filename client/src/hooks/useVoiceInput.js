@@ -3,6 +3,7 @@ import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
 import { chooseInterviewerGender, interviewerPitchForGender, selectInterviewerVoice } from "../utils/interviewerVoice";
 import { mergeTranscriptText, sanitizeTranscriptSegment } from "../utils/transcriptSanitizer";
+import { advanceVad, createVadState, VAD_DEFAULT_THRESHOLD } from "../utils/voiceActivityDetector";
 
 const SpeechRecognitionCtor =
     typeof window !== "undefined"
@@ -40,6 +41,9 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     const [listeningTarget, setListeningTarget] = useState(null);
     const [interimText, setInterimText] = useState("");
     const [micLevel, setMicLevel] = useState(0);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [speechThreshold, setSpeechThreshold] = useState(VAD_DEFAULT_THRESHOLD);
+    const [noiseFloor, setNoiseFloor] = useState(null);
     const [micPermission, setMicPermission] = useState("unknown");
     const [inputDevices, setInputDevices] = useState([]);
     const [selectedDeviceId, setSelectedDeviceId] = useState("default");
@@ -61,6 +65,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     const audioCtxRef = useRef(null);
     const analyserRef = useRef(null);
     const rafRef = useRef(null);
+    const vadStateRef = useRef(createVadState());
     const interviewerGenderRef = useRef(null);
     const interviewerVoiceRef = useRef(null);
     const recentTranscriptRef = useRef({ target: null, text: "", at: 0 });
@@ -133,6 +138,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
             analyserRef.current = analyser;
             source.connect(analyser);
             const data = new Uint8Array(analyser.frequencyBinCount);
+            vadStateRef.current = createVadState();
             const tick = () => {
                 try {
                     analyser.getByteTimeDomainData(data);
@@ -142,7 +148,17 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
                         sum += v * v;
                     }
                     const rms = Math.sqrt(sum / data.length);
-                    setMicLevel(isFinite(rms) ? Math.min(1, Math.max(0, rms * 2)) : 0);
+                    const rawLevel = isFinite(rms) ? rms * 2 : 0;
+
+                    const previous = vadStateRef.current;
+                    const next = advanceVad(previous, rawLevel, Date.now());
+                    vadStateRef.current = next;
+                    setMicLevel(next.smoothedLevel);
+                    if (next.speaking !== previous.speaking) setIsSpeaking(next.speaking);
+                    if (next.noiseFloor !== null && previous.noiseFloor === null) {
+                        setNoiseFloor(next.noiseFloor);
+                        setSpeechThreshold(next.threshold);
+                    }
                 } catch { void 0; }
                 rafRef.current = requestAnimationFrame(tick);
             };
@@ -157,7 +173,11 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         analyserRef.current = null;
         try { audioCtxRef.current?.close?.(); } catch { void 0; }
         audioCtxRef.current = null;
+        vadStateRef.current = createVadState();
         setMicLevel(0);
+        setIsSpeaking(false);
+        setSpeechThreshold(VAD_DEFAULT_THRESHOLD);
+        setNoiseFloor(null);
     }, []);
 
     const clearRotateTimer = useCallback(() => {
@@ -585,7 +605,8 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
 
     return {
         listening, listeningTarget, interimText,
-        micLevel, micPermission, micSessionActive, handsFreePaused,
+        micLevel, isSpeaking, speechThreshold, noiseFloor,
+        micPermission, micSessionActive, handsFreePaused,
         inputDevices, selectedDeviceId, setSelectedDeviceId,
         supportsSTT, supportsTTS,
         startListening, stopListening, retargetListening, speakNow,

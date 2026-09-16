@@ -2,10 +2,13 @@ import { useState } from "react";
 import { Alert, Box, Button, Chip, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import PlayArrowRounded from "@mui/icons-material/PlayArrowRounded";
 import api from "../api/axios";
+import { useNotify } from "../context/NotificationContext";
 import DebuggingProjectWorkspace from "./DebuggingProjectWorkspace";
 import { createDebuggingRound, DEBUGGING_RUNTIMES } from "../utils/debuggingProject";
+import { describeError } from "../utils/errorFormatter";
 
 export default function DebuggingRoundEditor({ round, onChange, validation, onValidationChange }) {
+    const notify = useNotify();
     const fallback = createDebuggingRound();
     const debugging = {
         ...fallback.debugging,
@@ -23,10 +26,19 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
     };
     const updateDebugging = (patch) => emit({ debugging: { ...debugging, ...patch } });
     const changeResponseMode = (responseMode) => {
-        const files = responseMode === "findings"
-            ? debugging.files.filter((file) => file.kind === "source")
-            : debugging.files;
-        updateDebugging({ responseMode, files });
+        if (responseMode === "findings") {
+            const sourceOnlyFiles = debugging.files.filter((file) => file.kind === "source");
+            updateDebugging({ responseMode, files: sourceOnlyFiles });
+            if (!sourceOnlyFiles.length) {
+                notify("No source files found. Add at least one source file before selecting this mode.", "warning");
+            }
+        } else {
+            updateDebugging({ responseMode });
+            const hasTests = debugging.files.some((file) => file.kind === "hidden_test");
+            if (!hasTests) {
+                notify("Code-fix mode requires at least one hidden test file. Add test files before validating.", "warning");
+            }
+        }
     };
 
     const validateAssignment = async () => {
@@ -35,8 +47,17 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
         try {
             const { data } = await api.post("/assessments/debugging/validate", { instructions: instruction, debugging });
             onValidationChange?.(data);
+            if (data?.valid) {
+                notify(data.message || "Assignment validated successfully.", "success");
+            } else {
+                const message = data?.message || "Assignment validation failed.";
+                notify(message, "error");
+                setValidationError(message);
+                onValidationChange?.({ valid: false, message });
+            }
         } catch (err) {
-            const message = err?.response?.data?.message || "The assignment could not be validated.";
+            const message = describeError(err, "The assignment could not be validated.");
+            notify(message, "error");
             setValidationError(message);
             onValidationChange?.({ valid: false, message });
         } finally {

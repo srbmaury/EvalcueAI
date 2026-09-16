@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import api from "../api/axios";
 import { storage, storageKeys } from "../utils/interviewStorage";
 import { pollJobStatus } from "../utils/pollJobStatus";
+import { describeError } from "../utils/errorFormatter";
 
 /**
  * Owns the interview document, round selection, question preparation, and skip.
@@ -74,7 +75,7 @@ export const useInterviewSession = (interviewId, showToast) => {
             showToast("success", "Round skipped.");
         } catch (e) {
             console.error("skip error", e);
-            showToast("error", e?.response?.data?.message || "Failed to skip round.");
+            showToast("error", describeError(e, "Failed to skip round."));
         }
     }, [interviewId, selectedRound, selectRound, showToast, clearDraftsForRound]);
 
@@ -144,7 +145,7 @@ export const useInterviewSession = (interviewId, showToast) => {
             } catch (e) {
                 if (cancelled) return;
                 console.error("prepare round failed", e);
-                const msg = e?.response?.data?.message || "Failed to prepare questions.";
+                const msg = describeError(e, "Failed to prepare questions.");
                 setPrepError(msg);
                 showToast("error", msg);
             } finally {

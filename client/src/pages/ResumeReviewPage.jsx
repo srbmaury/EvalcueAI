@@ -31,6 +31,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import JobPostImporter from "../components/JobPostImporter";
 import { useNotify } from "../context/NotificationContext";
 import { resumeFileError } from "../utils/resumeFileValidation";
+import { describeError } from "../utils/errorFormatter";
 
 export default function ResumeReviewPage() {
     const location = useLocation();
@@ -100,7 +101,7 @@ export default function ResumeReviewPage() {
             setReview(data);
         } catch (error) {
             const limitReached = error?.response?.data?.code === "PRACTICE_LIMIT_REACHED";
-            notify(error?.response?.data?.message || "The resume review could not be generated. Try again.", limitReached ? "warning" : "error");
+            notify(describeError(error, "The resume review could not be generated. Try again."), limitReached ? "warning" : "error");
         } finally {
             setLoadingReview(false);
         }

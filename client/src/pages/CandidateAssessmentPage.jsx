@@ -23,6 +23,7 @@ import {
 import { canStartHiringAssessment, integrityRecoveryReason } from "../utils/hiringIntegrityPolicy";
 import { candidateTranscriptionConfig } from "../utils/hiringVoicePolicy";
 import { formatAssessmentDateTime } from "../utils/hiringAssessmentPayload";
+import { describeError } from "../utils/errorFormatter";
 
 const readSavedAttempt = (key) => { try { return JSON.parse(window.localStorage?.getItem(key) || "null"); } catch { return null; } };
 const writeSavedAttempt = (key, value) => { try { window.localStorage?.setItem(key, JSON.stringify(value)); } catch { /* local recovery is best effort */ } };
@@ -111,9 +112,9 @@ export default function CandidateAssessmentPage() {
         capabilities: assessment?.capabilities || {},
     }), [assessment?.capabilities, attempt?._id, attemptToken, shareToken]);
     const {
-        listening, listeningTarget, interimText, micLevel, micPermission, micSessionActive, handsFreePaused,
+        listening, listeningTarget, interimText, micLevel, isSpeaking, micPermission, micSessionActive, handsFreePaused,
         inputDevices, selectedDeviceId, setSelectedDeviceId, supportsSTT, supportsTTS,
-        startListening, stopListening, retargetListening, speakNow,
+        stopListening, retargetListening, speakNow,
         startHandsFree, pauseHandsFree, resumeHandsFree, stopHandsFree,
     } = useVoiceInput({
         onTranscript,
@@ -224,7 +225,7 @@ export default function CandidateAssessmentPage() {
             persist(data.attempt, data.attemptToken, {});
         } catch (err) {
             if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
-            const message = err?.response?.data?.message || "We couldn’t start your assessment.";
+            const message = describeError(err, "We couldn’t start your assessment.");
             setError(message);
             notify(message, "error");
         } finally { setBusy(false); }
@@ -330,7 +331,7 @@ export default function CandidateAssessmentPage() {
             persist(data.attempt, attemptToken, nextDirty);
             return data.attempt;
         } catch (err) {
-            notify(err?.response?.data?.message || "Your response could not be saved.", "error");
+            notify(describeError(err, "Your response could not be saved."), "error");
             if (round.deliveryMode === "conversational") await resumeHandsFree(focusedVoiceTargetRef.current);
             return null;
         } finally { setBusy(false); }
@@ -470,7 +471,7 @@ export default function CandidateAssessmentPage() {
             finishRoundSoftly(data.attempt, activeRoundIndex);
             return true;
         } catch (err) {
-            notify(err?.response?.data?.message || "Your system-design discussion could not be saved.", "error");
+            notify(describeError(err, "Your system-design discussion could not be saved."), "error");
             return false;
         } finally { setBusy(false); }
     };
@@ -502,7 +503,7 @@ export default function CandidateAssessmentPage() {
             setSubmitted(true);
             notify("Assessment submitted successfully.", "success");
         } catch (err) {
-            notify(err?.response?.data?.message || "Your assessment could not be submitted.", "error");
+            notify(describeError(err, "Your assessment could not be submitted."), "error");
         } finally { setBusy(false); }
     };
 
@@ -612,6 +613,7 @@ export default function CandidateAssessmentPage() {
                                 listeningTarget={listeningTarget}
                                 interimText={interimText}
                                 micLevel={micLevel}
+                                isSpeaking={isSpeaking}
                                 micPermission={micPermission}
                                 micSessionActive={micSessionActive}
                                 handsFreePaused={handsFreePaused}
@@ -647,6 +649,8 @@ export default function CandidateAssessmentPage() {
                                 listening={listening}
                                 listeningTarget={listeningTarget}
                                 interimText={interimText}
+                                micLevel={micLevel}
+                                isSpeaking={isSpeaking}
                                 onSpeak={speakNow}
                                 savedAt={lastSavedAt}
                                 micSessionActive={micSessionActive}

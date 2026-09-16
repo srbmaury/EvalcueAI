@@ -3,6 +3,7 @@ import api from "../api/axios";
 import { storage, storageKeys } from "../utils/interviewStorage";
 import { pollJobStatus } from "../utils/pollJobStatus";
 import { trackEvent } from "../utils/analytics";
+import { describeError } from "../utils/errorFormatter";
 
 /**
  * Manages online-assessment mode: answer state, local recovery, debounced server
@@ -148,7 +149,7 @@ export const useOAForm = ({
             trackEvent("round_completed");
         } catch (e) {
             console.error("OA submit error", e);
-            showToast("error", e?.response?.data?.message || "Failed to submit round.");
+            showToast("error", describeError(e, "Failed to submit round."));
         } finally {
             setOaSubmitting(false);
             setOaFeedbackProgress(0);

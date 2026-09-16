@@ -6,6 +6,7 @@ import { Visibility, VisibilityOff } from "@mui/icons-material";
 import Captcha from "../components/Captcha";
 import { getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
 import { productLoginPath } from "../utils/productRoutes";
+import { describeError } from "../utils/errorFormatter";
 
 const useQuery = () => new URLSearchParams(useLocation().search);
 
@@ -63,7 +64,7 @@ const ResetPasswordPage = () => {
             setMessage(r?.message || "Password updated");
             setTimeout(() => navigate(loginPath), 1200);
         } catch (e) {
-            setError(e?.response?.data?.message || "We couldn’t reset your password. Request a new link and try again.");
+            setError(describeError(e, "We couldn’t reset your password. Request a new link and try again."));
         } finally {
             setCaptchaToken("");
             captchaRef.current?.reset();

@@ -9,6 +9,7 @@ import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import api from "../api/axios";
 import FeedbackPanel from "../components/FeedbackPanel";
 import { buildInterviewFeedbackSummary } from "../utils/interviewFeedbackSummary";
+import { describeError } from "../utils/errorFormatter";
 
 const ScoreBar = ({ score }) => {
     const normalized = Math.max(0, Math.min(10, Number(score) || 0));
@@ -37,7 +38,7 @@ const InterviewFeedbackPage = () => {
             setInterview(data);
             setError("");
         } catch (requestError) {
-            setError(requestError?.response?.data?.message || "Could not load interview feedback.");
+            setError(describeError(requestError, "Could not load interview feedback."));
         } finally {
             if (!silent) setLoading(false);
         }

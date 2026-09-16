@@ -7,6 +7,7 @@ import SendRounded from "@mui/icons-material/SendRounded";
 import api from "../api/axios";
 import DebuggingProjectWorkspace from "./DebuggingProjectWorkspace";
 import { deriveDebuggingOverlay } from "../utils/debuggingProject";
+import { describeError } from "../utils/errorFormatter";
 
 const candidateSafeFiles = (files) => (Array.isArray(files) ? files : []).filter((file) => file?.kind !== "hidden_test");
 const candidateSafeWorkspace = (data = {}) => ({
@@ -17,14 +18,6 @@ const candidateSafeWorkspace = (data = {}) => ({
     testRuns: Array.isArray(data.testRuns) ? data.testRuns : [],
 });
 const emptyFinding = () => ({ filePath: "", rootCause: "", evidence: "", proposedFix: "" });
-// "Invalid request" is the generic message the API's shared validation middleware sends for
-// any schema failure — it isn't written for candidates and gives them nothing actionable.
-// Prefer it only when it's actually specific; otherwise fall back to the caller's own
-// friendlier, already-written copy for that action.
-const describeError = (err, fallback) => {
-    const message = err?.response?.data?.message;
-    return message && message !== "Invalid request" ? message : fallback;
-};
 
 function TestResult({ result, final = false }) {
     if (!result) return null;

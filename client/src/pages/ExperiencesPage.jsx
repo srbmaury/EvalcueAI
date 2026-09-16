@@ -4,6 +4,7 @@ import { Alert, Box, Button, Card, CardContent, CircularProgress, Container, Pap
 import api from "../api/axios";
 import { BookmarkAddOutlined, BookmarkRounded } from "@mui/icons-material";
 import { useNotify } from "../context/NotificationContext";
+import { describeError } from "../utils/errorFormatter";
 
 const ExperiencesPage = () => {
     const [expCompany, setExpCompany] = useState("");
@@ -33,7 +34,7 @@ const ExperiencesPage = () => {
             if (data?.url) setSavedUrls((current) => new Set([...current, data.url]));
             notify("Insight saved.", "success");
         } catch (saveError) {
-            notify(saveError?.response?.data?.message || "Could not save this insight.", "error");
+            notify(describeError(saveError, "Could not save this insight."), "error");
         } finally {
             setSavingUrl("");
         }

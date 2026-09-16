@@ -40,6 +40,7 @@ const ConversationalPanel = ({
     listeningTarget,
     interimText,
     micLevel = 0,
+    isSpeaking,
     onSpeak,
     outlinedInputSx,
     savedAt,
@@ -187,16 +188,20 @@ const ConversationalPanel = ({
 
     useEffect(() => {
         const currentAnswer = String(convAnswer || "");
+        // Prefer the hook's calibrated, hysteresis-smoothed isSpeaking signal when the caller
+        // provides it; fall back to a raw amplitude check only for callers that don't (e.g.
+        // older tests) so behavior stays sane without the full useVoiceInput wiring.
+        const hasVoiceEnergy = isSpeaking !== undefined ? isSpeaking : Number(micLevel) >= SPEECH_ACTIVITY_LEVEL;
         if (
             currentAnswer !== lastObservedAnswerRef.current
             || Boolean(interimText?.trim())
-            || (isRecording && Number(micLevel) >= SPEECH_ACTIVITY_LEVEL)
+            || (isRecording && hasVoiceEnergy)
         ) {
             lastVoiceActivityRef.current = Date.now();
             if (currentAnswer !== lastObservedAnswerRef.current) autoSubmittedTurnRef.current = "";
             lastObservedAnswerRef.current = currentAnswer;
         }
-    }, [convAnswer, interimText, isRecording, micLevel]);
+    }, [convAnswer, interimText, isRecording, isSpeaking, micLevel]);
 
     useEffect(() => () => { onStopHandsFree?.(); }, [onStopHandsFree]);
 
@@ -327,7 +332,7 @@ const ConversationalPanel = ({
                         <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
                             <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: .7, minWidth: { md: 140 } }}>
                                 <Box sx={{ position: "relative", borderRadius: "50%", width: 72, height: 72, display: "grid", placeItems: "center", bgcolor: isRecording ? "success.main" : micSessionActive ? "success.light" : "action.hover", color: isRecording ? "white" : "text.secondary", boxShadow: isRecording ? 8 : 1 }}><MicIcon sx={{ fontSize: 32, position: "relative", zIndex: 1 }} /></Box>
-                                <Typography variant="caption" color={isRecording ? "success.main" : "text.secondary"} fontWeight={isRecording ? 700 : 500} textAlign="center">{isRecording ? "Mic live" : micSessionActive ? "Mic stays ready" : supportsSTT ? "Connecting mic" : "Voice unavailable"}</Typography>
+                                <Typography role="status" aria-live="polite" variant="caption" color={isRecording ? "success.main" : "text.secondary"} fontWeight={isRecording ? 700 : 500} textAlign="center">{isRecording ? "Mic live" : micSessionActive ? "Mic stays ready" : supportsSTT ? "Connecting mic" : "Voice unavailable"}</Typography>
                                 {!micSessionActive && supportsSTT && <Button size="small" onClick={() => onStartHandsFree?.(target)}>Enable mic</Button>}
                             </Box>
                             <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>

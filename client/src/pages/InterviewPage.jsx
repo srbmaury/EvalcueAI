@@ -23,6 +23,7 @@ import OAForm from "../components/OAForm";
 import InterviewRoundsOverview from "../components/InterviewRoundsOverview";
 import { composeAnswerParts } from "../utils/answerParts";
 import { storage, storageKeys } from "../utils/interviewStorage";
+import { describeError } from "../utils/errorFormatter";
 
 const outlinedInputSx = {
     "& .MuiOutlinedInput-root": {
@@ -105,7 +106,7 @@ const InterviewPage = () => {
 
     const {
         listening, listeningTarget, interimText,
-        micLevel, micPermission, micSessionActive, handsFreePaused,
+        micLevel, isSpeaking, micPermission, micSessionActive, handsFreePaused,
         inputDevices, selectedDeviceId, setSelectedDeviceId,
         supportsSTT, supportsTTS,
         startListening, stopListening, speakNow,
@@ -230,7 +231,7 @@ const InterviewPage = () => {
             await handleCompleteRound();
             return true;
         } catch (error) {
-            showToast("error", error?.response?.data?.message || "Could not save the system-design discussion.");
+            showToast("error", describeError(error, "Could not save the system-design discussion."));
             return false;
         } finally {
             setSystemDesignEnding(false);
@@ -257,7 +258,7 @@ const InterviewPage = () => {
         onSpeak: speakNow,
         onStartListening: startListening,
         onStopListening: stopListening,
-        micPermission, micLevel, micSessionActive, handsFreePaused,
+        micPermission, micLevel, isSpeaking, micSessionActive, handsFreePaused,
         inputDevices, selectedDeviceId,
         onChangeDevice: setSelectedDeviceId,
         onStartHandsFree: startHandsFree,
@@ -268,7 +269,7 @@ const InterviewPage = () => {
         outlinedInputSx,
     }), [
         supportsTTS, supportsSTT, listening, listeningTarget, interimText, speakNow,
-        startListening, stopListening, micPermission, micLevel, micSessionActive, handsFreePaused,
+        startListening, stopListening, micPermission, micLevel, isSpeaking, micSessionActive, handsFreePaused,
         inputDevices, selectedDeviceId, setSelectedDeviceId, startHandsFree, pauseHandsFree,
         resumeHandsFree, stopHandsFree,
     ]);
@@ -456,6 +457,7 @@ const InterviewPage = () => {
                                         listeningTarget={listeningTarget}
                                         interimText={interimText}
                                         micLevel={micLevel}
+                                        isSpeaking={isSpeaking}
                                         micPermission={micPermission}
                                         micSessionActive={micSessionActive}
                                         handsFreePaused={handsFreePaused}

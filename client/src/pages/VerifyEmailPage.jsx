@@ -4,6 +4,7 @@ import { Box, Card, CardContent, Typography, Button, CircularProgress, Stack, Li
 import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
 import { getWorkspacePreference } from "../utils/workspacePreference";
+import { describeError } from "../utils/errorFormatter";
 
 const VerifyEmailPage = () => {
     const { resendVerification } = useContext(AuthContext);
@@ -31,7 +32,7 @@ const VerifyEmailPage = () => {
                 setStatus("success");
                 setMessage(data?.message || "Email verified.");
             } catch (e) {
-                const msg = e?.response?.data?.message || "Could not verify email.";
+                const msg = describeError(e, "Could not verify email.");
                 setStatus("error");
                 setMessage(msg);
             }

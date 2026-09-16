@@ -5,6 +5,7 @@ import CloseRounded from "@mui/icons-material/CloseRounded";
 import api from "../api/axios";
 import { useNotify } from "../context/NotificationContext";
 import { feedbackPhotosError, MAX_FEEDBACK_PHOTOS } from "../utils/feedbackPhotoValidation";
+import { describeError } from "../utils/errorFormatter";
 
 export default function ProductFeedbackDialog({ open, onClose }) {
     const [category, setCategory] = useState("idea");
@@ -48,7 +49,7 @@ export default function ProductFeedbackDialog({ open, onClose }) {
             notify("Thanks — your feedback was sent.", "success");
             onClose();
         } catch (error) {
-            notify(error?.response?.data?.message || "Feedback could not be sent.", "error");
+            notify(describeError(error, "Feedback could not be sent."), "error");
         } finally { setSaving(false); }
     };
 
