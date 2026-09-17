@@ -87,7 +87,7 @@ describe("generateTailoredResume", () => {
         const res = response();
         await generateTailoredResume(req, res, vi.fn());
 
-        expect(mocks.compileLatexToPdf).toHaveBeenCalledTimes(3); // MAX_COMPILE_ATTEMPTS
+        expect(mocks.compileLatexToPdf).toHaveBeenCalledTimes(4); // MAX_COMPILE_ATTEMPTS
         expect(res.setHeader).toHaveBeenCalledWith("X-Resume-Page-Count", "2");
         expect(res.send).toHaveBeenCalledWith(Buffer.from("still-two-pages"));
     });
@@ -129,7 +129,7 @@ describe("generateTailoredResume", () => {
         const res = response();
         await generateTailoredResume(req, res, vi.fn());
 
-        expect(mocks.compileLatexToPdf).toHaveBeenCalledTimes(3); // MAX_COMPILE_ATTEMPTS
+        expect(mocks.compileLatexToPdf).toHaveBeenCalledTimes(4); // MAX_COMPILE_ATTEMPTS
         expect(res.send).toHaveBeenCalledWith(Buffer.from("still-sparse"));
     });
 
@@ -169,6 +169,6 @@ describe("generateTailoredResume", () => {
         await generateTailoredResume(req, res, vi.fn());
         const texArg = mocks.compileLatexToPdf.mock.calls[0][0];
         const jobCount = (texArg.match(/Job \d+/g) || []).length;
-        expect(jobCount).toBeLessThanOrEqual(5);
+        expect(jobCount).toBeLessThanOrEqual(12);
     });
 });

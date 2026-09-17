@@ -3,7 +3,7 @@ import { generateJSON } from "../utils/generateQuestions/aiClient.js";
 import { buildResumeLatex } from "../utils/resumeLatexTemplate.js";
 import { compileLatexToPdf, LatexCompileError } from "../utils/compileLatex.js";
 
-const MAX_COMPILE_ATTEMPTS = 3;
+const MAX_COMPILE_ATTEMPTS = 4;
 // Below this, the page reads as sparse/unfinished rather than like a deliberately short
 // one-page resume — measured from the compiled PDF's actual text position, not guessed.
 const MIN_FILL_FRACTION = 0.75;
@@ -29,27 +29,32 @@ const normalizeContent = (input) => {
             websiteLabel: clampString(parsed.contact?.websiteLabel, 120),
         },
         summary: clampString(parsed.summary, 400),
-        experience: clampArray(parsed.experience, 5).map((item) => ({
+        // These caps are a defensive ceiling against a runaway/malformed AI response, not a
+        // content budget — they must never be the reason a real resume's content gets cut,
+        // so they're set well above what any real one-page resume would actually use. The
+        // one-page constraint itself is enforced by compilation + the condense pass, not by
+        // silently truncating arrays here before the AI even gets to try.
+        experience: clampArray(parsed.experience, 12).map((item) => ({
             title: clampString(item?.title, 150),
             dateRange: clampString(item?.dateRange, 60),
             organization: clampString(item?.organization, 150),
             location: clampString(item?.location, 100),
-            bullets: clampArray(item?.bullets, 6).map((bullet) => clampString(bullet, 260)).filter(Boolean),
+            bullets: clampArray(item?.bullets, 10).map((bullet) => clampString(bullet, 300)).filter(Boolean),
             tech: clampString(item?.tech, 200),
         })).filter((item) => item.title),
-        projects: clampArray(parsed.projects, 4).map((item) => ({
+        projects: clampArray(parsed.projects, 10).map((item) => ({
             name: clampString(item?.name, 120),
             links: clampArray(item?.links, 3).map((link) => ({ label: clampString(link?.label, 40), url: clampString(link?.url, 300) })).filter((link) => link.label),
-            bullets: clampArray(item?.bullets, 5).map((bullet) => clampString(bullet, 260)).filter(Boolean),
+            bullets: clampArray(item?.bullets, 8).map((bullet) => clampString(bullet, 300)).filter(Boolean),
             tech: clampString(item?.tech, 200),
         })).filter((item) => item.name),
-        education: clampArray(parsed.education, 3).map((item) => ({
+        education: clampArray(parsed.education, 6).map((item) => ({
             institution: clampString(item?.institution, 150),
             dateRange: clampString(item?.dateRange, 60),
             detail: clampString(item?.detail, 200),
         })).filter((item) => item.institution),
-        skills: clampArray(parsed.skills, 6).map((item) => ({ category: clampString(item?.category, 60), items: clampString(item?.items, 300) })).filter((item) => item.category && item.items),
-        achievements: clampArray(parsed.achievements, 6).map((item) => clampString(item, 200)).filter(Boolean),
+        skills: clampArray(parsed.skills, 10).map((item) => ({ category: clampString(item?.category, 60), items: clampString(item?.items, 400) })).filter((item) => item.category && item.items),
+        achievements: clampArray(parsed.achievements, 12).map((item) => clampString(item, 200)).filter(Boolean),
     };
 };
 
@@ -67,7 +72,7 @@ const generationSchema = `Return ONLY JSON with this exact shape:
 No markdown, no code fences. Every bullet must be something the resume text actually supports — never invent experience, employers, dates, or metrics that aren't in the source resume. This applies to contact details too: if a phone, email, LinkedIn, GitHub, or website isn't present in the source resume text, leave that field as an empty string rather than inventing a placeholder.`;
 
 const buildGenerationPrompt = ({ role, jobDescription, resumeText }) => `You are an expert resume writer preparing a one-page, ATS-friendly resume tailored to a specific job.
-Rewrite content from the candidate's existing resume to emphasize what's most relevant to the target role and job description, reordering and rephrasing for impact. Include every experience entry, project, and piece of education that appears in the source resume and is genuinely relevant — do not omit or shorten things preemptively to save space. Write full, substantive bullets (not one-line fragments) and quantify impact where the source resume supports it. A resume that only fills half a page reads as thin and unfinished; use the space. If this later turns out to be too long for one page, it will be shortened in a follow-up pass — so favor completeness now over brevity.
+Rewrite content from the candidate's existing resume to emphasize what's most relevant to the target role and job description — but "tailoring" means reordering, rephrasing, and choosing which achievements to lead with, not deciding what to leave out. Include EVERY job, employer, and project that appears anywhere in the source resume text, with no exceptions — do not drop any of them because they seem less relevant to this job. Every entry in the source resume must appear as an entry in your output. Write full, substantive bullets (not one-line fragments) for each one, and quantify impact where the source resume supports it. A resume that only fills half a page reads as thin and unfinished; use the space. If this later turns out to be too long for one page, it will be shortened in a follow-up pass that trims wording, not entries — so favor completeness now over brevity.
 
 ${generationSchema}
 
@@ -75,7 +80,7 @@ TARGET ROLE: ${role || "(not provided)"}
 JOB DESCRIPTION: ${jobDescription || "(not provided)"}
 CANDIDATE RESUME TEXT: ${resumeText}`;
 
-const buildCondensePrompt = (previousContent) => `The following resume content compiled to more than one page. Shorten it so it fits on a single page: remove the least relevant bullets, projects, or experience entries first, then tighten remaining wording. Keep the same JSON shape and keep everything truthful to the original content — do not invent anything new.
+const buildCondensePrompt = (previousContent) => `The following resume content compiled to more than one page. Shorten it so it fits on a single page WITHOUT removing any job, employer, project, or education entry — every entry currently present must still be present in your output. Shorten it by: tightening wording sentence by sentence, merging bullets that overlap, and reducing the number of bullets per entry (keep the strongest 2-3 per entry rather than 5-6). Only if it is truly impossible to fit even a single tightened bullet for every entry should you consider dropping the single least relevant entry, as an absolute last resort — and even then, prefer cutting one bullet from several entries over removing an entire entry. Keep the same JSON shape and keep everything truthful to the original content — do not invent anything new.
 
 ${generationSchema}
 
@@ -84,7 +89,7 @@ CURRENT CONTENT: ${JSON.stringify(previousContent)}`;
 // Symmetric to the condense pass above: the compiled page came back with a lot of unused
 // space at the bottom (measured from the actual PDF, not guessed), so pull in more real
 // material from the source resume rather than padding existing bullets with filler.
-const buildExpandPrompt = (previousContent, resumeText) => `The following resume content compiled to a single page, but with a lot of empty space at the bottom — it needs more content, not padding or filler wording. Go back to the full candidate resume text below and add back genuinely relevant experience, projects, education, skills, or achievements that were left out, and expand existing bullets with more real detail (additional responsibilities, tools, or outcomes the source resume actually mentions). Do not invent anything not supported by the source resume text, and do not just lengthen sentences with vague filler to take up space.
+const buildExpandPrompt = (previousContent, resumeText) => `The following resume content compiled to a single page, but with a lot of empty space at the bottom — it needs more content, not padding or filler wording. First, compare CURRENT CONTENT against the FULL CANDIDATE RESUME TEXT below and check for any job, employer, project, or education entry that exists in the source text but is missing from CURRENT CONTENT — add every one of those back first. Then expand existing bullets with more real detail (additional responsibilities, tools, or outcomes the source resume actually mentions). Do not invent anything not supported by the source resume text, and do not just lengthen sentences with vague filler to take up space.
 
 ${generationSchema}
 
