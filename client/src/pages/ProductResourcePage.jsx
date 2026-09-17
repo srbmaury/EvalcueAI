@@ -98,7 +98,7 @@ export default function ProductResourcePage({ surface }) {
         setCreating(true);
         try {
             const { data } = await api.post("/assessments", hiringPayload(config, example, targetRole));
-            trackEvent("seo_resource_assessment_created", { resource: config.slug, template: example.id });
+            trackEvent("seo_resource_assessment_created");
             notify("Draft assessment created from this template.", "success");
             navigate(`/hire/assessments/${data._id}`);
         } catch (error) {
@@ -122,7 +122,7 @@ export default function ProductResourcePage({ surface }) {
             activeStep: 0,
         });
         setWorkspacePreference("practice", user?._id);
-        trackEvent("seo_resource_practice_started", { resource: config.slug, template: example.id });
+        trackEvent("seo_resource_practice_started");
         navigate("/practice/new");
     };
 
