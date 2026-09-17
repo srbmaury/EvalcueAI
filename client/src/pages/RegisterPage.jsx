@@ -1,6 +1,7 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import { useNotifications } from "../context/NotificationContext";
 import Captcha from "../components/Captcha";
 import AuthShell from "../components/AuthShell";
 import { getWorkspaceHome, getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
@@ -25,6 +26,7 @@ import { PersonAddAlt1 as PersonAddIcon, Visibility, VisibilityOff } from "@mui/
 
 const RegisterPage = () => {
     const { register, googleLogin, resendVerification } = useContext(AuthContext);
+    const { notify } = useNotifications();
     const navigate = useNavigate();
     const location = useLocation();
     const [params] = useSearchParams();
@@ -50,7 +52,6 @@ const RegisterPage = () => {
     const [submitting, setSubmitting] = useState(false);
     const [gsiReady, setGsiReady] = useState(false);
     const [submittedEmail, setSubmittedEmail] = useState("");
-    const [successMsg, setSuccessMsg] = useState("");
     const googleDivRef = useRef(null);
     const captchaRef = useRef(null);
     const [captchaToken, setCaptchaToken] = useState("");
@@ -86,7 +87,7 @@ const RegisterPage = () => {
         try {
             const resp = await register(name.trim(), email, password, captchaToken);
             setSubmittedEmail(email);
-            setSuccessMsg(resp?.message || "Verification email sent. Please check your inbox.");
+            notify(resp?.message || "Verification email sent. Please check your inbox.", "success");
         } catch (err) {
             const apiMsg = describeError(err, "");
             const apiDetails = err?.response?.data?.details;
@@ -164,7 +165,6 @@ const RegisterPage = () => {
         >
             <Box component="form" noValidate onSubmit={handleSubmit}>
                 <Stack spacing={{ xs: 2.25, md: 1.35 }}>
-                    {successMsg && <Typography color="success.main">{successMsg}</Typography>}
                     <FormControl fullWidth><TextField id="name" label="Name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Jane Doe" autoComplete="name" error={!!errors.name} helperText={errors.name || undefined} size="medium" /></FormControl>
                     <FormControl fullWidth><TextField id="email" label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="name@example.com" autoComplete="email" error={!!errors.email} helperText={errors.email || undefined} size="medium" /></FormControl>
                     <FormControl fullWidth>
@@ -182,7 +182,7 @@ const RegisterPage = () => {
                     <FormControlLabel control={<Checkbox checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />} label={<Typography variant="body2">I agree to the <Link component={RouterLink} to="/terms">Terms</Link> and acknowledge the <Link component={RouterLink} to="/privacy">Privacy Notice</Link>.</Typography>} />
                     <Button type="submit" variant="contained" size="large" startIcon={<PersonAddIcon />} disabled={submitting || !acceptedTerms} sx={{ py: 1.25, borderRadius: 2, textTransform: "none", fontWeight: 700 }}>{submitting ? "Creating account..." : requestedWorkspace === "hiring" ? "Create hiring account" : requestedWorkspace === "practice" ? "Create practice account" : "Create account"}</Button>
                     {acceptedTerms && <Stack spacing={2} alignItems="center"><div ref={googleDivRef} /><Typography variant="caption" color="text.secondary" align="center">Google sign-up may not display in embedded browsers. If the Google window is blank, open Evalcue AI in Chrome or Safari, or create your account with email.</Typography></Stack>}
-                    {submittedEmail && <Stack spacing={1} alignItems="center"><Typography variant="body2" color="text.secondary">Didn’t get the email? Check spam or resend.</Typography><Button variant="text" onClick={async () => { try { const r = await resendVerification(submittedEmail); setSuccessMsg(r?.message || "Verification email re-sent"); } catch (e) { console.warn("Resend verification failed", e); } }}>Resend verification</Button><Button component={RouterLink} to={loginPath} state={authState} size="small">Continue to sign in</Button></Stack>}
+                    {submittedEmail && <Stack spacing={1} alignItems="center"><Typography variant="body2" color="text.secondary">Didn’t get the email? Check spam or resend.</Typography><Button variant="text" onClick={async () => { try { const r = await resendVerification(submittedEmail); notify(r?.message || "Verification email re-sent", "success"); } catch (e) { notify(describeError(e, "Could not resend verification email."), "error"); } }}>Resend verification</Button><Button component={RouterLink} to={loginPath} state={authState} size="small">Continue to sign in</Button></Stack>}
                 </Stack>
             </Box>
             <Typography align="center" color="text.secondary" sx={{ mt: { xs: 4, md: 2 } }}>Already have an account? <Link component={RouterLink} to={loginPath} state={authState} underline="hover">Login</Link></Typography>
