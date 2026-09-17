@@ -38,7 +38,7 @@ beforeEach(() => {
     vi.clearAllMocks();
     mocks.findOne.mockResolvedValue({ _id: "resume1", user: "user1", extractedText: "Jane Doe's resume text with relevant experience." });
     mocks.generateJSON.mockResolvedValue(JSON.stringify(validContent));
-    mocks.compileLatexToPdf.mockResolvedValue({ pdfBuffer: Buffer.from("%PDF-fake"), pageCount: 1 });
+    mocks.compileLatexToPdf.mockResolvedValue({ pdfBuffer: Buffer.from("%PDF-fake"), pageCount: 1, fillFraction: 0.9 });
 });
 
 const baseReq = () => ({ params: { id: "resume1" }, body: { role: "Software Engineer", jobDescription: "Build and ship reliable backend systems." }, user: { _id: "user1" } });
@@ -90,6 +90,47 @@ describe("generateTailoredResume", () => {
         expect(mocks.compileLatexToPdf).toHaveBeenCalledTimes(3); // MAX_COMPILE_ATTEMPTS
         expect(res.setHeader).toHaveBeenCalledWith("X-Resume-Page-Count", "2");
         expect(res.send).toHaveBeenCalledWith(Buffer.from("still-two-pages"));
+    });
+
+    it("re-prompts the AI to expand content when the page fits but is mostly empty, and recompiles", async () => {
+        mocks.compileLatexToPdf
+            .mockResolvedValueOnce({ pdfBuffer: Buffer.from("sparse-page"), pageCount: 1, fillFraction: 0.3 })
+            .mockResolvedValueOnce({ pdfBuffer: Buffer.from("fuller-page"), pageCount: 1, fillFraction: 0.85 });
+
+        const req = baseReq();
+        const res = response();
+        await generateTailoredResume(req, res, vi.fn());
+
+        expect(mocks.generateJSON).toHaveBeenCalledTimes(2); // initial generation + one expand pass
+        const expandPrompt = mocks.generateJSON.mock.calls[1][0];
+        expect(expandPrompt).toContain("empty space at the bottom");
+        expect(expandPrompt).toContain(validContent.experience[0].title); // carries prior content forward
+        expect(mocks.compileLatexToPdf).toHaveBeenCalledTimes(2);
+        expect(res.setHeader).toHaveBeenCalledWith("X-Resume-Page-Count", "1");
+        expect(res.send).toHaveBeenCalledWith(Buffer.from("fuller-page"));
+    });
+
+    it("does not attempt to expand when the fill fraction could not be measured", async () => {
+        mocks.compileLatexToPdf.mockResolvedValue({ pdfBuffer: Buffer.from("unmeasured-page"), pageCount: 1, fillFraction: null });
+
+        const req = baseReq();
+        const res = response();
+        await generateTailoredResume(req, res, vi.fn());
+
+        expect(mocks.compileLatexToPdf).toHaveBeenCalledTimes(1);
+        expect(mocks.generateJSON).toHaveBeenCalledTimes(1); // only the initial generation, no expand pass
+        expect(res.send).toHaveBeenCalledWith(Buffer.from("unmeasured-page"));
+    });
+
+    it("stops expanding after the attempt cap and still returns the last compiled PDF even if it never fills the page", async () => {
+        mocks.compileLatexToPdf.mockResolvedValue({ pdfBuffer: Buffer.from("still-sparse"), pageCount: 1, fillFraction: 0.2 });
+
+        const req = baseReq();
+        const res = response();
+        await generateTailoredResume(req, res, vi.fn());
+
+        expect(mocks.compileLatexToPdf).toHaveBeenCalledTimes(3); // MAX_COMPILE_ATTEMPTS
+        expect(res.send).toHaveBeenCalledWith(Buffer.from("still-sparse"));
     });
 
     it("returns 503 without compiling when the AI produces no usable content", async () => {

@@ -4,6 +4,9 @@ import { buildResumeLatex } from "../utils/resumeLatexTemplate.js";
 import { compileLatexToPdf, LatexCompileError } from "../utils/compileLatex.js";
 
 const MAX_COMPILE_ATTEMPTS = 3;
+// Below this, the page reads as sparse/unfinished rather than like a deliberately short
+// one-page resume — measured from the compiled PDF's actual text position, not guessed.
+const MIN_FILL_FRACTION = 0.75;
 
 const clampString = (value, max) => (value || "").toString().trim().slice(0, max);
 const clampArray = (value, max) => (Array.isArray(value) ? value.slice(0, max) : []);
@@ -64,7 +67,7 @@ const generationSchema = `Return ONLY JSON with this exact shape:
 No markdown, no code fences. Every bullet must be something the resume text actually supports — never invent experience, employers, dates, or metrics that aren't in the source resume. This applies to contact details too: if a phone, email, LinkedIn, GitHub, or website isn't present in the source resume text, leave that field as an empty string rather than inventing a placeholder.`;
 
 const buildGenerationPrompt = ({ role, jobDescription, resumeText }) => `You are an expert resume writer preparing a one-page, ATS-friendly resume tailored to a specific job.
-Rewrite and select content from the candidate's existing resume to emphasize what's most relevant to the target role and job description. Prioritize the strongest, most relevant experience and projects; it is fine to omit less relevant items entirely to keep this to one page. Keep bullets concise (one line each) and quantify impact where the source resume supports it.
+Rewrite content from the candidate's existing resume to emphasize what's most relevant to the target role and job description, reordering and rephrasing for impact. Include every experience entry, project, and piece of education that appears in the source resume and is genuinely relevant — do not omit or shorten things preemptively to save space. Write full, substantive bullets (not one-line fragments) and quantify impact where the source resume supports it. A resume that only fills half a page reads as thin and unfinished; use the space. If this later turns out to be too long for one page, it will be shortened in a follow-up pass — so favor completeness now over brevity.
 
 ${generationSchema}
 
@@ -77,6 +80,17 @@ const buildCondensePrompt = (previousContent) => `The following resume content c
 ${generationSchema}
 
 CURRENT CONTENT: ${JSON.stringify(previousContent)}`;
+
+// Symmetric to the condense pass above: the compiled page came back with a lot of unused
+// space at the bottom (measured from the actual PDF, not guessed), so pull in more real
+// material from the source resume rather than padding existing bullets with filler.
+const buildExpandPrompt = (previousContent, resumeText) => `The following resume content compiled to a single page, but with a lot of empty space at the bottom — it needs more content, not padding or filler wording. Go back to the full candidate resume text below and add back genuinely relevant experience, projects, education, skills, or achievements that were left out, and expand existing bullets with more real detail (additional responsibilities, tools, or outcomes the source resume actually mentions). Do not invent anything not supported by the source resume text, and do not just lengthen sentences with vague filler to take up space.
+
+${generationSchema}
+
+CURRENT CONTENT: ${JSON.stringify(previousContent)}
+
+FULL CANDIDATE RESUME TEXT: ${resumeText}`;
 
 const parseAiJson = async (prompt) => {
     const raw = await generateJSON(prompt);
@@ -113,10 +127,24 @@ export const generateTailoredResume = async (req, res, next) => {
             }
             pdfBuffer = compiled.pdfBuffer;
             pageCount = compiled.pageCount;
-            if (pageCount <= 1 || attempt === MAX_COMPILE_ATTEMPTS) break;
-            const condensed = await parseAiJson(buildCondensePrompt(content));
-            if (!condensed) break;
-            content = normalizeContent(condensed);
+            if (attempt === MAX_COMPILE_ATTEMPTS) break;
+
+            if (pageCount > 1) {
+                const condensed = await parseAiJson(buildCondensePrompt(content));
+                if (!condensed) break;
+                content = normalizeContent(condensed);
+                continue;
+            }
+            // fillFraction is a real measurement of the compiled PDF (see
+            // firstPageFillFraction), not a guess — null just means it couldn't be
+            // measured, in which case there's nothing reliable to act on.
+            if (compiled.fillFraction !== null && compiled.fillFraction < MIN_FILL_FRACTION) {
+                const expanded = await parseAiJson(buildExpandPrompt(content, resumeText));
+                if (!expanded) break;
+                content = normalizeContent(expanded);
+                continue;
+            }
+            break;
         }
 
         res.setHeader("Content-Type", "application/pdf");

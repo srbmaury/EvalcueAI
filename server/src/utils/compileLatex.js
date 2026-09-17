@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 import { PDFParse } from "pdf-parse";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const COMPILE_TIMEOUT_MS = 30000;
 // Read fresh on every call (not cached at module load) so it can be reconfigured at
@@ -41,10 +42,42 @@ const runTectonic = (workDir, texFileName) => new Promise((resolve, reject) => {
     );
 });
 
+// How much of page 1 (top-down) actually has content on it, e.g. 0.85 means the lowest
+// line of text sits 85% of the way down the page, leaving a normal-looking bottom margin.
+// This is a real measurement of the compiled output, not an estimate from word/line counts
+// asked of the AI beforehand — the AI has no reliable way to predict how its text will wrap
+// or how much vertical space this template's spacing macros consume, so guessing a target
+// line count upfront is much less accurate than compiling once and measuring what actually
+// happened. Resilient by design: any failure here just means "don't know", not a hard
+// error — the page it's measuring already compiled successfully, so a fill-fraction miss
+// shouldn't block returning that PDF.
+export const firstPageFillFraction = async (pdfBuffer) => {
+    try {
+        const doc = await getDocument({ data: new Uint8Array(pdfBuffer) }).promise;
+        try {
+            const page = await doc.getPage(1);
+            const { height } = page.getViewport({ scale: 1 });
+            const { items } = await page.getTextContent();
+            let lowestY = Infinity;
+            for (const item of items) {
+                if (!item.str || !item.str.trim()) continue;
+                const y = item.transform[5];
+                if (y < lowestY) lowestY = y;
+            }
+            if (!Number.isFinite(lowestY) || !(height > 0)) return null;
+            return Math.max(0, Math.min(1, 1 - lowestY / height));
+        } finally {
+            await doc.destroy();
+        }
+    } catch {
+        return null;
+    }
+};
+
 /**
  * Compiles a .tex source string to a PDF buffer using Tectonic, in an isolated temp
- * directory that's always cleaned up. Returns the PDF bytes and its page count (via
- * pdf-parse, already a dependency for resume uploads — no new package needed).
+ * directory that's always cleaned up. Returns the PDF bytes, its page count (via
+ * pdf-parse, already a dependency for resume uploads), and page 1's fill fraction.
  */
 export const compileLatexToPdf = async (texSource) => {
     const workDir = await mkdtemp(path.join(os.tmpdir(), "resume-latex-"));
@@ -71,7 +104,8 @@ export const compileLatexToPdf = async (texSource) => {
         } finally {
             await parser.destroy();
         }
-        return { pdfBuffer, pageCount };
+        const fillFraction = await firstPageFillFraction(pdfBuffer);
+        return { pdfBuffer, pageCount, fillFraction };
     } finally {
         await rm(workDir, { recursive: true, force: true });
     }
