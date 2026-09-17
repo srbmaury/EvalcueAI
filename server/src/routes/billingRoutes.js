@@ -46,9 +46,10 @@ router.get("/practice/entitlements", protect, async (req, res, next) => {
         res.setHeader("Cache-Control", "no-store");
         const period = currentMonth();
         const limits = practiceLimitsFor(req.user);
-        const [interviewUsage, resumeReviewUsage] = await Promise.all([
+        const [interviewUsage, resumeReviewUsage, resumeGenerationUsage] = await Promise.all([
             reconcilePracticeUsageCounter({ userId: req.user._id, metric: "interviews", period }),
             reconcilePracticeUsageCounter({ userId: req.user._id, metric: "resumeReviews", period }),
+            reconcilePracticeUsageCounter({ userId: req.user._id, metric: "resumeGenerations", period }),
         ]);
         const proPrice = await safePrice("practice", "pro");
         const hasBillingAccount = Boolean(req.user.practiceBillingCustomerId);
@@ -62,20 +63,24 @@ router.get("/practice/entitlements", protect, async (req, res, next) => {
             limits: {
                 interviews: limits.interviewsPerMonth,
                 resumeReviews: limits.resumeReviewsPerMonth,
+                resumeGenerations: limits.resumeGenerationsPerMonth,
             },
             planLimits: {
                 free: {
                     interviews: PRACTICE_PLAN_LIMITS.free.interviewsPerMonth,
                     resumeReviews: PRACTICE_PLAN_LIMITS.free.resumeReviewsPerMonth,
+                    resumeGenerations: PRACTICE_PLAN_LIMITS.free.resumeGenerationsPerMonth,
                 },
                 pro: {
                     interviews: PRACTICE_PLAN_LIMITS.pro.interviewsPerMonth,
                     resumeReviews: PRACTICE_PLAN_LIMITS.pro.resumeReviewsPerMonth,
+                    resumeGenerations: PRACTICE_PLAN_LIMITS.pro.resumeGenerationsPerMonth,
                 },
             },
             used: {
                 interviews: interviewUsage.used,
                 resumeReviews: resumeReviewUsage.used,
+                resumeGenerations: resumeGenerationUsage.used,
             },
             prices: { pro: proPrice },
             billingAvailable: { pro: Boolean(billingConfigured() && proPrice) },

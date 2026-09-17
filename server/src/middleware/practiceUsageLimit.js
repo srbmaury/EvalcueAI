@@ -5,6 +5,7 @@ import { reservePracticeUsage } from "../services/practiceUsageAccounting.js";
 const metricLabels = {
     interviews: "practice interviews",
     resumeReviews: "resume reviews",
+    resumeGenerations: "tailored resume generations",
 };
 
 export default function practiceUsageLimit(metric, limitKey) {

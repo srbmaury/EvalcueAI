@@ -11,6 +11,7 @@ import {
     deleteResumeReview,
     matchResumesToJob,
 } from "../controllers/resumeController.js";
+import { generateTailoredResume } from "../controllers/resumeGenerationController.js";
 import { uploadResumeMulter } from "../middleware/multerMemory.js";
 import { uploadLimiter } from "../middleware/rateLimiters.js";
 import protect from "../middleware/authMiddleware.js";
@@ -201,6 +202,16 @@ router.post(
     practiceUsageLimit("resumeReviews", "resumeReviewsPerMonth"),
     audit("resume.review", { entityType: "Resume", getEntityId: (req) => req.params.id }),
     reviewResume
+);
+router.post(
+    "/:id/generate",
+    protect,
+    validate(z.object({ id: ObjectIdString }), "params"),
+    validate(z.object({ role: z.string().trim().max(200).optional().default(""), jobDescription: z.string().trim().min(40).max(12000) })),
+    quotas({ key: (req) => `user:${req.user._id}:resume-generate`, metricKey: "resume_generate", windowSeconds: 3600, maxPerWindow: 10 }),
+    practiceUsageLimit("resumeGenerations", "resumeGenerationsPerMonth"),
+    audit("resume.generate", { entityType: "Resume", getEntityId: (req) => req.params.id, pickBody: () => ({}) }),
+    generateTailoredResume
 );
 
 export default router;

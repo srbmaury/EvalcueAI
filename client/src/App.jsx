@@ -30,6 +30,7 @@ const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage.jsx"));
 const ExperiencesPage = lazy(() => import("./pages/ExperiencesPage.jsx"));
 const ResumeReviewPage = lazy(() => import("./pages/ResumeReviewPage.jsx"));
 const ResumeMatcherPage = lazy(() => import("./pages/ResumeMatcherPage.jsx"));
+const ResumeGeneratorPage = lazy(() => import("./pages/ResumeGeneratorPage.jsx"));
 const LandingPage = lazy(() => import("./pages/LandingPage.jsx"));
 const ProductLandingPage = lazy(() => import("./pages/ProductLandingPage.jsx"));
 const ProductResourcePage = lazy(() => import("./pages/ProductResourcePage.jsx"));
@@ -129,6 +130,7 @@ function App() {
                 <Route path="/practice/progress" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
                 <Route path="/practice/resume-reviews" element={<ProtectedRoute><ReviewHistoryPage /></ProtectedRoute>} />
                 <Route path="/practice/resume-match" element={<ProtectedRoute><ResumeMatcherPage /></ProtectedRoute>} />
+                <Route path="/practice/resume-generate" element={<ProtectedRoute><ResumeGeneratorPage /></ProtectedRoute>} />
                 <Route path="/practice/saved-experiences" element={<ProtectedRoute><SavedExperiencesPage /></ProtectedRoute>} />
                 <Route path="/practice/resumes" element={<ProtectedRoute><ResumesPage /></ProtectedRoute>} />
                 <Route path="/practice/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />

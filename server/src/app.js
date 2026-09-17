@@ -92,7 +92,7 @@ const corsOptions =
                   "X-Attempt-Token",
                   "X-Organization-Id",
               ],
-              exposedHeaders: ["X-CSRF-Token", "X-XSRF-Token"],
+              exposedHeaders: ["X-CSRF-Token", "X-XSRF-Token", "X-Resume-Page-Count"],
               methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
           }
         : {
@@ -110,7 +110,7 @@ const corsOptions =
                   "X-Attempt-Token",
                   "X-Organization-Id",
               ],
-              exposedHeaders: ["X-CSRF-Token", "X-XSRF-Token"],
+              exposedHeaders: ["X-CSRF-Token", "X-XSRF-Token", "X-Resume-Page-Count"],
               methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
           };
 

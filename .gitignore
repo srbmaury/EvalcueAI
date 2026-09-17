@@ -76,6 +76,10 @@ pids/
 *.pid
 *.pid.lock
 
+# Local Redis persistence dumps (created wherever redis-server's cwd happens to be
+# when run locally for dev — not something to commit from any directory)
+dump.rdb
+
 # Project-specific
 cookies.txt
 client/cookies.txt

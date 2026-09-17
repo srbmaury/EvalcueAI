@@ -129,7 +129,7 @@ export default function ResumeReviewPage() {
         <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 5 } }}>
         <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 4 }, borderRadius: 3 }}>
             <Typography component="h1" variant="h4" fontWeight={800}>AI resume review</Typography>
-            <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ md: "center" }} gap={1.5} sx={{ mt: .75, mb: 3 }}><Typography color="text.secondary">Compare your resume with a target role and get focused, actionable improvements.</Typography><Stack direction="row" gap={1} flexWrap="wrap"><Button component={RouterLink} to="/practice/resumes" size="small">Resume library</Button><Button component={RouterLink} to="/practice/resume-reviews" size="small">Past reviews</Button><Button component={RouterLink} to="/practice/resume-match" variant="outlined" size="small">Find best match</Button></Stack></Stack>
+            <Typography color="text.secondary" sx={{ mt: .75, mb: 3 }}>Compare your resume with a target role and get focused, actionable improvements.</Typography>
             <Stack spacing={2}>
                 {resumes.length > 0 && (
                     <TextField

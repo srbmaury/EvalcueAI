@@ -15,11 +15,11 @@ describe("Practice pricing", () => {
             product: "practice",
             plan: "free",
             subscriptionStatus: "inactive",
-            limits: { interviews: 3, resumeReviews: 3 },
-            used: { interviews: 0, resumeReviews: 0 },
+            limits: { interviews: 3, resumeReviews: 10, resumeGenerations: 10 },
+            used: { interviews: 0, resumeReviews: 0, resumeGenerations: 0 },
             planLimits: {
-                free: { interviews: 3, resumeReviews: 3 },
-                pro: { interviews: 100, resumeReviews: 100 },
+                free: { interviews: 3, resumeReviews: 10, resumeGenerations: 10 },
+                pro: { interviews: 100, resumeReviews: 100, resumeGenerations: 100 },
             },
             prices: { pro: { unitAmount: 1000, currency: "usd", interval: "month", intervalCount: 1 } },
             billingAvailable: { pro: true },
@@ -33,6 +33,7 @@ describe("Practice pricing", () => {
         expect(screen.queryByRole("heading", { name: "Scale" })).toBeNull();
         expect(screen.getByText("100 practice interviews each month")).toBeTruthy();
         expect(screen.getByText("100 resume reviews each month")).toBeTruthy();
+        expect(screen.getByText("100 tailored resume generations each month")).toBeTruthy();
         expect(screen.queryByText(/candidate assessments each month/i)).toBeNull();
         expect(screen.queryByText(/Hiring teams|organization billing|candidate-interview capacity/i)).toBeNull();
         expect(screen.getByRole("button", { name: "Choose Pro" })).toBeTruthy();
