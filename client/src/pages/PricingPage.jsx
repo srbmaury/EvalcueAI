@@ -72,9 +72,9 @@ export default function PricingPage() {
         {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
         {entitlementsLoading ? <Stack alignItems="center" py={8} role="status"><CircularProgress /><Typography color="text.secondary" mt={2}>Loading Practice plans…</Typography></Stack> : <Grid container spacing={3}>
             {plans.map((plan) => {
-                const fallbacks = { free: { interviews: 3, resumeReviews: 3 }, pro: { interviews: 100, resumeReviews: 100 } };
+                const fallbacks = { free: { interviews: 3, resumeReviews: 10, resumeGenerations: 10 }, pro: { interviews: 100, resumeReviews: 100, resumeGenerations: 100 } };
                 const planLimits = entitlements?.planLimits?.[plan.id] || (plan.id === entitlements?.plan ? entitlements?.limits : fallbacks[plan.id]);
-                const features = [`${planLimits.interviews} practice interviews each month`, `${planLimits.resumeReviews} resume reviews each month`, ...plan.features];
+                const features = [`${planLimits.interviews} practice interviews each month`, `${planLimits.resumeReviews} resume reviews each month`, `${planLimits.resumeGenerations} tailored resume generations each month`, ...plan.features];
                 const current = plan.id === entitlements?.plan;
                 const price = plan.id === "pro" ? priceLabel() : null;
                 return <Grid size={{ xs: 12, md: 6 }} key={plan.id}><Card variant="outlined" sx={{ height: "100%", borderColor: plan.id === "pro" ? "primary.main" : "divider", display: "flex" }}><CardContent sx={{ p: 3, display: "flex", flexDirection: "column", width: "100%" }}>

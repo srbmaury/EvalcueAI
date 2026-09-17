@@ -1,13 +1,13 @@
 export const PRACTICE_PLAN_LIMITS = {
     free: {
         interviewsPerMonth: Number(process.env.FREE_INTERVIEWS_PER_MONTH || 3),
-        resumeReviewsPerMonth: Number(process.env.FREE_RESUME_REVIEWS_PER_MONTH || 3),
-        resumeGenerationsPerMonth: Number(process.env.FREE_RESUME_GENERATIONS_PER_MONTH || 3),
+        resumeReviewsPerMonth: Number(process.env.FREE_RESUME_REVIEWS_PER_MONTH || 10),
+        resumeGenerationsPerMonth: Number(process.env.FREE_RESUME_GENERATIONS_PER_MONTH || 10),
     },
     pro: {
         interviewsPerMonth: Number(process.env.PRO_INTERVIEWS_PER_MONTH || 100),
         resumeReviewsPerMonth: Number(process.env.PRO_RESUME_REVIEWS_PER_MONTH || 100),
-        resumeGenerationsPerMonth: Number(process.env.PRO_RESUME_GENERATIONS_PER_MONTH || 50),
+        resumeGenerationsPerMonth: Number(process.env.PRO_RESUME_GENERATIONS_PER_MONTH || 100),
     },
 };
 
