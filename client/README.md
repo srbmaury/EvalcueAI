@@ -20,6 +20,12 @@ VITE_TURNSTILE_SITE_KEY=<your_turnstile_site_key>
 
 VITE_GOOGLE_CLIENT_ID=<your_google_oauth_client_id>
 VITE_ACCOUNT_DATA_EXPORT_ENABLED=false
+
+# Google Analytics (gtag.js). Leave unset to disable it entirely.
+VITE_GA_MEASUREMENT_ID=<your_ga_measurement_id>
+# Sends real hits from localhost too; leave false so dev/test traffic doesn't
+# pollute production GA data.
+VITE_GA_LOCAL_ENABLED=false
 ```
 
 `VITE_PUBLIC_ORIGIN` should be the public canonical origin with no path component. When it is set for a production build, Vite emits `sitemap.xml` and `robots.txt` for the public landing, documentation, privacy, and terms routes. Protected Practice/Hiring routes are intentionally excluded from the sitemap and disallowed in `robots.txt`.

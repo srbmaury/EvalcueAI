@@ -23,7 +23,7 @@ Canonical public route in the shared client: `/`
 - Coding / online-assessment rounds with code execution when Judge0 is enabled
 - Live system-design discussions with an Excalidraw architecture canvas
 - Adaptive questioning based on answer evidence, competency coverage, and resume context
-- Resume upload, review, JD matching, saved interview experiences, progress tracking, and reminders
+- Resume upload, review, JD matching, JD-tailored one-page resume generation, saved interview experiences, progress tracking, and reminders
 - Post-interview feedback and improvement suggestions
 
 Production host: `practice.evalcueai.com`
@@ -135,6 +135,7 @@ Important values:
 - `VITE_APP_SURFACE=landing`, `practice`, or `hiring` when deploying the shared client as separate sites
 - `VITE_LANDING_ORIGIN`, `VITE_PRACTICE_ORIGIN`, and `VITE_HIRING_ORIGIN` for safe cross-site navigation and candidate links
 - CAPTCHA and Google client IDs when those integrations are enabled
+- `VITE_GA_MEASUREMENT_ID` to enable Google Analytics (`gtag.js`); leave unset to disable it. `VITE_GA_LOCAL_ENABLED` opts a local dev machine into sending real hits, off by default so `npm run dev` traffic doesn't pollute production GA data
 
 See [NETLIFY_DEPLOYMENT.md](NETLIFY_DEPLOYMENT.md) for frontend deployment and DNS setup.
 
@@ -203,8 +204,10 @@ Authenticated Practice:
 - `/practice/resume-review`
 - `/practice/resume-reviews`
 - `/practice/resume-match`
+- `/practice/resume-generate`
 - `/practice/progress`
 - `/practice/profile`
+- `/practice/pricing`
 
 Authenticated Hire:
 
