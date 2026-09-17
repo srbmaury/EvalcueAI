@@ -187,6 +187,7 @@ Public/indexable:
 - `/practice` — candidate interview-practice product
 - `/hire` — technical-hiring product
 - `/docs` and `/docs/*` — public documentation
+- `/practice/resources/:slug`, `/hire/resources/:slug` — SEO resource pages
 - `/privacy`
 - `/terms`
 
@@ -199,15 +200,19 @@ Authenticated Practice:
 - `/practice/dashboard`
 - `/practice/new`
 - `/practice/interviews/:interviewId`
+- `/practice/interviews/:interviewId/feedback`
+- `/practice/weekly-plan`
 - `/practice/company-insights`
 - `/practice/resumes`
 - `/practice/resume-review`
 - `/practice/resume-reviews`
 - `/practice/resume-match`
 - `/practice/resume-generate`
+- `/practice/saved-experiences`
 - `/practice/progress`
 - `/practice/profile`
 - `/practice/pricing`
+- `/practice/billing/success`
 
 Authenticated Hire:
 
@@ -217,6 +222,7 @@ Authenticated Hire:
 - `/hire/team`
 - `/hire/pilot`
 - `/hire/sso`
+- `/hire/billing/success`
 
 Older routes such as `/assessments`, `/create-interview`, `/dashboard`, `/interview-practice`, and `/technical-hiring` are compatibility redirects and should not be used as canonical links.
 
