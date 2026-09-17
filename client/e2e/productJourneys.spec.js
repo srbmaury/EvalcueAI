@@ -129,12 +129,18 @@ test("Practice and Hire stay separate while profile exposes core practice settin
     await expect(page.getByLabel("Primary goal")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Weekly Practice Plan" })).toBeVisible();
     if ((page.viewportSize()?.width || 0) >= 900) {
-        await expect(page.getByRole("button", { name: "Resume review" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Resume tools" })).toBeVisible();
+        await page.getByRole("button", { name: "Resume tools" }).click();
+        await expect(page.getByRole("menuitem", { name: /Resume review/ })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: /Find best match/ })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: /Resume library/ })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: /Past reviews/ })).toBeVisible();
+        await page.keyboard.press("Escape");
         await expect(page.getByRole("button", { name: "Progress" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Company insights" })).toBeVisible();
     } else {
         await page.getByRole("button", { name: "Open navigation" }).click();
-        await expect(page.getByRole("menuitem", { name: "Resume review" })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: /Resume review/ })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "Company insights" })).toBeVisible();
     }
     // The header no longer offers an in-app Practice/Hire switcher (workspace choice now

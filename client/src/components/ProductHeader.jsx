@@ -2,8 +2,13 @@ import { lazy, Suspense, useContext, useEffect, useMemo, useState } from "react"
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import {
     AddRounded,
+    AutoAwesomeRounded,
+    CompareArrowsRounded,
     DarkMode,
+    DescriptionOutlined,
     ExpandMoreRounded,
+    FolderOutlined,
+    HistoryRounded,
     LightMode,
     LogoutRounded,
     Menu as MenuIcon,
@@ -71,6 +76,18 @@ export const isProductNavItemActive = (location, item) => {
     return item.hash ? location.hash === item.hash : !location.hash;
 };
 
+const resumeNavGroup = {
+    label: "Resume tools",
+    icon: DescriptionOutlined,
+    children: [
+        { label: "Generate tailored resume", description: "Create a one-page resume rewritten for a job", path: "/practice/resume-generate", icon: AutoAwesomeRounded },
+        { label: "Resume review", description: "Compare against a target role and get feedback", path: "/practice/resume-review", icon: RateReviewOutlined },
+        { label: "Find best match", description: "See which saved resume fits a job best", path: "/practice/resume-match", icon: CompareArrowsRounded },
+        { label: "Resume library", description: "Manage and organize your saved resumes", path: "/practice/resumes", icon: FolderOutlined },
+        { label: "Past reviews", description: "Revisit feedback from earlier reviews", path: "/practice/resume-reviews", icon: HistoryRounded },
+    ],
+};
+
 export default function ProductHeader({ surface = "practice" }) {
     const config = CONFIG[surface] || CONFIG.practice;
     const ProductIcon = config.icon;
@@ -87,6 +104,7 @@ export default function ProductHeader({ surface = "practice" }) {
     const navigate = useNavigate();
     const [mobileAnchor, setMobileAnchor] = useState(null);
     const [profileAnchor, setProfileAnchor] = useState(null);
+    const [navGroupAnchor, setNavGroupAnchor] = useState(null);
     const [organizationAnchor, setOrganizationAnchor] = useState(null);
     const [notificationAnchor, setNotificationAnchor] = useState(null);
     const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -101,6 +119,7 @@ export default function ProductHeader({ surface = "practice" }) {
         setProfileAnchor(null);
         setOrganizationAnchor(null);
         setNotificationAnchor(null);
+        setNavGroupAnchor(null);
     }, [location.pathname, location.search, location.hash]);
 
     const hasHiringOrganization = Boolean(activeOrganization?._id);
@@ -112,7 +131,7 @@ export default function ProductHeader({ surface = "practice" }) {
         if (surface === "practice") {
             return [
                 { label: "Overview", path: "/practice/dashboard", matchPrefix: "/practice/interviews/" },
-                { label: "Resume review", path: "/practice/resume-review" },
+                resumeNavGroup,
                 { label: "Progress", path: "/practice/progress" },
                 { label: "Company insights", path: "/practice/company-insights" },
             ];
@@ -151,6 +170,38 @@ export default function ProductHeader({ surface = "practice" }) {
     };
 
     const renderNavItem = (item, mobile = false) => {
+        if (item.children) {
+            const active = item.children.some((child) => isProductNavItemActive(location, child));
+            if (mobile) {
+                return (
+                    <Box key={item.label}>
+                        <Typography variant="overline" color="text.secondary" sx={{ px: 2, pt: 1, display: "block", fontWeight: 800 }}>{item.label}</Typography>
+                        {item.children.map((child) => {
+                            const ChildIcon = child.icon;
+                            const childActive = isProductNavItemActive(location, child);
+                            return <MenuItem key={child.label} onClick={() => openNavItem(child)} selected={childActive}>{ChildIcon && <ChildIcon fontSize="small" sx={{ mr: 1.25 }} />}{child.label}</MenuItem>;
+                        })}
+                    </Box>
+                );
+            }
+            return (
+                <Box key={item.label}>
+                    <Button endIcon={<ExpandMoreRounded />} onClick={(event) => setNavGroupAnchor(event.currentTarget)} sx={navButtonSx(active)}>{item.label}</Button>
+                    <Menu anchorEl={navGroupAnchor} open={Boolean(navGroupAnchor?.isConnected)} onClose={() => setNavGroupAnchor(null)} PaperProps={{ sx: { minWidth: 280 } }}>
+                        {item.children.map((child) => {
+                            const ChildIcon = child.icon;
+                            const childActive = isProductNavItemActive(location, child);
+                            return (
+                                <MenuItem key={child.label} onClick={() => openNavItem(child)} selected={childActive}>
+                                    {ChildIcon && <ChildIcon fontSize="small" sx={{ mr: 1.5, color: childActive ? "primary.main" : "text.secondary" }} />}
+                                    <ListItemText primary={child.label} secondary={child.description} secondaryTypographyProps={{ sx: { whiteSpace: "normal" } }} />
+                                </MenuItem>
+                            );
+                        })}
+                    </Menu>
+                </Box>
+            );
+        }
         const active = isProductNavItemActive(location, item);
         if (mobile) {
             return <MenuItem key={`${item.label}-${item.hash || ""}`} onClick={() => openNavItem(item)} selected={active}>{item.label}</MenuItem>;
