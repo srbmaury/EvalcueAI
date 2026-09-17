@@ -37,7 +37,7 @@ describe("analytics", () => {
         expect(window.gtag).toBeUndefined();
     });
 
-    it("loads gtag.js and configures it when a measurement id is set and local tracking is enabled", async () => {
+    it("loads gtag.js, configures it, and disables gtag's own automatic page_view", async () => {
         vi.stubEnv("VITE_GA_MEASUREMENT_ID", "G-TEST123");
         vi.stubEnv("DEV", true);
         vi.stubEnv("VITE_GA_LOCAL_ENABLED", "true");
@@ -47,6 +47,8 @@ describe("analytics", () => {
         expect(window.dataLayer.length).toBeGreaterThan(0);
         const script = document.querySelector('script[src*="googletagmanager.com"]');
         expect(script?.src).toContain("G-TEST123");
+        const configCall = window.dataLayer.find((args) => args[0] === "config");
+        expect(Array.from(configCall)).toEqual(["config", "G-TEST123", { send_page_view: false }]);
     });
 
     it("trackEvent forwards to gtag as a custom event once GA is initialized", async () => {
@@ -58,5 +60,23 @@ describe("analytics", () => {
         const spy = vi.spyOn(window, "gtag");
         trackEvent("resume_generation_completed", "/practice/resume-generate");
         expect(spy).toHaveBeenCalledWith("event", "resume_generation_completed", { page_path: "/practice/resume-generate" });
+    });
+
+    it("trackPageView does nothing before GA is initialized", async () => {
+        vi.stubEnv("VITE_GA_MEASUREMENT_ID", "");
+        const { trackPageView } = await import("../utils/analytics.js");
+        expect(() => trackPageView("/practice/dashboard")).not.toThrow();
+        expect(window.gtag).toBeUndefined();
+    });
+
+    it("trackPageView fires a page_view event with the given path once GA is initialized", async () => {
+        vi.stubEnv("VITE_GA_MEASUREMENT_ID", "G-TEST123");
+        vi.stubEnv("DEV", true);
+        vi.stubEnv("VITE_GA_LOCAL_ENABLED", "true");
+        const { initGoogleAnalytics, trackPageView } = await import("../utils/analytics.js");
+        initGoogleAnalytics();
+        const spy = vi.spyOn(window, "gtag");
+        trackPageView("/practice/resume-generate");
+        expect(spy).toHaveBeenCalledWith("event", "page_view", { page_path: "/practice/resume-generate", page_location: window.location.href });
     });
 });

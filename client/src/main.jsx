@@ -9,6 +9,7 @@ import "./index.css";
 import { ThemeModeProvider } from "./context/ThemeContext.jsx";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import PublicRouteSeo from "./components/PublicRouteSeo.jsx";
+import AnalyticsPageViewTracker from "./components/AnalyticsPageViewTracker.jsx";
 import { installCandidateAttemptStoragePolicy } from "./utils/candidateAttemptStoragePolicy.js";
 import { initGoogleAnalytics } from "./utils/analytics.js";
 
@@ -23,6 +24,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <ThemeModeProvider>
       <BrowserRouter>
         <PublicRouteSeo />
+        <AnalyticsPageViewTracker />
         <AuthProvider>
           <NotificationProvider>
             <OrganizationProvider>
