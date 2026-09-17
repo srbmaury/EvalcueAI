@@ -61,7 +61,7 @@ const generationSchema = `Return ONLY JSON with this exact shape:
   "skills": [{ "category": string, "items": string }],
   "achievements": string[]
 }
-No markdown, no code fences. Every bullet must be something the resume text actually supports — never invent experience, employers, dates, or metrics that aren't in the source resume.`;
+No markdown, no code fences. Every bullet must be something the resume text actually supports — never invent experience, employers, dates, or metrics that aren't in the source resume. This applies to contact details too: if a phone, email, LinkedIn, GitHub, or website isn't present in the source resume text, leave that field as an empty string rather than inventing a placeholder.`;
 
 const buildGenerationPrompt = ({ role, jobDescription, resumeText }) => `You are an expert resume writer preparing a one-page, ATS-friendly resume tailored to a specific job.
 Rewrite and select content from the candidate's existing resume to emphasize what's most relevant to the target role and job description. Prioritize the strongest, most relevant experience and projects; it is fine to omit less relevant items entirely to keep this to one page. Keep bullets concise (one line each) and quantify impact where the source resume supports it.

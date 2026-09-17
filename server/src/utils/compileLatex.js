@@ -52,12 +52,22 @@ export const compileLatexToPdf = async (texSource) => {
         const texFileName = "resume.tex";
         await writeFile(path.join(workDir, texFileName), texSource, "utf8");
         await runTectonic(workDir, texFileName);
-        const pdfBuffer = await readFile(path.join(workDir, "resume.pdf"));
+        let pdfBuffer;
+        try {
+            pdfBuffer = await readFile(path.join(workDir, "resume.pdf"));
+        } catch (error) {
+            // Tectonic reported success (exit code 0) but the PDF isn't where expected —
+            // treat this the same as a compile failure rather than letting a raw ENOENT
+            // propagate as an opaque 500.
+            throw new LatexCompileError(`LaTeX compilation did not produce a PDF: ${error.message}`);
+        }
         const parser = new PDFParse({ data: pdfBuffer });
         let pageCount;
         try {
             const parsed = await parser.getText();
             pageCount = parsed.total;
+        } catch (error) {
+            throw new LatexCompileError(`Compiled PDF could not be read back: ${error.message}`);
         } finally {
             await parser.destroy();
         }
