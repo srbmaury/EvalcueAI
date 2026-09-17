@@ -67,18 +67,15 @@ export default function ResumeGeneratorPage() {
     };
 
     return <Container maxWidth="md" sx={{ py: { xs: 3, md: 6 } }}>
-        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={2} mb={3}>
-            <Box>
-                <Typography variant="overline" color="primary.main" fontWeight={800}>Resume intelligence</Typography>
-                <Typography component="h1" variant="h3" sx={{ fontSize: { xs: "2.35rem", md: "3rem" } }} fontWeight={850}>Generate a tailored, one-page resume</Typography>
-                <Typography color="text.secondary" mt={1}>Pick a saved resume and a target job. We rewrite and trim your content to fit a clean, ATS-friendly one-page layout.</Typography>
-            </Box>
-            <Button variant="outlined" onClick={() => navigate("/practice/resumes")}>Manage resumes</Button>
-        </Stack>
+        <Box mb={3}>
+            <Typography variant="overline" color="primary.main" fontWeight={800}>Resume intelligence</Typography>
+            <Typography component="h1" variant="h3" sx={{ fontSize: { xs: "2.35rem", md: "3rem" } }} fontWeight={850}>Generate a tailored, one-page resume</Typography>
+            <Typography color="text.secondary" mt={1}>Pick a saved resume and a target job. We rewrite and trim your content to fit a clean, ATS-friendly one-page layout.</Typography>
+        </Box>
         <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
             <Stack spacing={2}>
                 {resumes.length === 0
-                    ? <Alert severity="info">Upload a resume in your library first — the generator rewrites and tailors an existing resume, it doesn’t start from a blank page.</Alert>
+                    ? <Alert severity="info" action={<Button color="inherit" size="small" onClick={() => navigate("/practice/resumes")}>Upload a resume</Button>}>Upload a resume in your library first — the generator rewrites and tailors an existing resume, it doesn’t start from a blank page.</Alert>
                     : <TextField select required label="Base resume" value={resumeId} onChange={(event) => setResumeId(event.target.value)}>
                         {resumes.map((resume) => <MenuItem key={resume._id} value={resume._id}>{resume.fileName || "Untitled resume"}</MenuItem>)}
                     </TextField>}

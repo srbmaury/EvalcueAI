@@ -183,10 +183,24 @@ test("practice sub-features remain reachable after navigation cleanup", async ({
     await mockSignedIn(page);
     await page.route("**/api/resumes**", (route) => json(route, []));
     await page.route("**/api/experiences/saved**", (route) => json(route, { items: [], totalPages: 1 }));
-    await page.goto("/practice/resume-review");
-    await expect(page.getByRole("link", { name: "Resume library" })).toHaveAttribute("href", "/practice/resumes");
-    await expect(page.getByRole("link", { name: "Past reviews" })).toHaveAttribute("href", "/practice/resume-reviews");
-    await expect(page.getByRole("link", { name: "Find best match" })).toHaveAttribute("href", "/practice/resume-match");
+    // Resume library/past reviews/find-best-match no longer have their own page-level
+    // buttons on resume-review — that was redundant once the header's Resume tools
+    // dropdown covered the same destinations. Verify each is actually reachable by
+    // clicking through the dropdown, since these menu items navigate via onClick
+    // (not a real <a href>) and so can't be asserted on by href alone.
+    const viaDropdown = async (label, expectedPath) => {
+        await page.goto("/practice/resume-review");
+        if ((page.viewportSize()?.width || 0) >= 900) {
+            await page.getByRole("button", { name: "Resume tools" }).click();
+        } else {
+            await page.getByRole("button", { name: "Open navigation" }).click();
+        }
+        await page.getByRole("menuitem", { name: new RegExp(label) }).click();
+        await expect(page).toHaveURL(new RegExp(`${expectedPath.replace(/\//g, "\\/")}$`));
+    };
+    await viaDropdown("Resume library", "/practice/resumes");
+    await viaDropdown("Past reviews", "/practice/resume-reviews");
+    await viaDropdown("Find best match", "/practice/resume-match");
     await page.goto("/practice/company-insights");
     await expect(page.getByRole("link", { name: "Saved insights" })).toHaveAttribute("href", "/practice/saved-experiences");
 });

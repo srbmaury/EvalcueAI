@@ -186,7 +186,6 @@ const ResumesPage = () => {
                     <Button variant="contained" startIcon={uploading ? <CircularProgress size={18} color="inherit" /> : <AddIcon />} disabled={!uploadConsent || uploading} onClick={() => fileInputRef.current?.click()}>
                         {uploading ? "Uploading…" : "Upload PDF"}
                     </Button>
-                    <Button component={RouterLink} to="/practice/resume-match" variant="outlined">Find best resume for a job</Button>
                 </Stack>
             </Stack>
 
