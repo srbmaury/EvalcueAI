@@ -50,10 +50,14 @@ const Captcha = forwardRef(function Captcha({ onVerify, onExpire, provider, them
     const cfg = useMemo(() => {
         const runtime = publicConfig?.captcha || {};
         const selectedProvider = String(provider || runtime.provider || "turnstile").toLowerCase() === "recaptcha" ? "recaptcha" : "turnstile";
+        // The site key is public but baked in at client build time (not served by the
+        // backend): rotating it only needs a client rebuild, and it removes a server env
+        // var whose absence would otherwise be a hard production-boot failure.
+        const siteKey = selectedProvider === "recaptcha" ? import.meta.env.VITE_RECAPTCHA_SITE_KEY : import.meta.env.VITE_TURNSTILE_SITE_KEY;
         return {
             enabled: Boolean(enabled && runtime.enabled),
             provider: selectedProvider,
-            siteKey: runtime.siteKey || "",
+            siteKey: siteKey || "",
         };
     }, [enabled, provider, publicConfig]);
 

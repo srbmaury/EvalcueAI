@@ -9,9 +9,6 @@ const fallbackConfig = () => ({
     captcha: {
         enabled: Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_RECAPTCHA_SITE_KEY),
         provider: String(import.meta.env.VITE_CAPTCHA_PROVIDER || "turnstile").toLowerCase() === "recaptcha" ? "recaptcha" : "turnstile",
-        siteKey: String(import.meta.env.VITE_CAPTCHA_PROVIDER || "turnstile").toLowerCase() === "recaptcha"
-            ? (import.meta.env.VITE_RECAPTCHA_SITE_KEY || "")
-            : (import.meta.env.VITE_TURNSTILE_SITE_KEY || ""),
         loginEnabled: true,
         registerEnabled: true,
         candidateStartEnabled: true,

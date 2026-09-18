@@ -47,7 +47,7 @@ VITE_API_BASE_URL=https://api.evalcueai.com/api
 
 Add the custom domain `hiring.evalcueai.com`. This site is for recruiters, hiring organizations, assessment authoring, and reports.
 
-Google and CAPTCHA public identifiers do **not** need to be duplicated across these Netlify sites. The browser loads them from `GET /api/auth/public-config`; the Render API is the production source of truth. `VITE_GOOGLE_CLIENT_ID`, `VITE_TURNSTILE_SITE_KEY`, `VITE_RECAPTCHA_SITE_KEY`, and `VITE_CAPTCHA_PROVIDER` remain local-development fallbacks only.
+Google's client ID does **not** need to be duplicated across these Netlify sites; the browser loads it from `GET /api/auth/public-config`, and the Render API is the production source of truth. The CAPTCHA **site key** is different: it is a public but client build-time value, not served by the API, so set `VITE_TURNSTILE_SITE_KEY` (or `VITE_RECAPTCHA_SITE_KEY` plus `VITE_CAPTCHA_PROVIDER=recaptcha`, if using reCAPTCHA) on every Netlify site that renders a login/register form or the candidate assessment flow — Practice and Hiring. Rotating this key only needs a rebuild of those sites, not a server change.
 
 ## 4. Configure the API
 
@@ -67,7 +67,6 @@ COOKIE_SAMESITE=lax
 GOOGLE_CLIENT_ID=<Google web client id>
 CAPTCHA_ENABLED=true
 CAPTCHA_PROVIDER=turnstile
-CAPTCHA_SITE_KEY=<Turnstile public site key>
 CAPTCHA_SECRET=<Turnstile secret key>
 CAPTCHA_LOGIN_ENABLED=true
 CAPTCHA_REGISTER_ENABLED=true

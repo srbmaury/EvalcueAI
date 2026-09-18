@@ -65,7 +65,6 @@ router.get("/public-config", (_req, res) => {
         captcha: {
             enabled: captchaEnabled,
             provider,
-            siteKey: captchaEnabled ? (process.env.CAPTCHA_SITE_KEY || "") : "",
             loginEnabled: captchaEnabled && enabled("CAPTCHA_LOGIN_ENABLED"),
             registerEnabled: captchaEnabled && enabled("CAPTCHA_REGISTER_ENABLED"),
             candidateStartEnabled: captchaEnabled,
