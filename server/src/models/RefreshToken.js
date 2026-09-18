@@ -6,6 +6,9 @@ const refreshTokenSchema = new mongoose.Schema({
     expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
     userAgent: { type: String },
     ip: { type: String },
+    replacedByTokenHash: { type: String, default: "", select: false },
+    rotationGraceUntil: { type: Date, default: null, select: false },
+    rotatedAt: { type: Date, default: null },
 });
 
 const RefreshToken = mongoose.model("RefreshToken", refreshTokenSchema);

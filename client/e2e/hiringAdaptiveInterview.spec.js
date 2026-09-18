@@ -4,6 +4,10 @@ const json = (route, body, status = 200) => route.fulfill({ status, contentType:
 
 const mockSignedOut = async (page) => {
     await page.route("**/api/auth/refresh", (route) => json(route, { message: "Unauthenticated" }, 401));
+    // Resuming a saved candidate attempt shows a native confirm() ("is this your
+    // attempt?") before restoring it from storage; Playwright auto-dismisses
+    // confirm() by default, which would otherwise silently clear the saved attempt.
+    page.on("dialog", (dialog) => dialog.accept());
 };
 
 const mockSignedIn = async (page, organizationRole = "owner") => {

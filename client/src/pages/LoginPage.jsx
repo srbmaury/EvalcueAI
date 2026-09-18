@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Link as RouterLink } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import Captcha from "../components/Captcha";
 import AuthShell from "../components/AuthShell";
+import usePublicConfig from "../hooks/usePublicConfig";
 import { getWorkspaceHome, getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
 import { productRegisterPath, surfaceForPath, workspaceForSurface } from "../utils/productRoutes";
 import { describeError } from "../utils/errorFormatter";
@@ -27,6 +28,8 @@ import { BusinessRounded, Login as LoginIcon, Visibility, VisibilityOff } from "
 const LoginPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const publicConfig = usePublicConfig();
+    const googleClientId = publicConfig?.google?.enabled ? publicConfig.google.clientId : "";
     const { login, googleLogin, startSsoLogin, resendVerification } = useContext(AuthContext);
 
     const [email, setEmail] = useState("");
@@ -75,7 +78,6 @@ const LoginPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!validate()) return;
-
         setApiError("");
         setSubmitting(true);
         try {
@@ -115,11 +117,11 @@ const LoginPage = () => {
     };
 
     useEffect(() => {
-        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
-        if (!clientId) return;
-        if (window.google && window.google.accounts && window.google.accounts.id) {
+        setGsiReady(false);
+        if (!googleClientId) return undefined;
+        if (window.google?.accounts?.id) {
             setGsiReady(true);
-            return;
+            return undefined;
         }
         let script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
         const onLoad = () => setGsiReady(true);
@@ -131,27 +133,24 @@ const LoginPage = () => {
             document.head.appendChild(script);
         }
         script.addEventListener("load", onLoad);
-        return () => {
-            if (script) script.removeEventListener("load", onLoad);
-        };
-    }, []);
+        return () => script?.removeEventListener("load", onLoad);
+    }, [googleClientId]);
 
     const googleLoginRef = useRef(googleLogin);
     useEffect(() => { googleLoginRef.current = googleLogin; }, [googleLogin]);
 
     useEffect(() => {
-        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
-        if (!clientId || !gsiReady || !googleDivRef.current) return;
+        if (!googleClientId || !gsiReady || !googleDivRef.current || !window.google?.accounts?.id) return;
         try {
             window.google.accounts.id.initialize({
-                client_id: clientId,
+                client_id: googleClientId,
                 callback: async (response) => {
                     try {
+                        setApiError("");
                         const authenticatedUser = await googleLoginRef.current(response.credential);
                         navigate(authenticatedDestinationFor(authenticatedUser), { replace: true });
-                    } catch (e) {
-                        console.error(e);
-                        setErrors((prev) => ({ ...prev, password: "Google sign-in failed" }));
+                    } catch (error) {
+                        setApiError(error?.response?.data?.message || "Google sign-in failed");
                     }
                 },
                 auto_select: false,
@@ -159,16 +158,17 @@ const LoginPage = () => {
                 use_fedcm_for_button: true,
                 itp_support: true,
             });
+            googleDivRef.current.innerHTML = "";
             window.google.accounts.id.renderButton(googleDivRef.current, {
                 theme: "filled_blue",
                 size: "large",
                 shape: "pill",
                 text: "signin_with",
             });
-        } catch (e) {
-            console.error("GIS button render error", e);
+        } catch (error) {
+            console.error("GIS button render error", error);
         }
-    }, [authenticatedDestinationFor, gsiReady, navigate]);
+    }, [authenticatedDestinationFor, googleClientId, gsiReady, navigate]);
 
     return (
         <AuthShell
@@ -189,13 +189,13 @@ const LoginPage = () => {
                         <Typography variant="body2" align="right" sx={{ mt: 1 }}><Link component={RouterLink} to={forgotPasswordPath} underline="hover">Forgot password?</Link></Typography>
                     </FormControl>
                     {errors.password === "Email not verified" && <Stack spacing={1}><Typography variant="body2" color="text.secondary">Didn’t receive the verification email?</Typography><Button size="small" variant="text" onClick={async () => { try { const r = await resendVerification(email); setErrors((p) => ({ ...p, password: r?.message || "Verification email sent" })); } catch (e) { console.error(e); } }}>Resend verification</Button></Stack>}
-                    <Captcha ref={captchaRef} onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
+                    <Captcha ref={captchaRef} enabled={Boolean(publicConfig?.captcha?.loginEnabled)} onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
                     <Button type="submit" variant="contained" size="large" startIcon={<LoginIcon />} disabled={submitting || ssoSubmitting} sx={{ py: 1.25, borderRadius: 2, textTransform: "none", fontWeight: 700 }}>{submitting ? "Signing in..." : "Sign in"}</Button>
                 </Stack>
             </Box>
             <Divider sx={{ my: { xs: 3, md: 2 } }}><Typography variant="caption" color="text.secondary">OR CONTINUE WITH</Typography></Divider>
             <Stack spacing={2} alignItems="center">
-                <div ref={googleDivRef} />
+                {googleClientId && <div ref={googleDivRef} />}
                 {showWorkSso && <Button fullWidth variant="outlined" size="large" startIcon={<BusinessRounded />} disabled={ssoSubmitting || submitting} onClick={handleSso}>{ssoSubmitting ? "Opening your identity provider…" : "Continue with work SSO"}</Button>}
                 <Typography variant="caption" color="text.secondary" align="center">{showWorkSso ? "Work SSO is available for Evalcue AI Hire organizations. " : ""}Google sign-in may not display in embedded browsers; use Chrome or Safari if needed.</Typography>
             </Stack>

@@ -133,6 +133,23 @@ const CreateInterviewPage = () => {
         }
     };
 
+    const handleDownloadResume = async (r) => {
+        if (!r) return;
+        try {
+            const { data } = await api.get(`/resumes/${r._id}/file`, { responseType: "blob" });
+            const objectUrl = URL.createObjectURL(data);
+            const anchor = document.createElement("a");
+            anchor.href = objectUrl;
+            anchor.download = r.fileName || "resume";
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+        } catch (error) {
+            notify(describeError(error, "Resume could not be downloaded."), "error");
+        }
+    };
+
     const handlePreviewResume = (r) => {
         if (!r) return;
         if (r.fileType !== "application/pdf") {
@@ -319,7 +336,7 @@ const CreateInterviewPage = () => {
                             return <Box component="details" sx={{ mt: 1.25 }}>
                                 <Typography component="summary" variant="caption" color="text.secondary" fontWeight={700} sx={{ cursor: "pointer" }}>Selected: {selectedResume.fileName || "Untitled resume"} · resume options</Typography>
                                 <Stack direction="row" spacing={1} alignItems="center" mt={1}>
-                                    <Button size="small" component="a" href={selectedResume.fileUrl} download startIcon={<DownloadIcon fontSize="small" />}>Download</Button>
+                                    <Button size="small" onClick={() => handleDownloadResume(selectedResume)} startIcon={<DownloadIcon fontSize="small" />}>Download</Button>
                                     <Button size="small" onClick={() => handlePreviewResume(selectedResume)} startIcon={<PictureAsPdfIcon fontSize="small" />}>Preview</Button>
                                     <Tooltip title="Remove this saved resume from your account"><IconButton size="small" color="error" onClick={() => setDeleteConfirmId(selectedResume._id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                                 </Stack>

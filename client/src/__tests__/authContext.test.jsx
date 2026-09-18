@@ -78,8 +78,8 @@ describe("AuthProvider", () => {
         });
 
         expect(mocks.post).toHaveBeenNthCalledWith(1, "/auth/login", { email: "user@example.com", password: "secret", captchaToken: "captcha" });
-        expect(mocks.post).toHaveBeenNthCalledWith(2, "/auth/register", { name: "User", email: "user@example.com", password: "secret" });
-        expect(mocks.post).toHaveBeenNthCalledWith(3, "/auth/google", { idToken: "google-id-token" });
+        expect(mocks.post).toHaveBeenNthCalledWith(2, "/auth/register", { name: "User", email: "user@example.com", password: "secret", termsAccepted: true });
+        expect(mocks.post).toHaveBeenNthCalledWith(3, "/auth/google", { idToken: "google-id-token", termsAccepted: false });
         expect(mocks.post).toHaveBeenNthCalledWith(4, "/sso/start", { email: "user@example.com" }, { skipAuthRedirect: true });
         expect(mocks.post).toHaveBeenNthCalledWith(5, "/sso/exchange", { exchangeCode: "exchange-code" }, { skipAuthRedirect: true });
         expect(mocks.setAccessToken.mock.calls.map(([token]) => token)).toEqual(["local-token", "google-token", "sso-token"]);
@@ -98,6 +98,14 @@ describe("AuthProvider", () => {
         mocks.get.mockRejectedValueOnce(new Error("profile fetch failed"));
         await act(async () => { await expect(auth.googleLogin("google-id-token")).rejects.toThrow(/couldn't be loaded/i); });
         expect(mocks.clearAccessToken).toHaveBeenCalledTimes(2);
+    });
+
+    it("sends explicit consent when Google is used for account creation", async () => {
+        renderAuth();
+        await screen.findByText("user@example.com");
+        mocks.post.mockResolvedValueOnce({ data: { token: "google-token" } });
+        await act(async () => auth.googleLogin("signup-token", { termsAccepted: true }));
+        expect(mocks.post).toHaveBeenCalledWith("/auth/google", { idToken: "signup-token", termsAccepted: true });
     });
 
     it("covers account recovery, profile updates, logout, and deletion", async () => {

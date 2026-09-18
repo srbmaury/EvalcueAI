@@ -45,6 +45,14 @@ const followUpExchanges = (question) => question.followUps?.length
         ? [{ question: question.followUpQuestion, answer: question.followUpAnswer || "" }]
         : [];
 
+const quoteCsvCell = (value) => {
+    let text = String(value ?? "");
+    // Spreadsheet applications can execute candidate-controlled cells that begin
+    // with formula markers. Prefix them as text before normal CSV quoting.
+    if (/^[\t\r\n ]*[=+\-@]/.test(text)) text = `'${text}`;
+    return `"${text.replaceAll('"', '""')}"`;
+};
+
 function FollowUpEvidence({ question }) {
     const exchanges = followUpExchanges(question);
     if (!exchanges.length) return null;
@@ -68,13 +76,12 @@ export default function AssessmentReportPage() {
     const copyCandidateLink = async () => { try { await navigator.clipboard.writeText(link); notify("Candidate link copied.", "success"); } catch { notify("Candidate link could not be copied. Copy it from the browser address bar after opening the candidate preview.", "warning"); } };
     const scrollToInvites = () => { document.getElementById("invite-candidates")?.scrollIntoView({ behavior: "smooth", block: "center" }); window.setTimeout(() => document.getElementById("invite-candidate-emails")?.focus(), 250); };
     const exportCsv = () => {
-        const quote = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
         const rows = [["Candidate", "Email", "Status", "Overall score", "Round", "Question", "Answer", "Follow-up questions", "Follow-up answers", "AI score", "AI feedback"]];
         attempts.forEach((attempt) => attempt.rounds.forEach((round) => round.questions.forEach((question) => {
             const exchanges = followUpExchanges(question);
             rows.push([attempt.candidateName, attempt.candidateEmail, attempt.status, attempt.overallScore ?? "", round.name, question.text, question.answer, exchanges.map((item, index) => `${index + 1}. ${item.question}`).join("\n"), exchanges.map((item, index) => `${index + 1}. ${item.answer || ""}`).join("\n"), question.score ?? "", question.feedbackComment]);
         })));
-        const blob = new Blob([rows.map((row) => row.map(quote).join(",")).join("\n")], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${assessment.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-reports.csv`; anchor.click(); URL.revokeObjectURL(url);
+        const blob = new Blob([rows.map((row) => row.map(quoteCsvCell).join(",")).join("\n")], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${assessment.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-reports.csv`; anchor.click(); URL.revokeObjectURL(url);
     };
     const sendInvites = async () => { if (sendingInvites) return; const candidates = parseCandidateInvites(inviteText); if (!candidates.length) { notify("Enter at least one candidate email.", "warning"); document.getElementById("invite-candidate-emails")?.focus(); return; } setSendingInvites(true); try { const { data: result } = await api.post(`/assessments/${assessmentId}/invitations`, { candidates }); setInviteText(""); const summary = invitationDeliverySummary(result.results || []); notify(summary.message, summary.severity); await load(); } catch (err) { notify(describeError(err, "Invitations could not be sent."), "error"); } finally { setSendingInvites(false); } };
     const withPendingInvitation = async (invitation, action) => { if (pendingInvitationIds.has(invitation._id)) return; setPendingInvitationIds((current) => new Set(current).add(invitation._id)); try { await action(); } finally { setPendingInvitationIds((current) => { const next = new Set(current); next.delete(invitation._id); return next; }); } };

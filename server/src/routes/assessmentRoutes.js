@@ -4,6 +4,7 @@ import protect from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
 import quotas from "../middleware/quotas.js";
 import requireFeature from "../middleware/featureFlags.js";
+import captcha from "../middleware/captcha.js";
 import { uploadAudioMulter } from "../middleware/multerMemory.js";
 import { requireCandidateRoundSequence } from "../middleware/candidateRoundSequence.js";
 import { ObjectIdString } from "../validation/commonSchemas.js";
@@ -11,10 +12,17 @@ import audit from "../middleware/audit.js";
 import { organizationContext, requireOrganizationRole } from "../middleware/organizationContext.js";
 import {
     getAssessmentReport, getHiringOverview, listAssessments,
-    duplicateAssessment, generateAssessmentQuestions, improveAssessmentQuestionText, previewAssessment, protectCandidateTool,
-    recordIntegrityEvent, reviewCandidateAttempt, revokeInvitation, runCandidateCode, submitCandidateAttempt, transcribeCandidateAudio,
+    duplicateAssessment, generateAssessmentQuestions, improveAssessmentQuestionText, previewAssessment, reviewCandidateAttempt, revokeInvitation,
 } from "../controllers/assessmentController.js";
 import { inviteHiringCandidates, updateHiringAssessment } from "../controllers/hiringAssessmentWorkflowController.js";
+import {
+    getPublicAssessmentForCandidate,
+    protectCandidateTool,
+    recordIntegrityEvent,
+    runCandidateCode,
+    submitCandidateAttempt,
+    transcribeCandidateAudio,
+} from "../controllers/candidateAttemptAccessController.js";
 import { saveAdaptiveCandidateAnswer, startAdaptiveCandidateAttempt } from "../controllers/hiringAdaptiveAssessmentController.js";
 import { getCandidateInvitationPrefill } from "../controllers/candidateInvitationController.js";
 import {
@@ -23,7 +31,6 @@ import {
     enforceDebuggingPublishValidation,
     getCandidateDebuggingWorkspace,
     getDebuggingAssessmentCapabilities,
-    getPublicAssessmentWithDebugging,
     reopenCandidateDebuggingRound,
     runCandidateDebuggingProjectTests,
     saveCandidateDebuggingWorkspace,
@@ -77,9 +84,24 @@ const debuggingWorkspaceBody = z.object({
 });
 const debuggingValidationBody = z.object({ instructions: z.string().trim().min(5).max(1000), debugging: debuggingInput });
 
+const shapeReviewerOverview = (req, res, next) => {
+    if (req.organizationRole !== "reviewer") return next();
+    const send = res.json.bind(res);
+    res.json = (body) => send({
+        ...body,
+        summary: {},
+        assessments: (body?.assessments || []).map((assessment) => ({ _id: assessment._id, title: assessment.title })),
+        candidates: (body?.candidates || []).map((candidate) => ({
+            ...candidate,
+            assessment: candidate.assessment ? { _id: candidate.assessment._id, title: candidate.assessment.title } : null,
+        })),
+    });
+    return next();
+};
+
 router.get("/public/:shareToken/invitation/:invitationId", validate(z.object({ shareToken: z.string().min(20).max(100), invitationId: ObjectIdString }), "params"), getCandidateInvitationPrefill);
-router.get("/public/:shareToken", validate(z.object({ shareToken: z.string().min(20).max(100) }), "params"), validate(z.object({ invite: ObjectIdString.optional() }), "query"), getPublicAssessmentWithDebugging);
-router.post("/public/:shareToken/start", quotas({ key: (req) => `assessment-start:${req.params.shareToken}:${req.ip}`, metricKey: "assessment_start", windowSeconds: 3600, maxPerWindow: 10 }), validate(z.object({ shareToken: z.string().min(20).max(100) }), "params"), validate(z.object({ name: z.string().trim().min(1).max(120), email: z.string().trim().email().max(254), privacyConsent: z.literal(true), integrityConsent: z.boolean().optional().default(false), invitationId: ObjectIdString.optional() })), startAdaptiveCandidateAttempt);
+router.get("/public/:shareToken", validate(z.object({ shareToken: z.string().min(20).max(100) }), "params"), validate(z.object({ invite: ObjectIdString.optional() }), "query"), getPublicAssessmentForCandidate);
+router.post("/public/:shareToken/start", quotas({ key: (req) => `assessment-start:${req.params.shareToken}:${req.ip}`, metricKey: "assessment_start", windowSeconds: 3600, maxPerWindow: 10 }), captcha(), validate(z.object({ shareToken: z.string().min(20).max(100) }), "params"), validate(z.object({ name: z.string().trim().min(1).max(120), email: z.string().trim().email().max(254), privacyConsent: z.literal(true), integrityConsent: z.boolean().optional().default(false), invitationId: ObjectIdString.optional(), captchaToken: z.string().min(1).max(5000).optional() })), startAdaptiveCandidateAttempt);
 router.put("/public/:shareToken/attempts/:attemptId/answer", quotas({ key: (req) => `assessment-answer:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_answer", windowSeconds: 3600, maxPerWindow: 120 }), validate(attemptParams, "params"), validate(z.object({ roundIndex: z.number().int().min(0).max(4), questionIndex: z.number().int().min(0).max(9), answer: z.string().max(20000).optional(), spokenExplanation: z.string().max(5000).optional(), followUpAnswer: z.string().max(5000).optional(), diagramData: z.string().max(500000).optional() }).refine((body) => body.answer !== undefined || body.spokenExplanation !== undefined || body.followUpAnswer !== undefined || body.diagramData !== undefined)), requireCandidateRoundSequence, saveAdaptiveCandidateAnswer);
 router.get("/public/:shareToken/attempts/:attemptId/debugging/:roundIndex", requireFeature("ENABLE_DEBUGGING_ASSESSMENTS"), validate(debugAttemptParams, "params"), protectCandidateTool, requireCandidateRoundSequence, getCandidateDebuggingWorkspace);
 router.put("/public/:shareToken/attempts/:attemptId/debugging/:roundIndex/workspace", requireFeature("ENABLE_DEBUGGING_ASSESSMENTS"), validate(debugAttemptParams, "params"), validate(debuggingWorkspaceBody), protectCandidateTool, requireCandidateRoundSequence, quotas({ key: (req) => `assessment-debug-save:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_debug_save", windowSeconds: 3600, maxPerWindow: 240 }), saveCandidateDebuggingWorkspace);
@@ -97,7 +119,7 @@ router.use(protect, organizationContext);
 router.get("/capabilities", getDebuggingAssessmentCapabilities);
 router.post("/debugging/validate", requireOrganizationRole("owner", "admin", "recruiter"), requireFeature("ENABLE_DEBUGGING_ASSESSMENTS"), validate(debuggingValidationBody), quotas({ key: (req) => `assessment-debug-validate:${req.user._id}`, metricKey: "assessment_debug_validate", windowSeconds: 3600, maxPerWindow: 60 }), validateDebuggingAssignment);
 router.get("/", requireOrganizationRole("owner", "admin", "recruiter", "hiring_manager"), listAssessments);
-router.get("/overview", validate(z.object({ page: z.coerce.number().int().min(1).optional(), limit: z.coerce.number().int().min(1).max(50).optional(), search: z.string().trim().max(100).optional(), status: z.enum(["started", "evaluating", "submitted", "evaluation_failed"]).optional(), assessmentId: ObjectIdString.optional() }), "query"), getHiringOverview);
+router.get("/overview", validate(z.object({ page: z.coerce.number().int().min(1).optional(), limit: z.coerce.number().int().min(1).max(50).optional(), search: z.string().trim().max(100).optional(), status: z.enum(["started", "evaluating", "submitted", "evaluation_failed"]).optional(), assessmentId: ObjectIdString.optional() }), "query"), shapeReviewerOverview, getHiringOverview);
 router.post("/questions/generate", requireOrganizationRole("owner", "admin", "recruiter"), quotas({ key: (req) => `assessment-question-generate:${req.user._id}`, metricKey: "assessment_question_generate", windowSeconds: 3600, maxPerWindow: 30 }), validate(z.object({ jobRole: z.string().trim().min(2).max(120), jobDescription: z.string().trim().min(20).max(4000), roundName: z.string().trim().min(2).max(80), roundDescription: z.string().trim().max(300).optional().default(""), deliveryMode: assessmentDeliveryMode.optional().default("conversational"), prompt: z.string().trim().min(3).max(1000), count: z.coerce.number().int().min(1).max(10), existingQuestions: z.array(z.string().trim().min(5).max(1000)).max(20).optional().default([]) })), generateAssessmentQuestions);
 router.post("/questions/improve", requireOrganizationRole("owner", "admin", "recruiter"), quotas({ key: (req) => `assessment-question-improve:${req.user._id}`, metricKey: "assessment_question_improve", windowSeconds: 3600, maxPerWindow: 60 }), validate(z.object({ question: z.string().trim().min(5).max(1000), instruction: z.string().trim().max(500).optional().default(""), jobRole: z.string().trim().max(120).optional().default(""), jobDescription: z.string().trim().max(4000).optional().default(""), roundName: z.string().trim().max(80).optional().default("") })), improveAssessmentQuestionText);
 router.post("/", requireOrganizationRole("owner", "admin", "recruiter"), enforceDebuggingAssessmentFeature, validate(assessmentEditable.extend({ status: z.enum(["draft", "scheduled", "active"]).optional().default("draft") })), audit("assessment.create", { entityType: "Assessment", pickBody: (body) => ({ status: body.status, inviteOnly: body.inviteOnly, rounds: body.rounds?.length, integrityEnabled: body.integrity?.enabled }) }), createAssessmentWithDebugging);

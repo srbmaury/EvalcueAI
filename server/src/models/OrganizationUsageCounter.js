@@ -5,6 +5,7 @@ const organizationUsageCounterSchema = new mongoose.Schema({
     metric: { type: String, enum: ["candidateInterviews"], required: true },
     period: { type: String, required: true },
     used: { type: Number, min: 0, default: 0 },
+    reserved: { type: Number, min: 0, default: 0 },
 }, { timestamps: true });
 
 organizationUsageCounterSchema.index({ organization: 1, metric: 1, period: 1 }, { unique: true });

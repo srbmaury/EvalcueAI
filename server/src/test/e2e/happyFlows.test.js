@@ -19,6 +19,7 @@ import OrganizationUsageCounter from "../../models/OrganizationUsageCounter.js";
 import OrganizationMembership from "../../models/OrganizationMembership.js";
 import { currentMonth, PRACTICE_PLAN_LIMITS } from "../../services/practiceEntitlements.js";
 import { HIRING_PLAN_LIMITS } from "../../services/hiringEntitlements.js";
+import { finalizeCandidateInterview } from "../../services/organizationUsage.js";
 import { deliverDuePracticeReminders } from "../../services/practiceReminders.js";
 import Stripe from "stripe";
 import Question from "../../models/Question.js";
@@ -29,6 +30,8 @@ import metrics from "../../metrics/index.js";
 let replset;
 let agent;
 let accessToken;
+const previousCodeExec = process.env.ENABLE_CODE_EXEC;
+const previousStt = process.env.ENABLE_STT;
 
 describe("Launch-critical full product journey E2E", () => {
     beforeAll(async () => {
@@ -40,6 +43,8 @@ describe("Launch-critical full product journey E2E", () => {
         process.env.MONGO_REQUIRE_TRANSACTIONS = "false";
         process.env.TEST_FORCE_GENERATOR_EMPTY = "true";
         process.env.ACCOUNT_DATA_EXPORT_ENABLED = "true";
+        process.env.ENABLE_CODE_EXEC = "true";
+        process.env.ENABLE_STT = "true";
         await connectDB();
         agent = request.agent(app);
     }, 60000);
@@ -47,6 +52,10 @@ describe("Launch-critical full product journey E2E", () => {
     afterAll(async () => {
         try { await mongoose.connection.close(); } catch {}
         if (replset) await replset.stop();
+        if (previousCodeExec === undefined) delete process.env.ENABLE_CODE_EXEC;
+        else process.env.ENABLE_CODE_EXEC = previousCodeExec;
+        if (previousStt === undefined) delete process.env.ENABLE_STT;
+        else process.env.ENABLE_STT = previousStt;
     }, 30000);
 
     it("allows independent sessions for an account", async () => {
@@ -62,13 +71,13 @@ describe("Launch-critical full product journey E2E", () => {
         await firstClient.post("/api/auth/refresh").expect(200);
         await secondClient.post("/api/auth/refresh").expect(200);
         const user = await User.findOne({ email: "multi-session@example.com" });
-        expect(await RefreshToken.countDocuments({ user: user._id })).toBe(2);
+        expect(await RefreshToken.countDocuments({ user: user._id, rotatedAt: null })).toBe(2);
 
         await firstClient.post("/api/auth/logout").set("Authorization", `Bearer ${firstLogin.body.token}`).set("origin", origin).set("referer", `${origin}/`).expect(200);
         await firstClient.post("/api/auth/refresh").expect(401);
         await secondClient.post("/api/auth/refresh").expect(200);
         await secondClient.get("/api/auth/profile").set("Authorization", `Bearer ${secondLogin.body.token}`).expect(200);
-        expect(await RefreshToken.countDocuments({ user: user._id })).toBe(1);
+        expect(await RefreshToken.countDocuments({ user: user._id, rotatedAt: null })).toBe(1);
     });
 
     it("registers, logs in, uploads resume, creates interview, prepares first round", async () => {
@@ -77,7 +86,7 @@ describe("Launch-critical full product journey E2E", () => {
         // Register
         const reg = await agent
             .post("/api/auth/register")
-            .send({ name: "Test User", email: "t@example.com", password: "Passw0rd!" })
+            .send({ name: "Test User", email: "t@example.com", password: "Passw0rd!", termsAccepted: true })
             .set("origin", origin)
             .set("referer", `${origin}/`)
             .expect(201);
@@ -355,11 +364,11 @@ describe("Launch-critical full product journey E2E", () => {
         expect(startedAttempt.body.attempt.overallScore).toBeUndefined();
         expect(startedAttempt.body.attempt.rounds[0].deliveryMode).toBe("conversational");
         const orgUsage = await OrganizationUsageCounter.findOne({ organization: hiringOrganization.body.organization._id, metric: "candidateInterviews", period: "lifetime" }).lean();
-        expect(orgUsage).toMatchObject({ used: 1 });
+        expect(orgUsage).toMatchObject({ used: 0, reserved: 1 });
         const sharedMembership = await OrganizationMembership.create({ organization: hiringOrganization.body.organization._id, user: otherUser._id, role: "reviewer", status: "active" });
         const otherAcmeAuth = { ...otherAuth, "X-Organization-Id": hiringOrganization.body.organization._id };
         const sharedHiringEntitlements = await agent.get("/api/billing/hiring/entitlements").set(otherAcmeAuth).expect(200);
-        expect(sharedHiringEntitlements.body).toMatchObject({ plan: "trial", used: { candidateInterviews: 1 } });
+        expect(sharedHiringEntitlements.body).toMatchObject({ plan: "trial", used: { candidateInterviews: 0 } });
         await OrganizationMembership.updateOne({ _id: sharedMembership._id }, { $set: { status: "disabled" } });
         await agent.post(`/api/assessments/public/${shareToken}/attempts/${attemptId}/integrity-events`).set("origin", origin).set("referer", `${origin}/`).set("x-attempt-token", attemptToken).send({ type: "tab_hidden", metadata: { question: 1 } }).expect(201);
         await agent.post(`/api/assessments/public/${shareToken}/attempts/${attemptId}/integrity-events`).set("origin", origin).set("referer", `${origin}/`).set("x-attempt-token", attemptToken).send({ type: "face_missing", metadata: { durationSeconds: 10 } }).expect(201);
@@ -376,6 +385,10 @@ describe("Launch-critical full product journey E2E", () => {
         expect(savedAnswer.body.attempt.rounds[0].questions[0].answer).toContain("hashed credentials");
         expect(savedAnswer.body.attempt.rounds[0].questions[0].spokenExplanation).toBe("I would verify this with load and security tests.");
         expect(savedAnswer.body.attempt.rounds[0].questions[0].feedbackComment).toBeUndefined();
+        const reservedAttempt = await CandidateAttempt.findById(attemptId).select("+usageReservationId").lean();
+        expect(await finalizeCandidateInterview({ reservationId: reservedAttempt.usageReservationId })).toBe(true);
+        const finalizedUsage = await OrganizationUsageCounter.findOne({ organization: hiringOrganization.body.organization._id, metric: "candidateInterviews", period: "lifetime" }).lean();
+        expect(finalizedUsage).toMatchObject({ used: 1, reserved: 0 });
         await CandidateAttempt.updateOne({ _id: attemptId }, { $set: { status: "submitted", submittedAt: new Date(), overallScore: 8, "rounds.0.score": 8, "rounds.0.questions.0.score": 8, "rounds.0.questions.0.feedbackComment": "Strong answer" } });
         const ownerReport = await agent.get(`/api/assessments/${assessmentId}`).set(auth).expect(200);
         expect(ownerReport.body.attempts[0]).toMatchObject({ candidateEmail: "candidate@example.com", overallScore: 8 });
@@ -401,12 +414,14 @@ describe("Launch-critical full product journey E2E", () => {
         expect(exportWithAssessments.body.assessments).toBeUndefined();
         expect(exportWithAssessments.body.candidateAttempts).toBeUndefined();
         await agent.patch(`/api/assessments/${assessmentId}`).set(auth).set("origin", origin).set("referer", `${origin}/`).send({ status: "closed" }).expect(200);
-        await agent.get(`/api/assessments/public/${shareToken}`).expect(404);
+        const closedPublicAssessment = await agent.get(`/api/assessments/public/${shareToken}`).expect(200);
+        expect(closedPublicAssessment.body.acceptingNewCandidates).toBe(false);
         await agent.post(`/api/assessments/public/${shareToken}/start`).set("origin", origin).set("referer", `${origin}/`).send({ name: "Late Candidate", email: "late@example.com", privacyConsent: true, integrityConsent: true }).expect(404);
-        await agent.post(`/api/assessments/public/${shareToken}/attempts/${attemptId}/run-code`).set("origin", origin).set("referer", `${origin}/`).set("x-attempt-token", attemptToken).send({}).expect(404);
-        await agent.post(`/api/assessments/public/${shareToken}/attempts/${attemptId}/transcribe`).set("origin", origin).set("referer", `${origin}/`).set("x-attempt-token", attemptToken).expect(404);
+        await agent.post(`/api/assessments/public/${shareToken}/attempts/${attemptId}/run-code`).set("origin", origin).set("referer", `${origin}/`).set("x-attempt-token", attemptToken).send({}).expect(401);
+        await agent.post(`/api/assessments/public/${shareToken}/attempts/${attemptId}/transcribe`).set("origin", origin).set("referer", `${origin}/`).set("x-attempt-token", attemptToken).expect(401);
         const lifecycleMetric = await metrics.assessmentsTotal.get();
         const funnelMetric = await metrics.candidateAssessmentActionsTotal.get();
+        expect(lifecycleMetric.values.length).toBeGreaterThan(0);
         expect(funnelMetric.values.find((value) => value.labels.action === "start" && value.labels.outcome === "success" && value.labels.followups === "disabled")?.value).toBeGreaterThanOrEqual(1);
         expect(funnelMetric.values.find((value) => value.labels.action === "answer" && value.labels.outcome === "unauthorized")?.value).toBeGreaterThanOrEqual(1);
 

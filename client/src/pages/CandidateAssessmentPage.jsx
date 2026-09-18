@@ -7,11 +7,13 @@ import {
 import { CheckCircleOutlineRounded, ErrorOutlineRounded } from "@mui/icons-material";
 import api from "../api/axios";
 import CandidateDebuggingRound from "../components/CandidateDebuggingRound";
+import Captcha from "../components/Captcha";
 import CodeEditorField from "../components/CodeEditorField";
 import ConversationalPanel from "../components/ConversationalPanel";
 import SystemDesignDiscussionPanel from "../components/SystemDesignDiscussionPanel";
 import VoiceControls from "../components/VoiceControls";
 import WebcamPreview from "../components/WebcamPreview";
+import usePublicConfig from "../hooks/usePublicConfig";
 import { useVoiceInput } from "../hooks/useVoiceInput";
 import { useNotify } from "../context/NotificationContext";
 import {
@@ -41,6 +43,8 @@ export default function CandidateAssessmentPage() {
     const invitationId = useMemo(() => new URLSearchParams(window.location.search).get("invite") || "", []);
     const storageKey = useMemo(() => `assessment-attempt:${shareToken}:${invitationId || "open"}`, [invitationId, shareToken]);
     const notify = useNotify();
+    const publicConfig = usePublicConfig();
+    const candidateCaptchaEnabled = Boolean(publicConfig?.captcha?.candidateStartEnabled);
 
     const [assessment, setAssessment] = useState(null);
     const [attempt, setAttempt] = useState(null);
@@ -54,6 +58,7 @@ export default function CandidateAssessmentPage() {
     const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
     const [consent, setConsent] = useState(false);
     const [integrityConsent, setIntegrityConsent] = useState(false);
+    const [captchaToken, setCaptchaToken] = useState("");
     const [cameraReady, setCameraReady] = useState(false);
     const [micReady, setMicReady] = useState(false);
     const [online, setOnline] = useState(navigator.onLine);
@@ -199,6 +204,10 @@ export default function CandidateAssessmentPage() {
 
     const start = async (event) => {
         event.preventDefault();
+        if (candidateCaptchaEnabled && !captchaToken) {
+            setError("Complete the CAPTCHA before starting your assessment.");
+            return;
+        }
         setBusy(true);
         setError("");
         try {
@@ -216,6 +225,7 @@ export default function CandidateAssessmentPage() {
                 privacyConsent: consent,
                 integrityConsent,
                 ...(invitationId ? { invitationId } : {}),
+                ...(candidateCaptchaEnabled ? { captchaToken } : {}),
             }, { skipAuthRedirect: true });
             setAttemptToken(data.attemptToken);
             setActiveRoundIndex(0);
@@ -228,6 +238,7 @@ export default function CandidateAssessmentPage() {
             const message = describeError(err, "We couldn’t start your assessment.");
             setError(message);
             notify(message, "error");
+            if (candidateCaptchaEnabled) setCaptchaToken("");
         } finally { setBusy(false); }
     };
 
@@ -553,7 +564,8 @@ export default function CandidateAssessmentPage() {
                             <FormControlLabel control={<Checkbox required checked={consent} onChange={(event) => setConsent(event.target.checked)} />} label={<span>I understand how my assessment data is processed and shared. <Link component={RouterLink} to="/privacy" target="_blank">Privacy notice</Link></span>} />
                             {assessment.integrity?.enabled && <Alert severity="warning"><Typography fontWeight={750}>Integrity signals are enabled</Typography><Typography variant="body2">The recruiting team may review tab visibility, window focus, fullscreen, clipboard, connectivity{assessment.integrity.monitorFacePresence ? ", and sustained face-presence" : ""} events. Camera frames stay in your browser and are not saved or uploaded. These signals are context—not automatic cheating findings—and are retained for {assessment.integrity.retentionDays || 30} days.</Typography><FormControlLabel control={<Checkbox required checked={integrityConsent} onChange={(event) => setIntegrityConsent(event.target.checked)} />} label="I consent to these integrity signals" /></Alert>}
                             {assessment.contactEmail && <Typography variant="body2" color="text.secondary">Need an accommodation or technical help? Contact <Link href={`mailto:${assessment.contactEmail}`}>{assessment.contactEmail}</Link>.</Typography>}
-                            <Box><Button type="submit" variant="contained" disabled={busy || !online || !consent || (assessment.integrity?.enabled && !integrityConsent) || (assessment.integrity?.requireCamera && !cameraReady)}>{busy ? <CircularProgress size={22} color="inherit" /> : "Start assessment"}</Button></Box>
+                            <Captcha enabled={candidateCaptchaEnabled} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken("")} />
+                            <Box><Button type="submit" variant="contained" disabled={busy || !online || !consent || (candidateCaptchaEnabled && !captchaToken) || (assessment.integrity?.enabled && !integrityConsent) || (assessment.integrity?.requireCamera && !cameraReady)}>{busy ? <CircularProgress size={22} color="inherit" /> : "Start assessment"}</Button></Box>
                         </Stack>
                     </Paper>
                 </>

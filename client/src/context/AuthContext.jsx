@@ -54,14 +54,14 @@ export const AuthProvider = ({ children }) => {
     };
 
     const register = async (name, email, password, captchaToken) => {
-        const payload = { name, email, password };
+        const payload = { name, email, password, termsAccepted: true };
         if (captchaToken) payload.captchaToken = captchaToken;
         const { data } = await api.post(`/auth/register`, payload);
         return data;
     };
 
-    const googleLogin = async (idToken) => {
-        const { data } = await api.post(`/auth/google`, { idToken });
+    const googleLogin = async (idToken, { termsAccepted = false } = {}) => {
+        const { data } = await api.post(`/auth/google`, { idToken, termsAccepted });
         if (data?.token) setAccessToken(data.token);
         const profile = await fetchProfile();
         if (!profile) {
@@ -127,21 +127,7 @@ export const AuthProvider = ({ children }) => {
 
     return (
         <AuthContext.Provider
-            value={{
-                user,
-                loading,
-                login,
-                register,
-                googleLogin,
-                startSsoLogin,
-                completeSsoLogin,
-                resendVerification,
-                forgotPassword,
-                resetPassword,
-                logout,
-                updateProfile,
-                deleteAccount,
-            }}
+            value={{ user, loading, login, register, googleLogin, startSsoLogin, completeSsoLogin, resendVerification, forgotPassword, resetPassword, logout, updateProfile, deleteAccount }}
         >
             {children}
         </AuthContext.Provider>

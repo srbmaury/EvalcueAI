@@ -247,10 +247,27 @@ const InterviewPage = () => {
         setOaSpokenAnswers([]);
     }, [handleOASubmit, oaAnswers, oaSpokenAnswers]);
 
-    const resumeUrl = interview?.resume?.fileUrl || "";
+    const resumeId = interview?.resume?._id || "";
+    const resumeName = interview?.resume?.fileName || "resume";
     const resumeFileType = interview?.resume?.fileType || "";
-    const resumePreviewPath = interview?.resume?._id ? `/resumes/${interview.resume._id}/preview` : "";
+    const resumePreviewPath = resumeId ? `/resumes/${resumeId}/preview` : "";
     const resumeBlobUrl = useResumePdf({ resumeOpen, resumePreviewPath, resumeFileType });
+    const downloadResume = useCallback(async () => {
+        if (!resumeId) return;
+        try {
+            const { data } = await api.get(`/resumes/${resumeId}/file`, { responseType: "blob" });
+            const objectUrl = URL.createObjectURL(data);
+            const anchor = document.createElement("a");
+            anchor.href = objectUrl;
+            anchor.download = resumeName;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+        } catch (error) {
+            showToast("error", error?.response?.data?.message || "Resume could not be downloaded.");
+        }
+    }, [resumeId, resumeName, showToast]);
 
     const voiceProps = useMemo(() => ({
         supportsTTS, supportsSTT,
@@ -369,13 +386,13 @@ const InterviewPage = () => {
                                 {allRoundsCompleted && Number.isFinite(Number(interview?.overallScore)) && (
                                     <Chip color="primary" label={`Overall score ${interview.overallScore}/10`} />
                                 )}
-                                {resumeUrl && (
+                                {resumeId && (
                                     <Button
                                         size="small"
                                         variant="outlined"
                                         onClick={() => {
                                             if (resumeFileType === "application/pdf") setResumeOpen(true);
-                                            else window.open(resumeUrl, "_blank");
+                                            else downloadResume();
                                         }}
                                     >
                                         View resume
@@ -565,7 +582,7 @@ const InterviewPage = () => {
                     )}
                 </DialogContent>
                 <DialogActions>
-                    {resumeUrl && <Button onClick={() => window.open(resumeUrl, "_blank")}>Download</Button>}
+                    {resumeId && <Button onClick={downloadResume}>Download</Button>}
                     <Button onClick={() => setResumeOpen(false)} autoFocus>Close</Button>
                 </DialogActions>
             </Dialog>

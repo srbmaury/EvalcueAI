@@ -42,6 +42,10 @@ const attemptPayload = ({ question = "Explain a reliability incident.", answer =
 
 const mockSignedOut = async (page) => {
     await page.route("**/api/auth/refresh", (route) => json(route, { message: "Unauthenticated" }, 401));
+    // Resuming a saved candidate attempt shows a native confirm() ("is this your
+    // attempt?") before restoring it from storage; Playwright auto-dismisses
+    // confirm() by default, which would otherwise silently clear the saved attempt.
+    page.on("dialog", (dialog) => dialog.accept());
 };
 
 const fillCandidateSetup = async (page, { name = "Candidate One", email = "candidate@example.com" } = {}) => {

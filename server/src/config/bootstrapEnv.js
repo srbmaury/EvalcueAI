@@ -14,6 +14,20 @@ export const normalizeEnvironment = (env = process.env) => {
         env.COOKIE_SAMESITE = "none";
     }
 
+    // Optional capabilities must default consistently everywhere. Routes only
+    // enable these features for the literal value "true", so normalize missing
+    // values to "false" before startup validation reads them as well.
+    if (!env.ENABLE_STT) env.ENABLE_STT = "false";
+    if (!env.ENABLE_CODE_EXEC) env.ENABLE_CODE_EXEC = "false";
+    if (!env.ACCOUNT_DATA_EXPORT_ENABLED) env.ACCOUNT_DATA_EXPORT_ENABLED = "false";
+
+    // Browser CAPTCHA configuration is public but still required when the
+    // server enforces CAPTCHA. Fail before accepting traffic instead of serving
+    // a UI that can never obtain a valid challenge token.
+    if (env.NODE_ENV === "production" && env.CAPTCHA_ENABLED === "true" && !String(env.CAPTCHA_SITE_KEY || "").trim()) {
+        throw new Error("CAPTCHA_SITE_KEY is required when CAPTCHA is enabled in production");
+    }
+
     // Render Key Value exposes an unauthenticated internal Redis endpoint to
     // services in the same workspace/region. Allow deployments to provide the
     // host/port separately while preserving REDIS_URL as the canonical value

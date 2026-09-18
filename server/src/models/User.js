@@ -20,6 +20,9 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: [true, "Email is required"],
             unique: true,
+            lowercase: true,
+            trim: true,
+            maxlength: 254,
         },
         password: {
             type: String,
@@ -35,6 +38,9 @@ const userSchema = new mongoose.Schema(
         },
         googleId: {
             type: String,
+            trim: true,
+            unique: true,
+            sparse: true,
         },
         ssoIdentities: { type: [ssoIdentitySchema], default: [] },
         isVerified: {
@@ -53,6 +59,10 @@ const userSchema = new mongoose.Schema(
         resetPasswordExpires: {
             type: Date,
         },
+        termsAcceptedAt: { type: Date, default: null },
+        termsVersion: { type: String, maxlength: 80, default: "" },
+        privacyVersion: { type: String, maxlength: 80, default: "" },
+        lastAuthenticatedAt: { type: Date, default: null },
         role: {
             type: String,
             enum: ["user", "admin"],

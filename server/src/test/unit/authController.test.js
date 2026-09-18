@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     findOne: vi.fn(), findById: vi.fn(), createUser: vi.fn(),
-    signAccessToken: vi.fn(), issueRefreshToken: vi.fn(), validateRefreshToken: vi.fn(),
+    signAccessToken: vi.fn(), issueRefreshToken: vi.fn(), rotateRefreshToken: vi.fn(),
     revokeRefreshToken: vi.fn(), revokeAllRefreshTokens: vi.fn(), bumpTokenVersion: vi.fn(),
     recordLoginFailure: vi.fn(), clearLoginFailures: vi.fn(), auditCreate: vi.fn(), metricInc: vi.fn(), sendMail: vi.fn(),
 }));
@@ -15,7 +15,7 @@ vi.mock("../../utils/tokens.js", async (importOriginal) => ({
     ...(await importOriginal()),
     signAccessToken: mocks.signAccessToken,
     issueRefreshToken: mocks.issueRefreshToken,
-    validateRefreshToken: mocks.validateRefreshToken,
+    rotateRefreshToken: mocks.rotateRefreshToken,
     revokeRefreshToken: mocks.revokeRefreshToken,
     revokeAllRefreshTokens: mocks.revokeAllRefreshTokens,
     bumpTokenVersion: mocks.bumpTokenVersion,
@@ -24,7 +24,7 @@ vi.mock("../../middleware/loginLockout.js", () => ({ recordLoginFailure: mocks.r
 vi.mock("../../models/AuditLog.js", () => ({ default: { create: mocks.auditCreate, deleteMany: vi.fn() } }));
 vi.mock("../../metrics/index.js", () => ({ default: new Proxy({}, { get: () => ({ labels: () => ({ inc: mocks.metricInc }), inc: mocks.metricInc }) }) }));
 vi.mock("../../utils/mailer.js", () => ({ sendMail: mocks.sendMail, buildVerificationEmail: vi.fn(() => ({ subject: "Verify", html: "body" })) }));
-vi.mock("../../config/clientOrigins.js", () => ({ practiceClientOrigin: () => "https://practice.example.com" }));
+vi.mock("../../config/clientOrigins.js", () => ({ practiceClientOrigin: () => "https://practice.example.com", hiringClientOrigin: () => "https://hiring.example.com" }));
 vi.mock("../../config/cloudinaryConfig.js", () => ({ default: { api: { delete_resources: vi.fn() } } }));
 
 import { deleteAccount, forgotPassword, loginUser, logoutUser, refreshAccessToken, registerUser, resendVerification, resetPassword, updateProfile, verifyEmail } from "../../controllers/authController.js";
@@ -46,6 +46,7 @@ describe("authentication controller", () => {
         vi.clearAllMocks();
         mocks.signAccessToken.mockReturnValue("access-token");
         mocks.issueRefreshToken.mockResolvedValue({ raw: "refresh-token", expiresAt: new Date("2030-01-01T00:00:00Z") });
+        mocks.rotateRefreshToken.mockResolvedValue(null);
         mocks.auditCreate.mockResolvedValue({});
         mocks.recordLoginFailure.mockResolvedValue(undefined);
         mocks.clearLoginFailures.mockResolvedValue(undefined);
@@ -74,7 +75,7 @@ describe("authentication controller", () => {
     it("does not reveal whether a local account exists during failed login", async () => {
         mocks.findOne.mockResolvedValueOnce(null);
         const missing = response();
-        await loginUser(request({ body: { email: "MISSING@example.com", password: "bad" } }), missing, vi.fn());
+        await loginUser(request({ body: { email: "missing@example.com", password: "bad" } }), missing, vi.fn());
         expect(missing.status).toHaveBeenCalledWith(401);
         expect(missing.json).toHaveBeenCalledWith({ message: "Invalid email or password" });
         expect(mocks.recordLoginFailure).toHaveBeenCalledWith("missing@example.com");
@@ -82,7 +83,7 @@ describe("authentication controller", () => {
         const user = { provider: "local", matchPassword: vi.fn().mockResolvedValue(false) };
         mocks.findOne.mockResolvedValueOnce(user);
         const wrong = response();
-        await loginUser(request({ body: { email: "USER@example.com", password: "bad" } }), wrong, vi.fn());
+        await loginUser(request({ body: { email: "user@example.com", password: "bad" } }), wrong, vi.fn());
         expect(wrong.status).toHaveBeenCalledWith(401);
         expect(wrong.json).toHaveBeenCalledWith({ message: "Invalid email or password" });
         expect(mocks.recordLoginFailure).toHaveBeenCalledWith("user@example.com");
@@ -111,10 +112,12 @@ describe("authentication controller", () => {
     });
 
     it("creates a refresh session and audit event after successful login", async () => {
-        const user = { _id: "user-1", name: "Alice", email: "alice@example.com", provider: "local", isVerified: true, tokenVersion: 2, matchPassword: vi.fn().mockResolvedValue(true) };
+        const user = { _id: "user-1", name: "Alice", email: "alice@example.com", provider: "local", isVerified: true, tokenVersion: 2, matchPassword: vi.fn().mockResolvedValue(true), save: vi.fn().mockResolvedValue(undefined) };
         mocks.findOne.mockResolvedValueOnce(user);
         const res = response();
         await loginUser(request({ body: { email: user.email, password: "correct" } }), res, vi.fn());
+        expect(user.lastAuthenticatedAt).toBeInstanceOf(Date);
+        expect(user.save).toHaveBeenCalledOnce();
         expect(mocks.signAccessToken).toHaveBeenCalledWith("user-1", 2);
         expect(mocks.issueRefreshToken).toHaveBeenCalledWith("user-1", { userAgent: "Test Browser", ip: "203.0.113.5" });
         expect(res.cookie).toHaveBeenCalledWith("refreshToken", "refresh-token", expect.objectContaining({ httpOnly: true, path: "/api/auth" }));
@@ -131,18 +134,19 @@ describe("authentication controller", () => {
         expect(res.status).toHaveBeenCalledWith(200);
     });
 
-    it("handles missing, expired, and valid refresh sessions", async () => {
+    it("handles missing, expired, and valid rotated refresh sessions", async () => {
         const missing = response();
         await refreshAccessToken(request(), missing, vi.fn());
         expect(missing.status).toHaveBeenCalledWith(401);
 
-        mocks.validateRefreshToken.mockResolvedValueOnce(null);
+        mocks.rotateRefreshToken.mockResolvedValueOnce(null);
         const expired = response();
         await refreshAccessToken(request({ cookies: { refreshToken: "expired" } }), expired, vi.fn());
+        expect(expired.status).toHaveBeenCalledWith(401);
         expect(expired.json).toHaveBeenCalledWith({ message: "Refresh token invalid or expired" });
         expect(expired.clearCookie).toHaveBeenCalled();
 
-        mocks.validateRefreshToken.mockResolvedValueOnce("user-1");
+        mocks.rotateRefreshToken.mockResolvedValueOnce({ userId: "user-1", rotated: false, concurrentGrace: true });
         mocks.findById.mockReturnValueOnce({ select: vi.fn().mockResolvedValue({ _id: "user-1", tokenVersion: 4 }) });
         const valid = response();
         await refreshAccessToken(request({ cookies: { refreshToken: "valid" } }), valid, vi.fn());
@@ -170,8 +174,8 @@ describe("authentication controller", () => {
         expect(valid.json).toHaveBeenCalledWith({ message: "Email verified. You can now log in." });
     });
 
-    it("resends verification only for an existing unverified account", async () => {
-        const user = { name: "Pending", isVerified: false, save: vi.fn().mockResolvedValue(undefined) };
+    it("resends verification only for an existing unverified local account", async () => {
+        const user = { name: "Pending", provider: "local", isVerified: false, save: vi.fn().mockResolvedValue(undefined) };
         mocks.findOne.mockResolvedValueOnce(user);
         const res = response();
         await resendVerification(request({ body: { email: "pending@example.com" } }), res, vi.fn());

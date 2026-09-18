@@ -99,6 +99,9 @@ const candidateAttemptSchema = new mongoose.Schema({
     candidateName: { type: String, required: true, maxlength: 120 },
     candidateEmail: { type: String, required: true, lowercase: true, trim: true, maxlength: 254 },
     accessTokenHash: { type: String, required: true, select: false },
+    usageReservationId: { type: mongoose.Schema.Types.ObjectId, ref: "CandidateUsageReservation", default: null, select: false },
+    usageReservedAt: { type: Date, default: null },
+    usageFinalizedAt: { type: Date, default: null },
     status: { type: String, enum: ["started", "evaluating", "submitted", "evaluation_failed", "revoked"], default: "started", index: true },
     // Every candidate-facing gate rejects any status other than "started", so setting
     // "revoked" here (see revokeInvitation) immediately cuts off an in-progress attempt

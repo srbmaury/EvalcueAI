@@ -32,7 +32,7 @@ export const requireCandidateRoundSequence = async (req, res, next) => {
 
         const assessment = await Assessment.findOne({
             shareToken: req.params.shareToken,
-            status: "active",
+            status: { $in: ["active", "closed"] },
             $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
         }).select("_id").lean();
         if (!assessment) return res.status(404).json({ message: "Assessment unavailable" });

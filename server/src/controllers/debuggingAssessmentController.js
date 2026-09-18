@@ -44,7 +44,7 @@ const normalizeDebuggingConfig = (debugging) => {
     return { responseMode, runtime: debugging.runtime, entryFile: cleanText(debugging.entryFile, 500), files };
 };
 
-const safeDebuggingConfig = (round) => {
+export const safeDebuggingConfig = (round) => {
     if (round?.deliveryMode !== "debugging" || !round.debugging) return undefined;
     const files = Array.isArray(round.debugging.files) ? round.debugging.files : [];
     return {

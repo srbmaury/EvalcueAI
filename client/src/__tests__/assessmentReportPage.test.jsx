@@ -68,4 +68,30 @@ describe("assessment management report", () => {
 
         await waitFor(() => expect(screen.getByLabelText("Overall reviewer score / 10").value).toBe("6"));
     });
+
+    it("neutralizes spreadsheet formula markers in candidate-controlled CSV export cells", async () => {
+        // A candidate's name/answer/feedback text is fully attacker-controlled. Without
+        // this, a cell starting with =/+/-/@ executes as a formula when the exported
+        // CSV is opened in Excel/Sheets (e.g. =HYPERLINK(...) or a DDE/command injection).
+        get.mockResolvedValue({ data: {
+            assessment: { _id: "a1", title: "Backend screen", status: "active", jobRole: "Backend Engineer", shareToken: "share", invitations: [], rubric: [] },
+            attempts: [{ _id: "c1", candidateName: "=cmd|'/c calc'!A1", candidateEmail: "candidate@example.com", status: "submitted", startedAt: "2026-08-10T10:00:00Z", overallScore: 8, integrityEvents: [], rounds: [{ _id: "round1", name: "Technical", score: 8, questions: [{ _id: "q1", text: "Design a secure API", answer: "+1+1", score: 8, feedbackComment: "@SUM(A1)", suggestions: [] }] }] }],
+        } });
+        let exportedText = "";
+        const originalCreateObjectURL = URL.createObjectURL;
+        URL.createObjectURL = vi.fn((blob) => { blob.text().then((text) => { exportedText = text; }); return "blob:mock"; });
+        const originalRevoke = URL.revokeObjectURL;
+        URL.revokeObjectURL = vi.fn();
+        try {
+            renderOwnerReport();
+            fireEvent.click(await screen.findByRole("button", { name: "Export CSV" }));
+            await waitFor(() => expect(exportedText).toContain("cmd"));
+            expect(exportedText).toContain("\"'=cmd|'/c calc'!A1\"");
+            expect(exportedText).toContain("\"'+1+1\"");
+            expect(exportedText).toContain("\"'@SUM(A1)\"");
+        } finally {
+            URL.createObjectURL = originalCreateObjectURL;
+            URL.revokeObjectURL = originalRevoke;
+        }
+    });
 });

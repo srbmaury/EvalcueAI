@@ -1,6 +1,10 @@
 import { z } from "zod";
+import { normalizeEmail } from "../utils/identity.js";
 
-const emailSchema = z.string().trim().email();
+const emailSchema = z.preprocess(
+    (value) => normalizeEmail(value),
+    z.string().email().max(254),
+);
 
 const strongPassword = z
     .string()
@@ -15,6 +19,7 @@ export const RegisterSchema = z.object({
     name: z.string().trim().min(1).max(100),
     email: emailSchema,
     password: strongPassword,
+    termsAccepted: z.literal(true),
 });
 
 export const LoginSchema = z.object({
@@ -43,6 +48,7 @@ export const ResetPasswordSchema = z.object({
 
 export const GoogleIdTokenSchema = z.object({
     idToken: z.string().min(1),
+    termsAccepted: z.boolean().optional().default(false),
 });
 
 export const UpdateProfileSchema = z.object({
