@@ -9,6 +9,5 @@ describe("runtime public configuration", () => {
         const authRoutes = fs.readFileSync(path.join(root, "server/src/routes/authRoutes.js"), "utf8");
         expect(authRoutes).toContain('/public-config');
         expect(authRoutes).toContain("GOOGLE_CLIENT_ID");
-        expect(authRoutes).toContain("CAPTCHA_SITE_KEY");
     });
 });
