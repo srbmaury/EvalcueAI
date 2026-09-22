@@ -149,9 +149,15 @@ export default function LandingPage() {
                                 </Grid>
                             ))}
                         </Grid>
-                        <Stack direction="row" justifyContent="center" mt={3}>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="center" mt={3}>
                             <Button component={RouterLink} to="/technical-interview-practice" variant="text" endIcon={<ArrowForwardRounded />}>
-                                Explore technical interview practice
+                                Technical interview practice
+                            </Button>
+                            <Button component={RouterLink} to="/system-design" variant="text" endIcon={<ArrowForwardRounded />}>
+                                System design questions
+                            </Button>
+                            <Button component={RouterLink} to="/interview-questions" variant="text" endIcon={<ArrowForwardRounded />}>
+                                Backend interview questions
                             </Button>
                         </Stack>
                     </Box>
