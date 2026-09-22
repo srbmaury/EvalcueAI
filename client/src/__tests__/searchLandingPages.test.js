@@ -11,7 +11,7 @@ describe("search-focused interview landing pages", () => {
     it("keeps every search landing route unique, indexable, and canonically described", () => {
         const paths = searchLandingPaths();
         expect(new Set(paths).size).toBe(paths.length);
-        expect(paths.length).toBeGreaterThanOrEqual(8);
+        expect(paths.length).toBeGreaterThanOrEqual(20);
 
         for (const page of SEARCH_LANDING_PAGES) {
             expect(page.path.startsWith("/")).toBe(true);
@@ -39,6 +39,32 @@ describe("search-focused interview landing pages", () => {
             "/coding-interview-practice",
             "/backend-engineer-interview-practice",
             "/debugging-interview-practice",
+            "/system-design",
+            "/system-design/url-shortener",
+            "/system-design/rate-limiter",
+            "/system-design/google-drive",
+            "/system-design/notification-service",
+            "/system-design/payment-system",
+            "/interview-questions",
+            "/interview-questions/java",
+            "/interview-questions/spring-boot",
+            "/interview-questions/redis",
+            "/interview-questions/distributed-systems",
+            "/interview-questions/microservices",
         ]));
+    });
+
+    it("builds connected topical clusters rather than orphan pages", () => {
+        const systemDesignPages = SEARCH_LANDING_PAGES.filter((page) => page.path === "/system-design" || page.path.startsWith("/system-design/"));
+        const interviewQuestionPages = SEARCH_LANDING_PAGES.filter((page) => page.path === "/interview-questions" || page.path.startsWith("/interview-questions/"));
+
+        expect(systemDesignPages).toHaveLength(6);
+        expect(interviewQuestionPages).toHaveLength(6);
+
+        for (const page of [...systemDesignPages, ...interviewQuestionPages]) {
+            for (const relatedSlug of page.related) {
+                expect(SEARCH_LANDING_PAGES.some((candidate) => candidate.slug === relatedSlug)).toBe(true);
+            }
+        }
     });
 });
