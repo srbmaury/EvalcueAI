@@ -115,6 +115,8 @@ function App() {
                 <Route path="/coding-interview-practice" element={<SearchLandingPage />} />
                 <Route path="/backend-engineer-interview-practice" element={<SearchLandingPage />} />
                 <Route path="/debugging-interview-practice" element={<SearchLandingPage />} />
+                <Route path="/system-design/*" element={<SearchLandingPage />} />
+                <Route path="/interview-questions/*" element={<SearchLandingPage />} />
                 <Route path="/interview-practice" element={<CanonicalProductRedirect />} />
                 <Route path="/technical-hiring" element={<CanonicalProductRedirect />} />
                 <Route path="/practice/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
