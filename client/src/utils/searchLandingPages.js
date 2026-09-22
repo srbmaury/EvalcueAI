@@ -1,0 +1,278 @@
+export const SEARCH_LANDING_PAGES = [
+    {
+        slug: "ai-interview-practice",
+        path: "/ai-interview-practice",
+        title: "AI Interview Practice for Software Engineers",
+        metaTitle: "AI Interview Practice for Software Engineers | Evalcue AI",
+        description: "Practice realistic software engineering interviews with an adaptive AI interviewer across technical discussion, coding, system design, debugging, and behavioral follow-ups.",
+        eyebrow: "AI interview practice",
+        intro: "Rehearse the parts of a software engineering interview that are difficult to practice alone: explaining decisions out loud, handling follow-up questions, defending trade-offs, and reviewing where your answers became shallow or unclear.",
+        sections: [
+            {
+                heading: "Practice a conversation, not a static question list",
+                body: "Evalcue AI uses the role, job description, and your previous answers as context for follow-up questions. That makes practice closer to an interview conversation where the next question depends on the evidence you have already given.",
+                points: ["Role- and job-description-specific prompts", "Adaptive follow-ups based on your answers", "Voice or text technical discussion", "Post-interview feedback and improvement suggestions"],
+            },
+            {
+                heading: "Cover the full software engineering interview loop",
+                body: "Technical interviews test different signals. Use separate practice rounds for coding, system design, debugging, backend depth, and behavioral ownership instead of treating every interview as a generic Q&A session.",
+                points: ["Coding and problem-solving rounds", "Live system-design discussion with an architecture canvas", "Production-style debugging and engineering judgment", "Behavioral and project-depth follow-ups"],
+            },
+            {
+                heading: "Use evidence from each session to improve the next one",
+                body: "The useful output of mock practice is not a single score. Review where requirements were missed, assumptions were unstated, complexity analysis was weak, or technical choices were not justified, then repeat the weak area deliberately.",
+                points: ["Transcript and answer review", "Competency-oriented feedback", "Recurring weakness identification", "Progress tracking across practice sessions"],
+            },
+        ],
+        faq: [
+            ["What is AI interview practice?", "AI interview practice uses an AI interviewer to simulate interview questions, listen to or read your answers, ask follow-ups, and provide feedback so you can rehearse before a real interview."],
+            ["Can I practice technical interviews with AI?", "Yes. Evalcue AI supports software engineering practice across technical discussion, coding, system design, backend topics, debugging, and behavioral questions."],
+            ["Is AI interview feedback always correct?", "No. Treat AI feedback as coaching evidence rather than an unquestionable answer key. Validate technical claims and use repeated patterns across sessions to guide deliberate practice."],
+        ],
+        related: ["ai-mock-interview", "software-engineer-interview-practice", "technical-interview-practice"],
+        practiceResource: "software-engineer-mock-interview",
+        schema: "WebPage",
+    },
+    {
+        slug: "ai-mock-interview",
+        path: "/ai-mock-interview",
+        title: "AI Mock Interview for Software Engineers",
+        metaTitle: "AI Mock Interview for Software Engineers | Evalcue AI",
+        description: "Run an AI mock interview for software engineering roles with adaptive follow-ups, coding, system design, resume and job-description context, and structured feedback.",
+        eyebrow: "AI mock interview",
+        intro: "Use a realistic mock interview to practice how you think and communicate under follow-up pressure, not just whether you can recall an answer when reading a question by yourself.",
+        sections: [
+            {
+                heading: "Start from the role you are actually interviewing for",
+                body: "A backend SDE-2 interview should not look like a frontend graduate interview. Add the target role or job description so the mock interview can emphasize the technical areas and level of depth that matter for that position.",
+                points: ["Role and seniority context", "Job-description-aware interview planning", "Resume context when you choose to provide it", "Different round types for different interview signals"],
+            },
+            {
+                heading: "Handle adaptive interviewer follow-ups",
+                body: "Strong interviews rarely stop after the first answer. Practice clarifying assumptions, explaining alternatives, responding to edge cases, and defending trade-offs when the interviewer challenges your initial approach.",
+                points: ["Clarification questions", "Deeper technical probes", "Trade-off and failure-mode discussion", "Evidence-seeking project follow-ups"],
+            },
+            {
+                heading: "Review the interview while it is still fresh",
+                body: "After the session, use the transcript and feedback to identify the specific places where the answer lost structure or technical depth. Repeating one weak round with a clear improvement goal is more useful than collecting disconnected mock interviews.",
+                points: ["Immediate feedback", "Answer-level improvement areas", "Technical depth review", "Repeatable practice workflow"],
+            },
+        ],
+        faq: [
+            ["How does an AI mock interview work?", "You choose a target role or interview focus, answer questions in a simulated interview, receive adaptive follow-ups, and then review feedback on the evidence and clarity in your responses."],
+            ["Can I do a software engineer mock interview online?", "Yes. Evalcue AI is browser-based and supports software engineering mock practice across conversational, coding, and system-design rounds."],
+            ["Should I use a mock interview before every real interview?", "Mock interviews are most useful when you have a specific target and enough time to review the feedback, practice the weak area, and repeat it before the real interview."],
+        ],
+        related: ["ai-interview-practice", "software-engineer-interview-practice", "system-design-interview-practice"],
+        practiceResource: "software-engineer-mock-interview",
+        schema: "WebPage",
+    },
+    {
+        slug: "software-engineer-interview-practice",
+        path: "/software-engineer-interview-practice",
+        title: "Software Engineer Interview Practice",
+        metaTitle: "Software Engineer Interview Practice with AI | Evalcue AI",
+        description: "Practice software engineering interviews with AI across coding, APIs, databases, debugging, system design, reliability, projects, and behavioral ownership.",
+        eyebrow: "Software engineer interview practice",
+        intro: "Prepare for the complete software engineering interview loop by practicing implementation, design, production reasoning, project depth, and communication as separate signals.",
+        sections: [
+            {
+                heading: "Practice the technical areas interviewers actually probe",
+                body: "Software engineering interviews often move between implementation details and production reasoning. Prepare to explain algorithms, APIs, data models, concurrency, caching, reliability, testing, and the decisions behind systems you have built.",
+                points: ["Coding and complexity analysis", "API and data-model design", "Databases, caching, queues, and concurrency", "Testing, observability, reliability, and incidents"],
+            },
+            {
+                heading: "Prepare your project and experience stories",
+                body: "Experienced-engineer interviews frequently use your own work as the starting point. Practice describing the problem, constraints, your contribution, alternatives considered, measurable outcome, and what you would change now.",
+                points: ["Architecture deep dives", "Production incident discussion", "Ownership and collaboration", "Trade-offs and measurable outcomes"],
+            },
+            {
+                heading: "Match practice depth to seniority",
+                body: "As seniority increases, interviewers generally expect more explicit trade-off reasoning, ambiguity handling, failure analysis, and system-level judgment. Configure practice around the level you are targeting instead of using the same question depth for every role.",
+                points: ["SDE-1 fundamentals", "SDE-2 design and production reasoning", "Senior architecture and ownership", "Role-specific technical depth"],
+            },
+        ],
+        faq: [
+            ["What should a software engineer practice before an interview?", "A balanced plan usually includes coding, role-specific technical depth, system or low-level design where relevant, project deep dives, debugging and production reasoning, and behavioral ownership stories."],
+            ["Can Evalcue AI use a job description for practice?", "Yes. Job-description context can be used to shape the interview toward the technologies, responsibilities, and seniority described in the role."],
+            ["Is this only for backend engineers?", "No. The practice workflow can be configured for backend, frontend, full-stack, platform, and other software engineering roles."],
+        ],
+        related: ["technical-interview-practice", "coding-interview-practice", "backend-engineer-interview-practice"],
+        practiceResource: "software-engineer-mock-interview",
+        schema: "TechArticle",
+    },
+    {
+        slug: "technical-interview-practice",
+        path: "/technical-interview-practice",
+        title: "Technical Interview Practice with AI",
+        metaTitle: "Technical Interview Practice with AI for Engineers | Evalcue AI",
+        description: "Practice technical interviews with adaptive AI follow-ups across coding, system design, debugging, backend engineering, APIs, databases, reliability, and project depth.",
+        eyebrow: "Technical interview practice",
+        intro: "Technical interview preparation becomes more useful when you have to explain your reasoning, react to new constraints, and defend decisions instead of only reading model answers.",
+        sections: [
+            {
+                heading: "Turn knowledge into interview-ready explanations",
+                body: "Knowing a concept and explaining it under pressure are different skills. Practice stating assumptions, walking through an approach, analyzing complexity, testing edge cases, and communicating why a technical decision fits the constraints.",
+                points: ["Reasoning before implementation", "Complexity and edge-case discussion", "Alternative approaches", "Clear technical communication"],
+            },
+            {
+                heading: "Mix implementation with production engineering",
+                body: "For experienced roles, technical interviews often extend beyond data structures. Prepare for API design, database behavior, caching, queues, distributed systems, observability, incident debugging, and system evolution.",
+                points: ["Algorithms and coding", "APIs and databases", "Distributed systems and reliability", "Debugging and observability"],
+            },
+            {
+                heading: "Use targeted rounds instead of random questions",
+                body: "Choose the exact area you need to improve and run a focused mock round. This makes it easier to compare attempts and see whether your reasoning, structure, and technical depth are actually getting better.",
+                points: ["Focused practice tracks", "Role-specific prompts", "Adaptive follow-ups", "Reviewable session history"],
+            },
+        ],
+        faq: [
+            ["What is the best way to practice a technical interview?", "Combine active problem solving with spoken or written explanation, interviewer-style follow-ups, and a review of your mistakes. Repeating weak areas deliberately is more effective than only reading more questions."],
+            ["What technical interview topics can I practice?", "Evalcue AI supports coding, system design, backend engineering, Java-oriented depth, debugging, APIs, databases, reliability, and role-specific technical discussion."],
+            ["Can technical interview practice include my resume?", "Yes. When you choose to provide resume context, practice can include project and experience follow-ups in addition to general technical questions."],
+        ],
+        related: ["software-engineer-interview-practice", "system-design-interview-practice", "coding-interview-practice"],
+        practiceResource: "software-engineer-mock-interview",
+        schema: "TechArticle",
+    },
+    {
+        slug: "system-design-interview-practice",
+        path: "/system-design-interview-practice",
+        title: "System Design Interview Practice with AI",
+        metaTitle: "System Design Interview Practice with AI | Evalcue AI",
+        description: "Practice system design interviews with a live AI interviewer and architecture canvas. Rehearse requirements, APIs, data models, scaling, reliability, and trade-offs.",
+        eyebrow: "System design interview practice",
+        intro: "Practice the conversation around an architecture, not just the finished diagram. Clarify requirements, sketch the design, explain data flow, and respond when the interviewer pushes on scale, consistency, failures, or trade-offs.",
+        sections: [
+            {
+                heading: "Use a repeatable system design interview structure",
+                body: "A clear structure helps you avoid jumping directly into infrastructure. Start with requirements and scale, define APIs and data, propose the high-level architecture, then spend the remaining time on bottlenecks, failures, and explicit trade-offs.",
+                points: ["Functional and non-functional requirements", "Capacity and traffic assumptions", "APIs and core data model", "Architecture, bottlenecks, reliability, and trade-offs"],
+            },
+            {
+                heading: "Draw and explain the architecture together",
+                body: "Evalcue AI system-design rounds include an architecture canvas so the diagram and discussion evolve together. The interviewer can probe the design while you explain components, dependencies, data movement, and failure handling.",
+                points: ["Live architecture canvas", "Context-aware interviewer interjections", "Component and data-flow discussion", "Diagram-aware evaluation context"],
+            },
+            {
+                heading: "Practice the questions that expose shallow designs",
+                body: "The difficult part of a system design round is usually the follow-up: what fails first, how data is partitioned, what consistency is required, how retries stay safe, where observability lives, and what changes at ten times the load.",
+                points: ["Hotspots and partitioning", "Caching and invalidation", "Retries, idempotency, and queues", "Multi-region, disaster recovery, and observability"],
+            },
+        ],
+        faq: [
+            ["How do I practice system design interviews?", "Use a timed problem, clarify requirements first, state scale assumptions, define APIs and data, draw a coherent architecture, and spend meaningful time defending trade-offs and failure handling."],
+            ["Can I draw diagrams during Evalcue AI system design practice?", "Yes. System-design rounds use a live architecture canvas alongside the interviewer discussion."],
+            ["What system design problems should I practice?", "Common starting points include URL shorteners, notification systems, file storage, chat systems, rate limiting, job processing, feeds, and other services that expose different scaling and consistency trade-offs."],
+        ],
+        related: ["technical-interview-practice", "backend-engineer-interview-practice", "ai-mock-interview"],
+        practiceResource: "system-design-interview-preparation",
+        schema: "TechArticle",
+    },
+    {
+        slug: "coding-interview-practice",
+        path: "/coding-interview-practice",
+        title: "Coding Interview Practice with AI",
+        metaTitle: "Coding Interview Practice with AI for Software Engineers | Evalcue AI",
+        description: "Practice coding interviews with AI follow-ups on reasoning, implementation, complexity, tests, edge cases, and optimization across common DSA topics.",
+        eyebrow: "Coding interview practice",
+        intro: "Practice coding as an interview skill: clarify the problem, explain the approach, implement it, test edge cases, analyze complexity, and respond to optimization follow-ups.",
+        sections: [
+            {
+                heading: "Practice the reasoning interviewers hear before the code",
+                body: "A correct solution is stronger when the reasoning is clear. State the brute-force approach, identify the bottleneck, choose an appropriate data structure, explain invariants, and call out edge cases before implementation.",
+                points: ["Problem clarification", "Approach and data-structure choice", "Correctness reasoning", "Time and space complexity"],
+            },
+            {
+                heading: "Cover the common coding patterns",
+                body: "Use focused rounds for arrays and hashing, two pointers, sliding windows, stacks and queues, trees and graphs, heaps, binary search, backtracking, greedy problems, and dynamic programming.",
+                points: ["Arrays, strings, and hashing", "Trees and graphs", "Heaps, intervals, and binary search", "Backtracking and dynamic programming"],
+            },
+            {
+                heading: "Finish with tests and follow-up optimization",
+                body: "After implementation, explicitly test boundary cases and discuss how the solution changes if inputs are larger, memory is constrained, data arrives as a stream, or concurrency is introduced.",
+                points: ["Edge-case tests", "Complexity verification", "Alternative implementations", "Constraint-change follow-ups"],
+            },
+        ],
+        faq: [
+            ["How should I practice coding interviews?", "Solve problems under interview-like constraints and explain your thinking as you go. Always finish with complexity analysis, tests, edge cases, and at least one possible follow-up or optimization."],
+            ["Does Evalcue AI support coding rounds?", "Yes. Practice can include coding and online-assessment style rounds with interviewer context and post-session feedback."],
+            ["Should I memorize coding solutions?", "Memorizing exact solutions is brittle. Learn reusable problem-solving patterns and practice deriving the approach from constraints so you can adapt when the interviewer changes the problem."],
+        ],
+        related: ["technical-interview-practice", "software-engineer-interview-practice", "backend-engineer-interview-practice"],
+        practiceResource: "coding-interview-questions",
+        schema: "TechArticle",
+    },
+    {
+        slug: "backend-engineer-interview-practice",
+        path: "/backend-engineer-interview-practice",
+        title: "Backend Engineer Interview Practice",
+        metaTitle: "Backend Engineer Interview Practice with AI | Evalcue AI",
+        description: "Practice backend engineering interviews across APIs, databases, transactions, caching, queues, concurrency, distributed systems, reliability, observability, and system design.",
+        eyebrow: "Backend interview practice",
+        intro: "Prepare for backend interviews that connect code to production systems. Practice API and data design, concurrency, caching, asynchronous workflows, failure handling, observability, and architecture trade-offs.",
+        sections: [
+            {
+                heading: "Go beyond framework trivia",
+                body: "Backend interviews are strongest when they test engineering decisions rather than memorized definitions. Practice explaining how requests flow through a service, how data is stored, what happens under concurrency, and how the system behaves when dependencies fail.",
+                points: ["REST and API design", "SQL, NoSQL, indexes, and transactions", "Caching and invalidation", "Concurrency and asynchronous processing"],
+            },
+            {
+                heading: "Prepare for distributed-systems follow-ups",
+                body: "Be ready to discuss idempotency, retries, queues, partitioning, replication, consistency, rate limiting, backpressure, failover, and how you would observe the system in production.",
+                points: ["Retries and idempotency", "Queues and delivery guarantees", "Partitioning and replication", "Metrics, logs, traces, and alerting"],
+            },
+            {
+                heading: "Connect backend depth to system design",
+                body: "Backend interviews often transition naturally into system design. Practice making storage and communication choices from access patterns and reliability requirements instead of naming technologies before the problem is clear.",
+                points: ["Access-pattern-driven storage choices", "Synchronous vs asynchronous boundaries", "Scalability and failure modes", "Operational and cost trade-offs"],
+            },
+        ],
+        faq: [
+            ["What should I study for a backend engineer interview?", "Focus on your primary language, API design, databases and transactions, concurrency, caching, queues, distributed systems, reliability, observability, testing, and system design at the depth expected for your seniority."],
+            ["Can I practice Java backend interviews?", "Yes. Evalcue AI already includes Java-oriented practice covering core Java, collections, concurrency, and backend engineering topics."],
+            ["Are backend interviews only coding interviews?", "No. Many backend roles combine coding with API and database design, debugging, distributed-systems reasoning, production reliability, and system design."],
+        ],
+        related: ["system-design-interview-practice", "technical-interview-practice", "debugging-interview-practice"],
+        practiceResource: "java-interview-questions",
+        schema: "TechArticle",
+    },
+    {
+        slug: "debugging-interview-practice",
+        path: "/debugging-interview-practice",
+        title: "Debugging Interview Practice for Software Engineers",
+        metaTitle: "Debugging Interview Practice for Software Engineers | Evalcue AI",
+        description: "Practice software engineering debugging interviews with production-style scenarios, hypothesis-driven investigation, code evidence, tests, and root-cause reasoning.",
+        eyebrow: "Debugging interview practice",
+        intro: "Debugging interviews test how you investigate uncertainty. Practice forming hypotheses, collecting evidence, narrowing the failure, validating the root cause, and explaining a safe fix instead of guessing from symptoms.",
+        sections: [
+            {
+                heading: "Use a hypothesis-driven debugging process",
+                body: "Start by defining the symptom and blast radius. Gather the highest-signal evidence, form a small set of hypotheses, test them in an order that reduces uncertainty quickly, and update the investigation when evidence contradicts the initial theory.",
+                points: ["Clarify the symptom and scope", "Collect logs, metrics, traces, and code evidence", "Rank and test hypotheses", "Confirm root cause before proposing the fix"],
+            },
+            {
+                heading: "Practice production-style failure scenarios",
+                body: "Useful debugging practice includes intermittent 500s, latency regressions, database slowdowns, race conditions, cache inconsistency, queue backlogs, memory growth, and failures introduced by recent deployments.",
+                points: ["Performance regressions", "Data and concurrency bugs", "Dependency and network failures", "Deployment and configuration regressions"],
+            },
+            {
+                heading: "Show how you would prove the fix",
+                body: "A debugging answer is incomplete without validation. Explain the test that reproduces the bug, the smallest safe change, regression coverage, rollout strategy, and the monitoring that confirms the production symptom is gone.",
+                points: ["Reproduction and regression test", "Root-cause-focused fix", "Safe rollout or rollback plan", "Post-fix monitoring"],
+            },
+        ],
+        faq: [
+            ["What is a debugging interview?", "A debugging interview evaluates how you investigate an unfamiliar failure, use evidence, reason about root causes, and validate a fix. It may use a scenario, logs, or an existing codebase rather than a blank coding problem."],
+            ["How can I get better at debugging interviews?", "Practice narrating a structured investigation. Avoid jumping immediately to a fix; explain what evidence you would inspect, what each observation would imply, and how you would falsify your hypotheses."],
+            ["Does Evalcue AI support debugging assessments?", "Evalcue AI Hire supports production-style multi-file debugging assessments, while candidate practice can be configured around debugging and production-reasoning scenarios."],
+        ],
+        related: ["backend-engineer-interview-practice", "technical-interview-practice", "software-engineer-interview-practice"],
+        practiceResource: "software-engineer-mock-interview",
+        schema: "TechArticle",
+    },
+];
+
+export const searchLandingPageForPath = (pathname = "") => SEARCH_LANDING_PAGES.find((page) => page.path === pathname) || null;
+export const searchLandingPageForSlug = (slug = "") => SEARCH_LANDING_PAGES.find((page) => page.slug === slug) || null;
+export const searchLandingPaths = () => SEARCH_LANDING_PAGES.map((page) => page.path);
