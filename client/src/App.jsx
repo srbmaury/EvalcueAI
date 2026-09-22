@@ -34,6 +34,7 @@ const ResumeGeneratorPage = lazy(() => import("./pages/ResumeGeneratorPage.jsx")
 const LandingPage = lazy(() => import("./pages/LandingPage.jsx"));
 const ProductLandingPage = lazy(() => import("./pages/ProductLandingPage.jsx"));
 const ProductResourcePage = lazy(() => import("./pages/ProductResourcePage.jsx"));
+const SearchLandingPage = lazy(() => import("./pages/SearchLandingPage.jsx"));
 const LegalPage = lazy(() => import("./pages/LegalPage.jsx"));
 const ProgressPage = lazy(() => import("./pages/ProgressPage.jsx"));
 const ReviewHistoryPage = lazy(() => import("./pages/ReviewHistoryPage.jsx"));
@@ -106,6 +107,18 @@ function App() {
                 <Route path="/hire" element={<ProductLandingPage surface="hiring" />} />
                 <Route path="/practice/resources/:slug" element={<ProductResourcePage surface="practice" />} />
                 <Route path="/hire/resources/:slug" element={<ProductResourcePage surface="hiring" />} />
+                <Route path="/ai-interview-practice" element={<SearchLandingPage />} />
+                <Route path="/ai-mock-interview" element={<SearchLandingPage />} />
+                <Route path="/software-engineer-interview-practice" element={<SearchLandingPage />} />
+                <Route path="/technical-interview-practice" element={<SearchLandingPage />} />
+                <Route path="/system-design-interview-practice" element={<SearchLandingPage />} />
+                <Route path="/coding-interview-practice" element={<SearchLandingPage />} />
+                <Route path="/backend-engineer-interview-practice" element={<SearchLandingPage />} />
+                <Route path="/debugging-interview-practice" element={<SearchLandingPage />} />
+                <Route path="/system-design" element={<SearchLandingPage />} />
+                <Route path="/system-design/:slug" element={<SearchLandingPage />} />
+                <Route path="/interview-questions" element={<SearchLandingPage />} />
+                <Route path="/interview-questions/:slug" element={<SearchLandingPage />} />
                 <Route path="/interview-practice" element={<CanonicalProductRedirect />} />
                 <Route path="/technical-hiring" element={<CanonicalProductRedirect />} />
                 <Route path="/practice/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />

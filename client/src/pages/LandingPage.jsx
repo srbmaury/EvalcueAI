@@ -5,13 +5,14 @@ import { Box, Button, Chip, Container, Grid, Paper, Stack, Typography } from "@m
 import { AuthContext } from "../context/AuthContext";
 import SiteFooter from "../components/SiteFooter";
 import { setWorkspacePreference } from "../utils/workspacePreference";
+import { SEARCH_LANDING_PAGES } from "../utils/searchLandingPages";
 
 const choices = [
     {
         workspace: "practice",
         eyebrow: "Practice workspace",
         title: "Prepare for interviews",
-        body: "Practice role-specific technical interviews and get clear feedback on what to improve next.",
+        body: "Run role-specific AI mock interviews and get clear feedback on what to improve next.",
         points: ["Voice, coding and system-design practice", "Job-description and resume context", "Feedback and progress tracking"],
         icon: SchoolOutlined,
     },
@@ -52,10 +53,10 @@ export default function LandingPage() {
                     <Stack spacing={2} alignItems="center" textAlign="center" mb={{ xs: 4, md: 6 }}>
                         <Chip label="Choose your Evalcue AI workspace" color="primary" variant="outlined" />
                         <Typography component="h1" sx={{ fontSize: { xs: "2.5rem", sm: "3.5rem", md: "4.4rem" }, lineHeight: 1, letterSpacing: "-.05em", fontWeight: 850, maxWidth: 820 }}>
-                            Prepare better. Hire with clearer evidence.
+                            AI interview practice for software engineers. Structured technical hiring for teams.
                         </Typography>
                         <Typography color="text.secondary" sx={{ fontSize: { xs: "1.05rem", md: "1.2rem" }, lineHeight: 1.65, maxWidth: 680 }}>
-                            Choose the workspace that matches what you need today. Practice and Hire stay separate and focused.
+                            Practice realistic coding, system-design, debugging, and technical interviews with adaptive AI follow-ups—or build evidence-focused engineering assessments for your hiring team.
                         </Typography>
                     </Stack>
 
@@ -114,6 +115,52 @@ export default function LandingPage() {
                     <Typography variant="body2" color="text.secondary" textAlign="center" mt={4}>
                         Separate product workspaces · Candidate practice stays private · Hiring decisions stay human-controlled
                     </Typography>
+
+                    <Box component="section" sx={{ mt: { xs: 7, md: 9 } }} aria-labelledby="interview-guides-heading">
+                        <Stack spacing={1.5} alignItems="center" textAlign="center" mb={4}>
+                            <Typography variant="overline" color="primary.main" fontWeight={850}>Interview practice guides</Typography>
+                            <Typography id="interview-guides-heading" component="h2" variant="h3" fontWeight={900} letterSpacing="-.035em">
+                                Practice the exact interview round you need to improve.
+                            </Typography>
+                            <Typography color="text.secondary" sx={{ maxWidth: 720, lineHeight: 1.7 }}>
+                                Start with a focused guide, then move directly into an adaptive Evalcue AI practice session.
+                            </Typography>
+                        </Stack>
+                        <Grid container spacing={2}>
+                            {SEARCH_LANDING_PAGES.slice(0, 4).map((page) => (
+                                <Grid size={{ xs: 12, sm: 6 }} key={page.path}>
+                                    <Paper
+                                        component={RouterLink}
+                                        to={page.path}
+                                        variant="outlined"
+                                        sx={{
+                                            p: 2.75,
+                                            height: "100%",
+                                            display: "block",
+                                            borderRadius: 3,
+                                            color: "inherit",
+                                            textDecoration: "none",
+                                            "&:hover": { borderColor: "primary.main" },
+                                        }}
+                                    >
+                                        <Typography component="h3" variant="h5" fontWeight={850}>{page.title}</Typography>
+                                        <Typography color="text.secondary" mt={1} lineHeight={1.65}>{page.description}</Typography>
+                                    </Paper>
+                                </Grid>
+                            ))}
+                        </Grid>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="center" mt={3}>
+                            <Button component={RouterLink} to="/technical-interview-practice" variant="text" endIcon={<ArrowForwardRounded />}>
+                                Technical interview practice
+                            </Button>
+                            <Button component={RouterLink} to="/system-design" variant="text" endIcon={<ArrowForwardRounded />}>
+                                System design questions
+                            </Button>
+                            <Button component={RouterLink} to="/interview-questions" variant="text" endIcon={<ArrowForwardRounded />}>
+                                Backend interview questions
+                            </Button>
+                        </Stack>
+                    </Box>
                 </Container>
             </Box>
             <SiteFooter />

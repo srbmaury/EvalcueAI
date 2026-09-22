@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { isProductResourcePath } from "../utils/productResourcePages";
+import { searchLandingPageForPath } from "../utils/searchLandingPages";
 
 export const isIndexablePath = (pathname) => (
     pathname === "/" ||
@@ -11,7 +12,8 @@ export const isIndexablePath = (pathname) => (
     pathname === "/terms" ||
     pathname === "/docs" ||
     pathname.startsWith("/docs/") ||
-    isProductResourcePath(pathname)
+    isProductResourcePath(pathname) ||
+    Boolean(searchLandingPageForPath(pathname))
 );
 
 export default function SearchIndexPolicy() {
