@@ -270,7 +270,7 @@ export const SEARCH_LANDING_PAGES = [
         related: ["backend-engineer-interview-practice", "technical-interview-practice", "software-engineer-interview-practice"],
         practiceResource: "software-engineer-mock-interview",
         schema: "TechArticle",
-    },,
+    },
     {
         slug: "system-design",
         path: "/system-design",
