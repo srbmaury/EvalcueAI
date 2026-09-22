@@ -110,7 +110,7 @@ const staticConfigForRoute = (route) => {
     return STATIC_PRODUCT_COPY[route] || null;
 };
 
-const renderSearchPageMarkup = (page) => `
+const renderSearchPageMarkup = (page, practiceOrigin = "") => `
 <main data-static-seo="search-landing">
   <nav aria-label="Breadcrumb"><a href="/">Evalcue AI</a></nav>
   <p>${escapeHtml(page.eyebrow)}</p>
@@ -136,7 +136,7 @@ const renderSearchPageMarkup = (page) => `
       }).join("")}
     </ul>
   </section>
-  <p><a href="/practice/resources/${escapeHtml(page.practiceResource)}">Start AI interview practice</a></p>
+  <p><a href="${escapeHtml(`${practiceOrigin || ""}/practice/resources/${page.practiceResource}`)}">Start AI interview practice</a></p>
 </main>`;
 
 const renderResourcePageMarkup = (page) => `
@@ -184,8 +184,8 @@ const renderProductMarkup = (route, config) => {
 </main>`;
 };
 
-const renderStaticMarkup = (route, config) => {
-    if (config.searchPage) return renderSearchPageMarkup(config.searchPage);
+const renderStaticMarkup = (route, config, surfaceOrigins = {}) => {
+    if (config.searchPage) return renderSearchPageMarkup(config.searchPage, surfaceOrigins.practice);
     if (config.resourcePage) return renderResourcePageMarkup(config.resourcePage);
     return renderProductMarkup(route, config);
 };
@@ -225,9 +225,9 @@ const structuredDataForStaticRoute = (route, config, canonicalUrl) => {
     };
 };
 
-const applyStaticRouteHtml = (baseHtml, route, origin, config) => {
+const applyStaticRouteHtml = (baseHtml, route, origin, config, surfaceOrigins = {}) => {
     const canonicalUrl = `${origin}${route}`;
-    const markup = renderStaticMarkup(route, config);
+    const markup = renderStaticMarkup(route, config, surfaceOrigins);
     const structuredData = JSON.stringify(structuredDataForStaticRoute(route, config, canonicalUrl)).replace(/</g, "\\u003c");
 
     return baseHtml
@@ -258,7 +258,7 @@ const writeStaticRoute = async (outDir, route, html) => {
     await writeFile(path.join(routeDir, "index.html"), html);
 };
 
-const seoFilesPlugin = (origin, routes) => ({
+const seoFilesPlugin = (origin, routes, surfaceOrigins = {}) => ({
     name: "evalcue-seo-files",
     async closeBundle() {
         if (!origin) return;
@@ -281,7 +281,7 @@ const seoFilesPlugin = (origin, routes) => ({
             .map(([route, config]) => writeStaticRoute(
                 outDir,
                 route,
-                applyStaticRouteHtml(baseHtml, route, origin, config),
+                applyStaticRouteHtml(baseHtml, route, origin, config, surfaceOrigins),
             ));
 
         await Promise.all([
@@ -295,6 +295,9 @@ const seoFilesPlugin = (origin, routes) => ({
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "");
     const publicOrigin = normalizePublicOrigin(env.VITE_PUBLIC_ORIGIN);
+    const surfaceOrigins = {
+        practice: normalizePublicOrigin(env.VITE_PRACTICE_ORIGIN),
+    };
     const appSurface = ["landing", "practice", "hiring"].includes(env.VITE_APP_SURFACE)
         ? env.VITE_APP_SURFACE
         : null;
@@ -308,7 +311,7 @@ export default defineConfig(({ mode }) => {
             globals: true,
             exclude: ["e2e/**", "node_modules/**"],
         },
-        plugins: [react(), seoFilesPlugin(publicOrigin, indexableRoutes)],
+        plugins: [react(), seoFilesPlugin(publicOrigin, indexableRoutes, surfaceOrigins)],
         build: {
             manifest: true,
             rollupOptions: {
