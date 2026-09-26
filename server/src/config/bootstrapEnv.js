@@ -1,6 +1,8 @@
 import dotenv from "dotenv";
 
-dotenv.config();
+// Tests configure their own environment (src/test/setupEnv.js) and must not pick up a developer's .env:
+// it points at real Redis, AI providers, email and Stripe, and makes local runs differ from CI.
+if (process.env.NODE_ENV !== "test") dotenv.config();
 
 const CURRENT_STRIPE_PRICE_KEYS = [
     "STRIPE_PRACTICE_PRO_PRICE_ID",

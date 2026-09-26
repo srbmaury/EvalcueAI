@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import mongoose from "mongoose";
@@ -21,12 +21,21 @@ describe("admin AI quality report", () => {
         process.env.MONGO_TLS = "false";
         process.env.MONGO_REQUIRE_TRANSACTIONS = "false";
         await connectDB();
+        await AiQualityCounter.init();
     }, 60000);
+
+    afterEach(() => AiQualityCounter.deleteMany({}));
 
     afterAll(async () => {
         try { await mongoose.connection.close(); } catch {}
         if (replset) await replset.stop();
     }, 30000);
+
+    it("does not lose concurrent first increments of a new key", async () => {
+        for (let i = 0; i < 20; i += 1) recordAiQualityEvent("feedback_evaluation", "result", "ok");
+        await expect.poll(async () => (await AiQualityCounter.aggregate([{ $group: { _id: null, n: { $sum: "$count" } } }]))[0]?.n || 0).toBe(20);
+        expect(await AiQualityCounter.countDocuments()).toBe(1);
+    });
 
     it("persists guard events with their denominators and reports rates to admins only", async () => {
         for (let i = 0; i < 9; i += 1) recordAiQualityEvent("followup", "decision", "asked");
