@@ -23,6 +23,7 @@ import FeedbackPanel from "../components/FeedbackPanel";
 import OAForm from "../components/OAForm";
 import InterviewRoundsOverview from "../components/InterviewRoundsOverview";
 import { composeAnswerParts } from "../utils/answerParts";
+import { buildTranscriptionHint, replaceLastOccurrence } from "../utils/speechTranscription";
 import { storage, storageKeys } from "../utils/interviewStorage";
 import { describeError } from "../utils/errorFormatter";
 
@@ -104,8 +105,10 @@ const InterviewPage = () => {
     const [convCodingEnabled, setConvCodingEnabled] = useState(false);
     const [oaCodingEnabled, setOaCodingEnabled] = useState([]);
 
-    const onTranscript = useCallback((target, text) => {
-        if (window.speechSynthesis?.speaking) return;
+    const onTranscript = useCallback((target, text, meta) => {
+        // Live browser text heard during interviewer speech is the interviewer, not the candidate.
+        // Recorded text was captured before the interviewer started, so it is always kept.
+        if (window.speechSynthesis?.speaking && !meta?.fromRecording) return;
         if (target === "conv") {
             if (convCodingEnabled && !isSystemDesign) setConvSpokenAnswer((previous) => (previous ? `${previous} ${text}` : text));
             else convAnswerSetterRef.current?.((previous) => (previous ? `${previous} ${text}` : text));
@@ -119,6 +122,27 @@ const InterviewPage = () => {
         }
     }, [convCodingEnabled, isSystemDesign, oaCodingEnabled]);
 
+    // Swap a segment's live browser text for the more accurate server transcript. If the candidate
+    // already edited or submitted that text, it is no longer found and nothing changes.
+    const onTranscriptCorrection = useCallback((target, previous, next) => {
+        const swap = (value) => replaceLastOccurrence(value || "", previous, next);
+        if (target === "conv") {
+            setConvSpokenAnswer((current) => swap(current));
+            convAnswerSetterRef.current?.((current) => swap(current));
+        } else if (typeof target === "number") {
+            const update = (current) => {
+                const list = Array.isArray(current) ? current : [];
+                const swapped = swap(list[target]);
+                if (swapped === (list[target] || "")) return current;
+                const copy = [...list];
+                copy[target] = swapped;
+                return copy;
+            };
+            setOaSpokenAnswers(update);
+            oaAnswersSetterRef.current?.(update);
+        }
+    }, []);
+
     const {
         listening, listeningTarget, interimText,
         micLevel, isSpeaking, micPermission, micSessionActive, handsFreePaused,
@@ -126,7 +150,8 @@ const InterviewPage = () => {
         supportsSTT, supportsTTS,
         startListening, stopListening, speakNow,
         startHandsFree, pauseHandsFree, resumeHandsFree, stopHandsFree,
-    } = useVoiceInput({ onTranscript });
+        setTranscriptionHint,
+    } = useVoiceInput({ onTranscript, onTranscriptCorrection });
 
     const {
         convViewState,
@@ -141,6 +166,11 @@ const InterviewPage = () => {
         showToast, clearDraftsForRound,
     });
     convAnswerSetterRef.current = setConvAnswer;
+
+    const hintQuestion = pendingFollowUp?.question || convViewState?.current || "";
+    useEffect(() => {
+        setTranscriptionHint?.(buildTranscriptionHint({ role: interview?.jobRole, round: selectedRound?.name, question: hintQuestion }));
+    }, [hintQuestion, interview?.jobRole, selectedRound?.name, setTranscriptionHint]);
 
     const {
         oaAnswers, setOaAnswers,

@@ -10,6 +10,13 @@ export const VAD_NOISE_MULTIPLIER = 2.5;
 export const VAD_NOISE_MARGIN = 0.008;
 export const VAD_HYSTERESIS_EXIT_RATIO = 0.62;
 export const VAD_LEVEL_SMOOTHING_ALPHA = 0.35;
+export const VAD_NOISE_PERCENTILE = 0.2;
+
+const percentile = (values, ratio) => {
+    if (!values.length) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted[Math.min(sorted.length - 1, Math.floor(ratio * sorted.length))];
+};
 
 export const createVadState = (now = Date.now()) => ({
     calibrationStart: now,
@@ -35,9 +42,12 @@ export const advanceVad = (state, rawLevel, now = Date.now()) => {
         if (elapsed < VAD_CALIBRATION_MS) {
             noiseSamples = [...noiseSamples, smoothedLevel];
         } else {
-            const avg = noiseSamples.length ? noiseSamples.reduce((a, b) => a + b, 0) / noiseSamples.length : 0;
-            noiseFloor = avg;
-            threshold = Math.min(VAD_MAX_THRESHOLD, Math.max(VAD_MIN_THRESHOLD, avg * VAD_NOISE_MULTIPLIER + VAD_NOISE_MARGIN));
+            // A low percentile rather than the mean: if the candidate starts talking during the
+            // calibration window, speech frames would inflate a mean and make quiet speakers
+            // undetectable for the rest of the session. The quiet frames still describe the room.
+            const floor = percentile(noiseSamples, VAD_NOISE_PERCENTILE);
+            noiseFloor = floor;
+            threshold = Math.min(VAD_MAX_THRESHOLD, Math.max(VAD_MIN_THRESHOLD, floor * VAD_NOISE_MULTIPLIER + VAD_NOISE_MARGIN));
         }
     }
 

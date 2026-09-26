@@ -42,6 +42,7 @@ vi.mock("../hooks/useVoiceInput", () => ({
             supportsSTT: true, supportsTTS: true,
             startListening: vi.fn(), stopListening: vi.fn(), retargetListening: vi.fn(), speakNow,
             startHandsFree, pauseHandsFree, resumeHandsFree, stopHandsFree: vi.fn(),
+            setTranscriptionHint: vi.fn(),
         };
     },
 }));

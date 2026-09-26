@@ -43,10 +43,10 @@ router.post(
         key: (req) => `user:${req.user?._id || "anon"}:stt`,
         metricKey: "stt",
         windowSeconds: 60 * 60, // 1 hour
-        maxPerWindow: Number(process.env.QUOTA_STT_PER_HOUR || 120),
+        maxPerWindow: Number(process.env.QUOTA_STT_PER_HOUR || 600),
     }),
     uploadAudioMulter.single("audio"),
-    validate(z.object({ language: z.string().max(10).optional() })),
+    validate(z.object({ language: z.string().max(10).optional(), prompt: z.string().max(2000).optional() })),
     transcribe
 );
 

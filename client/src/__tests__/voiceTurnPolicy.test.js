@@ -29,3 +29,14 @@ describe("shouldAutoSubmitVoiceTurn", () => {
         expect(shouldAutoSubmitVoiceTurn({ ...readyTurn, typedWorkspaceVisible: true })).toBe(false);
     });
 });
+
+describe("autoSubmitCountdownSeconds", () => {
+    it("only counts down during the final three seconds before auto-submit", async () => {
+        const { autoSubmitCountdownSeconds } = await import("../utils/voiceTurnPolicy");
+        expect(autoSubmitCountdownSeconds(1000, 8000)).toBeNull();
+        expect(autoSubmitCountdownSeconds(5000, 8000)).toBe(3);
+        expect(autoSubmitCountdownSeconds(6500, 8000)).toBe(2);
+        expect(autoSubmitCountdownSeconds(7900, 8000)).toBe(1);
+        expect(autoSubmitCountdownSeconds(8000, 8000)).toBeNull();
+    });
+});
