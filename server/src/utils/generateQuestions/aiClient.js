@@ -1,10 +1,8 @@
-import dotenv from "dotenv";
+import "../../config/bootstrapEnv.js";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import metrics from "../../metrics/index.js";
 import productionMetrics from "../../metrics/production.js";
-
-dotenv.config();
 
 export const ADAPTIVE_PROMPT_BUNDLE_VERSION = "adaptive-2026-09-v1";
 export const FEEDBACK_PROMPT_BUNDLE_VERSION = "feedback-2026-09-v1";
