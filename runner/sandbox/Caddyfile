@@ -1,0 +1,7 @@
+# Public HTTPS endpoint for the runner. Caddy obtains and renews the certificate for RUNNER_DOMAIN.
+{$RUNNER_DOMAIN} {
+	request_body {
+		max_size 4MB
+	}
+	reverse_proxy runner:8080
+}
