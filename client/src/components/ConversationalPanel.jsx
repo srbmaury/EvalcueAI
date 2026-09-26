@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, memo, Suspense, useMemo, useCallback, useRef } from "react";
 import SoundWave from "./SoundWave";
 import { useElapsed } from "../hooks/useElapsed";
-import { DEFAULT_VOICE_SILENCE_MS, shouldAutoSubmitVoiceTurn } from "../utils/voiceTurnPolicy";
+import { autoSubmitCountdownSeconds, DEFAULT_VOICE_SILENCE_MS, shouldAutoSubmitVoiceTurn } from "../utils/voiceTurnPolicy";
 import {
     Box, Button, Chip, CircularProgress, Dialog, DialogActions,
     DialogContent, DialogContentText, DialogTitle, Paper,
@@ -82,6 +82,7 @@ const ConversationalPanel = ({
     const lastVoiceActivityRef = useRef(Date.now());
     const lastObservedAnswerRef = useRef("");
     const autoSubmittedTurnRef = useRef("");
+    const [autoSubmitIn, setAutoSubmitIn] = useState(null);
     const spokenReadinessRef = useRef("");
     const elapsedLabel = useElapsed();
 
@@ -247,10 +248,10 @@ const ConversationalPanel = ({
         const timer = window.setInterval(() => {
             const answer = String(convAnswer || "").trim();
             const turnKey = `${activeText}::${answer}`;
-            if (!answer || autoSubmittedTurnRef.current === turnKey) return;
-            if (!shouldAutoSubmitVoiceTurn({
+            if (!answer || autoSubmittedTurnRef.current === turnKey) { setAutoSubmitIn(null); return; }
+            const silenceMs = Date.now() - lastVoiceActivityRef.current;
+            const turn = {
                 answer,
-                silenceMs: Date.now() - lastVoiceActivityRef.current,
                 thresholdMs: DEFAULT_VOICE_SILENCE_MS,
                 isListening: isRecording,
                 micSessionActive,
@@ -260,12 +261,18 @@ const ConversationalPanel = ({
                 codingEnabled,
                 submitting: convSubmitting || convRoundSubmitting,
                 readinessNeeded,
-            })) return;
+            };
+            // Everything except the silence length is ready: show the final seconds so a thinking
+            // pause never submits an answer without warning. Speaking again resets the countdown.
+            const readyApartFromSilence = shouldAutoSubmitVoiceTurn({ ...turn, silenceMs: DEFAULT_VOICE_SILENCE_MS });
+            setAutoSubmitIn(readyApartFromSilence ? autoSubmitCountdownSeconds(silenceMs) : null);
+            if (!shouldAutoSubmitVoiceTurn({ ...turn, silenceMs })) return;
+            setAutoSubmitIn(null);
             autoSubmittedTurnRef.current = turnKey;
             if (pendingFollowUp) void submitFollowUpTurn(false);
             else void submitAnswerTurn();
         }, 400);
-        return () => window.clearInterval(timer);
+        return () => { window.clearInterval(timer); setAutoSubmitIn(null); };
     }, [activeText, aiSpeaking, autoAdvanceEnabled, codingEnabled, convAnswer, convRoundSubmitting, convSubmitting, interimText, isRecording, micSessionActive, pendingFollowUp, readinessNeeded, typedWorkspaceVisible]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const endRound = async () => {
@@ -347,7 +354,8 @@ const ConversationalPanel = ({
                             </Box>
                             <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
                                 <Typography fontWeight={800}>{isRecording ? "Speak naturally — I’m listening" : aiSpeaking ? "The interviewer has the floor" : "Your response"}</Typography>
-                                <Typography variant="body2" color="text.secondary" mt={.25}>{autoAdvanceEnabled && !typedWorkspaceVisible && !codingEnabled ? "Keep speaking naturally. I’ll move on after about five seconds of silence; use Submit now if you want to move immediately." : "The microphone stays available and pauses automatically while the interviewer speaks."}</Typography>
+                                <Typography variant="body2" color="text.secondary" mt={.25}>{autoAdvanceEnabled && !typedWorkspaceVisible && !codingEnabled ? "Keep speaking naturally. I’ll move on after about eight seconds of silence; use Submit now if you want to move immediately." : "The microphone stays available and pauses automatically while the interviewer speaks."}</Typography>
+                                {autoSubmitIn && <Typography role="status" aria-live="assertive" variant="body2" color="warning.main" fontWeight={700} mt={.75}>Submitting in {autoSubmitIn}… keep talking to continue your answer.</Typography>}
                                 {isRecording && interimText && <Typography variant="body2" sx={{ mt: 1, fontStyle: "italic", color: "text.secondary" }}>“{interimText}”</Typography>}
                                 {!typedWorkspaceVisible && convAnswer?.trim() && <Paper variant="outlined" sx={{ mt: 1.25, p: 1.5, bgcolor: "action.hover", maxHeight: 120, overflow: "auto" }}><Typography variant="caption" color="text.secondary" fontWeight={700}>LIVE TRANSCRIPT</Typography><Typography variant="body2" mt={.5}>{convAnswer}</Typography></Paper>}
                             </Box>

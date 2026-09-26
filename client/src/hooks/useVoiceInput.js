@@ -3,14 +3,21 @@ import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
 import { chooseInterviewerGender, interviewerPitchForGender, selectInterviewerVoice } from "../utils/interviewerVoice";
 import { mergeTranscriptText, sanitizeTranscriptSegment } from "../utils/transcriptSanitizer";
-import { advanceVad, createVadState, VAD_DEFAULT_THRESHOLD } from "../utils/voiceActivityDetector";
+import { advanceVad, createVadState, VAD_DEFAULT_THRESHOLD, VAD_MIN_THRESHOLD } from "../utils/voiceActivityDetector";
+import { recognitionLanguage, transcriptsDiffer } from "../utils/speechTranscription";
 
 const SpeechRecognitionCtor =
     typeof window !== "undefined"
         ? (window.SpeechRecognition || window.webkitSpeechRecognition || null)
         : null;
 
-const HANDS_FREE_SEGMENT_MS = 20000;
+// Recording is cut into segments at natural pauses so server transcription never splits a word,
+// with a hard cap so a long uninterrupted answer still gets transcribed progressively.
+const MAX_SEGMENT_MS = 30000;
+const SEGMENT_PAUSE_MS = 900;
+const MIN_SEGMENT_MS = 1500;
+// A segment whose loudest moment stays below this never contained speech; skip transcribing it.
+const SILENT_SEGMENT_PEAK = VAD_MIN_THRESHOLD * 0.75;
 const TRANSCRIPT_OVERLAP_WINDOW_MS = 2500;
 // Hoisted so the default reference is stable across calls: an inline `{}` default is a new
 // object literal every time the argument is omitted, which otherwise cascades through
@@ -31,11 +38,14 @@ const safeTranscript = (value) => sanitizeTranscriptSegment(value);
  * 2. A hands-free interview session that keeps the microphone stream alive for
  *    the whole round while pausing transcription during interviewer speech.
  *
- * Browser speech recognition supplies low-latency live text when available.
- * MediaRecorder + server transcription is used as the fallback layer when the
- * browser did not already produce usable speech for that segment.
+ * Browser speech recognition supplies low-latency live text when available and is committed
+ * immediately, so submitting an answer never waits on the network. In parallel, MediaRecorder
+ * captures the same audio in pause-delimited segments that are transcribed on the server with a
+ * vocabulary hint. When the server transcript differs from the browser text committed during that
+ * segment, onTranscriptCorrection(target, browserText, serverText) lets the caller swap it in place;
+ * when the browser produced nothing (e.g. Firefox), the server text is committed directly.
  */
-export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcribe", transcribeHeaders = EMPTY_TRANSCRIBE_HEADERS, enableServerTranscription = true, skipAuthRedirect = false }) => {
+export const useVoiceInput = ({ onTranscript, onTranscriptCorrection, transcribeEndpoint = "/stt/transcribe", transcribeHeaders = EMPTY_TRANSCRIBE_HEADERS, enableServerTranscription = true, skipAuthRedirect = false }) => {
     const { user } = useContext(AuthContext);
     const [listening, setListening] = useState(false);
     const [listeningTarget, setListeningTarget] = useState(null);
@@ -54,7 +64,6 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     const liveRecRef = useRef(null);
     const liveRecRestartTimerRef = useRef(null);
     const recorderRotateTimerRef = useRef(null);
-    const recorderStopReasonRef = useRef("manual");
     const sessionStreamRef = useRef(null);
     const handsFreeRef = useRef(false);
     const handsFreePausedRef = useRef(false);
@@ -72,12 +81,20 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
     const activeSpeechFinishRef = useRef(null);
     const rawOnTranscriptRef = useRef(onTranscript);
     const onTranscriptRef = useRef(onTranscript);
+    const onCorrectionRef = useRef(onTranscriptCorrection);
+    const segmentRef = useRef(null);
+    const recorderStreamRef = useRef(null);
+    const finalizeChainRef = useRef(Promise.resolve());
+    const cutSegmentRef = useRef(() => {});
+    const transcriptionHintRef = useRef("");
+
+    useEffect(() => { onCorrectionRef.current = onTranscriptCorrection; }, [onTranscriptCorrection]);
 
     useEffect(() => {
         rawOnTranscriptRef.current = onTranscript;
-        onTranscriptRef.current = (target, value) => {
+        onTranscriptRef.current = (target, value, meta) => {
             const cleaned = safeTranscript(value);
-            if (!cleaned) return;
+            if (!cleaned) return "";
             const now = Date.now();
             const previous = recentTranscriptRef.current;
             if (previous.target === target && previous.text && now - previous.at <= TRANSCRIPT_OVERLAP_WINDOW_MS) {
@@ -86,12 +103,13 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
                     ? merged.slice(previous.text.length).trim()
                     : cleaned;
                 recentTranscriptRef.current = { target, text: merged, at: now };
-                if (!delta) return;
-                rawOnTranscriptRef.current?.(target, delta);
-                return;
+                if (!delta) return "";
+                rawOnTranscriptRef.current?.(target, delta, meta);
+                return delta;
             }
             recentTranscriptRef.current = { target, text: cleaned, at: now };
-            rawOnTranscriptRef.current?.(target, cleaned);
+            rawOnTranscriptRef.current?.(target, cleaned, meta);
+            return cleaned;
         };
     }, [onTranscript]);
 
@@ -150,9 +168,19 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
                     const rms = Math.sqrt(sum / data.length);
                     const rawLevel = isFinite(rms) ? rms * 2 : 0;
 
+                    const now = Date.now();
                     const previous = vadStateRef.current;
-                    const next = advanceVad(previous, rawLevel, Date.now());
+                    const next = advanceVad(previous, rawLevel, now);
                     vadStateRef.current = next;
+                    const segment = segmentRef.current;
+                    if (segment) {
+                        segment.meterSeen = true;
+                        segment.peak = Math.max(segment.peak, next.smoothedLevel);
+                        if (next.speaking) { segment.hadSpeech = true; segment.lastSpeechAt = now; }
+                        else if (segment.hadSpeech && now - segment.lastSpeechAt >= SEGMENT_PAUSE_MS && now - segment.startedAt >= MIN_SEGMENT_MS) {
+                            cutSegmentRef.current();
+                        }
+                    }
                     setMicLevel(next.smoothedLevel);
                     if (next.speaking !== previous.speaking) setIsSpeaking(next.speaking);
                     if (next.noiseFloor !== null && previous.noiseFloor === null) {
@@ -190,10 +218,12 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         liveRecRestartTimerRef.current = null;
     }, []);
 
+    // Text transcribed from recorded audio. It was spoken before any interviewer speech started, so
+    // callers should accept it even if the interviewer is talking by the time it arrives.
     const pushTranscript = useCallback((target, text) => {
         const cleaned = safeTranscript(text);
         if (!cleaned) return false;
-        onTranscriptRef.current?.(target, cleaned);
+        onTranscriptRef.current?.(target, cleaned, { fromRecording: true });
         return true;
     }, []);
 
@@ -204,7 +234,8 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         wsFinalsRef.current = "";
         wsInterimRef.current = "";
         setInterimText("");
-        onTranscriptRef.current?.(target, text);
+        const delivered = onTranscriptRef.current?.(target, text);
+        if (delivered) segmentRef.current?.committed.push(delivered);
         return true;
     }, []);
 
@@ -223,7 +254,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
             stopLiveRec(true);
             const rec = new SpeechRecognitionCtor();
             rec.__expectedStop = false;
-            rec.lang = "en-US";
+            rec.lang = recognitionLanguage();
             rec.continuous = true;
             rec.interimResults = true;
             rec.onresult = (event) => {
@@ -238,7 +269,8 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
                 if (finalText) {
                     wsFinalsRef.current = `${wsFinalsRef.current} ${finalText}`.trim();
                     liveTranscriptCommittedRef.current = true;
-                    onTranscriptRef.current?.(activeTargetRef.current || target, finalText);
+                    const delivered = onTranscriptRef.current?.(activeTargetRef.current || target, finalText);
+                    if (delivered) segmentRef.current?.committed.push(delivered);
                     wsFinalsRef.current = "";
                 }
                 wsInterimRef.current = interim;
@@ -269,23 +301,41 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         }
     }, [clearLiveRestartTimer, stopLiveRec]);
 
-    const transcribeBlob = useCallback(async (blob, target, browserCommitted) => {
-        if (browserCommitted || !enableServerTranscription || !blob || blob.size <= 1000) return "";
+    const transcribeBlob = useCallback(async (blob) => {
+        if (!enableServerTranscription || !blob || blob.size <= 1000) return "";
         try {
             const form = new FormData();
             form.append("audio", blob, "audio.webm");
+            form.append("language", recognitionLanguage().slice(0, 2));
+            if (transcriptionHintRef.current) form.append("prompt", transcriptionHintRef.current);
             const resp = await api.post(transcribeEndpoint, form, {
                 skipAuthRedirect,
                 headers: { "Content-Type": "multipart/form-data", ...transcribeHeaders },
             });
-            const finalText = safeTranscript(resp?.data?.text || "");
-            if (finalText) onTranscriptRef.current?.(target, finalText);
-            return finalText;
+            return safeTranscript(resp?.data?.text || "");
         } catch (error) {
-            console.warn("Server transcription failed, using browser transcript when available", error);
+            console.warn("Server transcription failed, keeping the browser transcript", error);
             return "";
         }
     }, [enableServerTranscription, skipAuthRedirect, transcribeEndpoint, transcribeHeaders]);
+
+    // Runs after a segment's audio is complete. Segments finalize strictly in order so corrections
+    // and server-only commits land in the same order the candidate spoke.
+    const finalizeSegment = useCallback((segment, blob, liveTail) => {
+        finalizeChainRef.current = finalizeChainRef.current.then(async () => {
+            const browserText = segment.committed.join(" ").trim();
+            const heardSpeech = segment.hadSpeech || !segment.meterSeen || segment.peak >= SILENT_SEGMENT_PEAK;
+            if (!heardSpeech && !browserText) return;
+            const serverText = await transcribeBlob(blob);
+            if (serverText) {
+                if (!browserText) pushTranscript(segment.target, serverText);
+                else if (transcriptsDiffer(browserText, serverText)) onCorrectionRef.current?.(segment.target, browserText, serverText);
+                return;
+            }
+            if (!browserText && liveTail) pushTranscript(segment.target, liveTail);
+        }).catch((error) => console.warn("Transcript finalization failed", error));
+        return finalizeChainRef.current;
+    }, [pushTranscript, transcribeBlob]);
 
     const startRecorderSegment = useCallback((stream, target, rotate = false) => {
         if (!stream || typeof MediaRecorder === "undefined") return false;
@@ -298,32 +348,27 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         try { recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" }); }
         catch { try { recorder = new MediaRecorder(stream); } catch { return false; } }
         clearRotateTimer();
-        const chunks = [];
+        const segment = { target, chunks: [], committed: [], startedAt: Date.now(), lastSpeechAt: 0, hadSpeech: false, peak: 0, meterSeen: false, rotate };
+        segmentRef.current = segment;
+        recorderStreamRef.current = stream;
         wsFinalsRef.current = "";
         wsInterimRef.current = "";
         liveTranscriptCommittedRef.current = false;
-        recorderStopReasonRef.current = "manual";
+        recorder.__stopReason = "manual";
         mediaRecorderRef.current = recorder;
-        recorder.ondataavailable = (event) => { if (event.data?.size > 0) chunks.push(event.data); };
-        recorder.onstop = async () => {
-            const reason = recorderStopReasonRef.current || "manual";
-            const browserCommitted = liveTranscriptCommittedRef.current;
-            await new Promise((resolve) => setTimeout(resolve, 120));
-            const blob = new Blob(chunks, { type: "audio/webm" });
-            const finalText = await transcribeBlob(blob, activeTargetRef.current || target, browserCommitted);
-            if (!browserCommitted && !finalText) {
-                const fallbackText = safeTranscript(composeLiveTranscript(wsFinalsRef.current, wsInterimRef.current));
-                if (fallbackText) pushTranscript(activeTargetRef.current || target, fallbackText);
-            }
-            if (reason === "rotate" && handsFreeRef.current && !handsFreePausedRef.current && sessionStreamRef.current) {
-                startRecorderSegment(sessionStreamRef.current, activeTargetRef.current || target, true);
-                return;
-            }
-            // A newer recorder segment may already have replaced this one (e.g. pause
-            // immediately followed by resume while this onstop's network transcription
-            // was still in flight) — only touch shared state if we're still current.
+        recorder.ondataavailable = (event) => { if (event.data?.size > 0) segment.chunks.push(event.data); };
+        recorder.onstop = () => {
+            const reason = recorder.__stopReason || "manual";
+            const liveTail = segment.committed.length ? "" : safeTranscript(composeLiveTranscript(wsFinalsRef.current, wsInterimRef.current));
+            if (segmentRef.current === segment) segmentRef.current = null;
+            void finalizeSegment(segment, new Blob(segment.chunks, { type: "audio/webm" }), liveTail);
+            // On a pause cut the next segment is already recording; nothing else to tear down.
+            if (reason === "rotate") return;
+            // A newer recorder segment may already have replaced this one (e.g. pause immediately
+            // followed by resume) — only touch shared state if we're still current.
             if (mediaRecorderRef.current !== recorder) return;
             mediaRecorderRef.current = null;
+            recorderStreamRef.current = null;
             setListening(false);
             if (!handsFreeRef.current) {
                 setListeningTarget(null);
@@ -332,22 +377,30 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
             }
         };
         recorder.start(250);
-        if (rotate) {
-            recorderRotateTimerRef.current = setTimeout(() => {
-                if (mediaRecorderRef.current === recorder && recorder.state !== "inactive" && handsFreeRef.current && !handsFreePausedRef.current) {
-                    recorderStopReasonRef.current = "rotate";
-                    try { recorder.stop(); } catch { void 0; }
-                }
-            }, HANDS_FREE_SEGMENT_MS);
-        }
+        recorderRotateTimerRef.current = setTimeout(() => cutSegmentRef.current(), MAX_SEGMENT_MS);
         return true;
-    }, [clearRotateTimer, pushTranscript, stopMeter, transcribeBlob]);
+    }, [clearRotateTimer, finalizeSegment, stopMeter]);
+
+    // Start the next segment on the same stream first, then stop the finished one, so no audio is
+    // lost while the previous segment uploads.
+    const cutSegment = useCallback(() => {
+        const recorder = mediaRecorderRef.current;
+        const stream = recorderStreamRef.current;
+        const segment = segmentRef.current;
+        if (!recorder || recorder.state === "inactive" || !stream || !segment) return;
+        if (handsFreeRef.current && handsFreePausedRef.current) return;
+        recorder.__stopReason = "rotate";
+        mediaRecorderRef.current = null;
+        startRecorderSegment(stream, activeTargetRef.current ?? segment.target, segment.rotate);
+        try { recorder.stop(); } catch { void 0; }
+    }, [startRecorderSegment]);
+    useEffect(() => { cutSegmentRef.current = cutSegment; }, [cutSegment]);
 
     const stopRecorder = useCallback((reason = "manual") => {
         clearRotateTimer();
         const recorder = mediaRecorderRef.current;
         if (recorder && recorder.state !== "inactive") {
-            recorderStopReasonRef.current = reason;
+            recorder.__stopReason = reason;
             try { recorder.stop(); } catch { void 0; }
         } else mediaRecorderRef.current = null;
     }, [clearRotateTimer]);
@@ -491,6 +544,7 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         handsFreePausedRef.current = false;
         setHandsFreePaused(false);
         if (sessionStreamRef.current) {
+            vadStateRef.current = createVadState();
             startLiveRecognition(target, true);
             startRecorderSegment(sessionStreamRef.current, target, true);
             setListening(true);
@@ -530,7 +584,9 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
 
     const retargetListening = useCallback((target) => {
         if (target === null || target === undefined) return;
+        const changed = segmentRef.current && segmentRef.current.target !== target;
         activeTargetRef.current = target;
+        if (changed) cutSegmentRef.current();
         if (listening || handsFreeRef.current) setListeningTarget(target);
     }, [listening]);
 
@@ -603,7 +659,10 @@ export const useVoiceInput = ({ onTranscript, transcribeEndpoint = "/stt/transcr
         try { audioCtxRef.current?.close?.(); } catch { void 0; }
     }, [clearLiveRestartTimer, clearRotateTimer]);
 
+    const setTranscriptionHint = useCallback((hint) => { transcriptionHintRef.current = String(hint || ""); }, []);
+
     return {
+        setTranscriptionHint,
         listening, listeningTarget, interimText,
         micLevel, isSpeaking, speechThreshold, noiseFloor,
         micPermission, micSessionActive, handsFreePaused,

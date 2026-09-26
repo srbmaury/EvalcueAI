@@ -28,6 +28,7 @@ import { canStartHiringAssessment, integrityRecoveryReason } from "../utils/hiri
 import { candidateTranscriptionConfig } from "../utils/hiringVoicePolicy";
 import { formatAssessmentDateTime } from "../utils/hiringAssessmentPayload";
 import { describeError } from "../utils/errorFormatter";
+import { buildTranscriptionHint, replaceLastOccurrence } from "../utils/speechTranscription";
 
 const readSavedAttempt = (key) => { try { return JSON.parse(window.localStorage?.getItem(key) || "null"); } catch { return null; } };
 const writeSavedAttempt = (key, value) => { try { window.localStorage?.setItem(key, JSON.stringify(value)); } catch { /* local recovery is best effort */ } };
@@ -84,8 +85,10 @@ export default function CandidateAssessmentPage() {
     const oaSpokenQuestionKeysRef = useRef(new Set());
     const oaRoundIntroducedRef = useRef(false);
 
-    const onTranscript = useCallback((target, text) => {
-        if (window.speechSynthesis?.speaking) return;
+    const onTranscript = useCallback((target, text, meta) => {
+        // Live browser text heard during interviewer speech is the interviewer, not the candidate.
+        // Recorded text was captured before the interviewer started, so it is always kept.
+        if (window.speechSynthesis?.speaking && !meta?.fromRecording) return;
         target = focusedVoiceTargetRef.current || target;
         const [prefix, roundValue, questionValue, field = "answer"] = String(target).split(":");
         if (prefix !== "candidate") return;
@@ -110,6 +113,31 @@ export default function CandidateAssessmentPage() {
         }) : current);
     }, []);
 
+    // Swap a segment's live browser text for the more accurate server transcript, in whichever field
+    // it was committed to. Text the candidate already edited or moved past is not found, so nothing
+    // changes. Corrections do not mark the answer dirty: they never trigger a re-save on their own.
+    const onTranscriptCorrection = useCallback((target, previous, next) => {
+        const swap = (value) => replaceLastOccurrence(value || "", previous, next);
+        const resolved = focusedVoiceTargetRef.current || target;
+        const [prefix, roundValue, questionValue, field = "answer"] = String(resolved).split(":");
+        if (prefix !== "candidate") return;
+        const roundIndex = Number(roundValue);
+        const questionIndex = Number(questionValue);
+        if (field === "spoken") {
+            const baseTarget = `candidate:${roundIndex}:${questionIndex}`;
+            setSpokenNotes((current) => ({ ...current, [baseTarget]: swap(current[baseTarget]) }));
+            return;
+        }
+        const key = field === "followup" ? "followUpAnswer" : "answer";
+        setAttempt((current) => current ? ({
+            ...current,
+            rounds: current.rounds.map((round, ri) => ri === roundIndex ? {
+                ...round,
+                questions: round.questions.map((question, qi) => qi === questionIndex ? { ...question, [key]: swap(question[key]) } : question),
+            } : round),
+        }) : current);
+    }, []);
+
     const candidateToolHeaders = useMemo(() => attemptToken ? { "X-Attempt-Token": attemptToken } : {}, [attemptToken]);
     const candidateToolBase = attempt ? `/assessments/public/${shareToken}/attempts/${attempt._id}` : "";
     const transcriptionConfig = useMemo(() => candidateTranscriptionConfig({
@@ -123,8 +151,10 @@ export default function CandidateAssessmentPage() {
         inputDevices, selectedDeviceId, setSelectedDeviceId, supportsSTT, supportsTTS,
         stopListening, retargetListening, speakNow,
         startHandsFree, pauseHandsFree, resumeHandsFree, stopHandsFree,
+        setTranscriptionHint,
     } = useVoiceInput({
         onTranscript,
+        onTranscriptCorrection,
         transcribeEndpoint: transcriptionConfig.endpoint || "/stt/transcribe",
         transcribeHeaders: transcriptionConfig.headers,
         enableServerTranscription: transcriptionConfig.enabled,
@@ -362,6 +392,10 @@ export default function CandidateAssessmentPage() {
     };
     const activeQuestion = activeRound?.questions?.[activeQuestionIndex];
     const activePendingFollowUp = pendingFollowUpFor(activeRound, activeQuestion);
+    const hintQuestion = activePendingFollowUp?.question || activeQuestion?.text || "";
+    useEffect(() => {
+        setTranscriptionHint?.(buildTranscriptionHint({ role: assessment?.jobRole, round: activeRound?.name, question: hintQuestion }));
+    }, [activeRound?.name, assessment?.jobRole, hintQuestion, setTranscriptionHint]);
     const isActiveConversation = activeRound?.deliveryMode === "conversational";
     const isActiveSystemDesign = activeRound?.deliveryMode === "system-design";
     const isActiveDebugging = activeRound?.deliveryMode === "debugging";
