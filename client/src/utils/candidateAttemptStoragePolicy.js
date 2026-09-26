@@ -22,22 +22,10 @@ export const installCandidateAttemptStoragePolicy = () => {
     prototype.getItem = function getItem(key) {
         const normalizedKey = String(key || "");
         if (this === window.localStorage && normalizedKey.startsWith(CANDIDATE_ATTEMPT_PREFIX)) {
-            const saved = originalGetItem.call(window.sessionStorage, normalizedKey);
-            if (!saved) return null;
-            const approvalKey = `${APPROVAL_PREFIX}${normalizedKey}`;
-            if (originalGetItem.call(window.sessionStorage, approvalKey) === "yes") return saved;
-
-            let approved = false;
-            try {
-                approved = window.confirm("This tab contains a saved assessment attempt. Continue only if this is your own attempt. Otherwise choose Cancel to clear it.");
-            } catch { approved = false; }
-            if (!approved) {
-                originalRemoveItem.call(window.sessionStorage, normalizedKey);
-                originalRemoveItem.call(window.sessionStorage, approvalKey);
-                return null;
-            }
-            originalSetItem.call(window.sessionStorage, approvalKey, "yes");
-            return saved;
+            // Attempts are tab-scoped (sessionStorage), so a refresh in the same tab resumes silently. The
+            // candidate page shows its own "continue or start over" notice for the shared-device case;
+            // a native confirm() here duplicated it and a single Cancel wiped the attempt.
+            return originalGetItem.call(window.sessionStorage, normalizedKey);
         }
         return originalGetItem.call(this, key);
     };

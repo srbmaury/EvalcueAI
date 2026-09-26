@@ -31,6 +31,7 @@ export default function SystemDesignDiscussionPanel({
     target,
     checkpointEndpoint,
     checkpointHeaders,
+    checkpointBody = null,
     skipAuthRedirect = false,
     supportsSTT,
     supportsTTS,
@@ -60,6 +61,18 @@ export default function SystemDesignDiscussionPanel({
     const mountedRef = useRef(true);
     const chatEndRef = useRef(null);
     const isListening = listening && listeningTarget === target;
+    // Typed fallback: each sent message is appended to the running transcript (which the
+    // interviewer and evaluation read as a whole) instead of replacing it.
+    const [typedReply, setTypedReply] = useState("");
+    const [typedSendPending, setTypedSendPending] = useState(false);
+    const sendTypedReply = () => {
+        const text = typedReply.trim();
+        if (!text) return;
+        const previous = (transcript || "").trim();
+        onTranscriptChange?.(previous ? `${previous}\n${text}` : text);
+        setTypedReply("");
+        setTypedSendPending(true);
+    };
     const discussionWords = countDiscussionWords(transcript || "");
     const canEndDiscussion = discussionWords >= MIN_END_DISCUSSION_WORDS;
     const usingDefaultCameraSlot = cameraSlot === undefined;
@@ -114,10 +127,11 @@ export default function SystemDesignDiscussionPanel({
         await speakInterviewer(item.text);
     }, [speakInterviewer]);
 
-    const { interjections } = useSystemDesignDiscussion({
+    const { interjections, checkpoint } = useSystemDesignDiscussion({
         enabled: Boolean(problem && checkpointEndpoint),
         endpoint: checkpointEndpoint,
         headers: checkpointHeaders,
+        body: checkpointBody,
         transcript,
         diagramData,
         interimText,
@@ -128,6 +142,13 @@ export default function SystemDesignDiscussionPanel({
         onInterjection,
         skipAuthRedirect,
     });
+
+    useEffect(() => {
+        // Runs after the hook has seen the appended transcript, so the checkpoint includes the new message.
+        if (!typedSendPending) return;
+        setTypedSendPending(false);
+        void checkpoint({ force: true });
+    }, [checkpoint, transcript, typedSendPending]);
 
     useEffect(() => {
         // Deliberately excludes aiSpeaking: the readiness-prompt effect below speaks
@@ -305,17 +326,26 @@ export default function SystemDesignDiscussionPanel({
                 </Stack>
 
                 <Box sx={{ p: 1.25, borderTop: "1px solid", borderColor: "divider" }}>
-                    {micPermission === "denied" && (
+                    {/* Typing is always available (candidates are told they can always type); voice is optional. */}
+                    {(
                         <Stack spacing={1} mb={1}>
-                            <Alert severity="warning" sx={{ py: 0 }}>Microphone blocked. You can type instead.</Alert>
+                            {micPermission === "denied" && <Alert severity="warning" sx={{ py: 0 }}>Microphone blocked. You can type instead.</Alert>}
                             <TextField
                                 fullWidth
                                 multiline
-                                minRows={3}
-                                value={transcript || ""}
-                                onChange={(event) => onTranscriptChange?.(event.target.value)}
-                                placeholder="Type your response…"
+                                minRows={micPermission === "denied" ? 3 : 2}
+                                value={typedReply}
+                                onChange={(event) => setTypedReply(event.target.value)}
+                                onKeyDown={(event) => {
+                                    if (event.key === "Enter" && !event.shiftKey) {
+                                        event.preventDefault();
+                                        sendTypedReply();
+                                    }
+                                }}
+                                placeholder={micPermission === "denied" ? "Type your response…" : "Speak, or type your response…"}
+                                helperText="Enter to send · Shift+Enter for a new line"
                             />
+                            <Button size="small" variant="outlined" onClick={sendTypedReply} disabled={!typedReply.trim() || ending} sx={{ alignSelf: "flex-end" }}>Send</Button>
                         </Stack>
                     )}
                     <Stack direction="row" gap={1} justifyContent="flex-end" flexWrap="wrap">

@@ -122,7 +122,7 @@ export default function DebuggingProjectWorkspace({
                             <Box sx={{ minWidth: 0 }}><Typography fontWeight={800}>{basename(selectedFile.path)}</Typography><Chip size="small" sx={{ mt: .5 }} label={selectedFile.kind === "hidden_test" ? "Hidden test" : "Source"} variant="outlined" /></Box>
                             {!readOnly && <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                                 {allowClassification && <FormControl size="small" sx={{ minWidth: 135 }}><InputLabel id="debug-file-kind-label">File type</InputLabel><Select labelId="debug-file-kind-label" label="File type" value={selectedFile.kind} onChange={(e) => onFilesChange?.(updateProjectFile(files, selectedFile.path, { kind: e.target.value }))}><MenuItem value="source">Source</MenuItem><MenuItem value="hidden_test">Hidden test</MenuItem></Select></FormControl>}
-                                {!selectedProtected && <><TextField size="small" label="Rename path" value={renameTo} onChange={(e) => setRenameTo(e.target.value)} /><Tooltip title="Rename file"><span><IconButton disabled={!renameTo.trim()} aria-label="Rename selected file" onClick={renameSelected}><DriveFileRenameOutlineRounded /></IconButton></span></Tooltip><Tooltip title="Delete file"><IconButton aria-label="Delete selected file" color="error" onClick={removeSelected}><DeleteOutlineRounded /></IconButton></Tooltip></>}
+                                {!selectedProtected && <><TextField size="small" label="Rename path" value={renameTo} onChange={(e) => setRenameTo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); renameSelected(); } }} /><Tooltip title="Rename file"><span><IconButton disabled={!renameTo.trim()} aria-label="Rename selected file" onClick={renameSelected}><DriveFileRenameOutlineRounded /></IconButton></span></Tooltip><Tooltip title="Delete file"><IconButton aria-label="Delete selected file" color="error" onClick={removeSelected}><DeleteOutlineRounded /></IconButton></Tooltip></>}
                             </Stack>}
                         </Stack>
                         {allowClassification && selectedFile.kind === "hidden_test" && <TextField size="small" label="Candidate-visible test name" value={selectedFile.displayName || ""} onChange={(e) => onFilesChange?.(updateProjectFile(files, selectedFile.path, { displayName: e.target.value }))} />}
@@ -130,7 +130,7 @@ export default function DebuggingProjectWorkspace({
                     </Stack> : <Box sx={{ minHeight: 380, display: "grid", placeItems: "center" }}><Typography color="text.secondary">Choose a project file.</Typography></Box>}
                 </Box>
             </Box>
-            <Divider /><Box sx={{ px: 1.5, py: 1 }}><Typography variant="caption" color="text.secondary">{selectableFiles.length} file{selectableFiles.length === 1 ? "" : "s"} · {files.filter((file) => file.kind === "hidden_test").length} hidden test{files.filter((file) => file.kind === "hidden_test").length === 1 ? "" : "s"}</Typography></Box>
+            <Divider /><Box sx={{ px: 1.5, py: 1 }}><Typography variant="caption" color="text.secondary">{selectableFiles.length} file{selectableFiles.length === 1 ? "" : "s"}{!hideHidden && ` · ${files.filter((file) => file.kind === "hidden_test").length} hidden test${files.filter((file) => file.kind === "hidden_test").length === 1 ? "" : "s"}`}</Typography></Box>
         </Paper>
     </Stack>;
 }

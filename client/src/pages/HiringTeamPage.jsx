@@ -198,7 +198,7 @@ export default function HiringTeamPage() {
             return {
                 title: "Remove team member?",
                 body: `${memberName} will lose access to ${activeOrganization?.name}'s assessments, candidate pipeline, reports, and billing information.`,
-                warning: "This does not delete their personal Evalcue AI account.",
+                warning: "This does not delete their personal EvalcueAI account.",
                 confirmLabel: "Remove member",
                 confirmColor: "error",
                 onConfirm: () => removeMember(confirmTarget.membership._id),
@@ -268,7 +268,7 @@ export default function HiringTeamPage() {
                                     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                                         {canManageThisMember ? (
                                             <FormControl size="small" sx={{ minWidth: 160 }}>
-                                                <Select value={membership.role} onChange={(event) => setConfirmTarget({ kind: "role", membership, nextRole: event.target.value })} aria-label={`Role for ${membership.user?.email}`}>
+                                                <Select value={membership.role} onChange={(event) => setConfirmTarget({ kind: "role", membership, nextRole: event.target.value })} SelectDisplayProps={{ "aria-label": `Role for ${membership.user?.email}` }}>
                                                     {assignableRoles.map((item) => <MenuItem key={item} value={item}>{HIRING_ROLE_LABELS[item]}</MenuItem>)}
                                                 </Select>
                                             </FormControl>
@@ -285,8 +285,8 @@ export default function HiringTeamPage() {
 
                 {canManageOrganization && (
                     <Paper component="form" variant="outlined" sx={{ p: 3, borderRadius: 4 }} onSubmit={addMember}>
-                        <Typography variant="h5" fontWeight={800}>Add existing Evalcue AI user</Typography>
-                        <Typography color="text.secondary" mt={.5}>For now, the person must already have an Evalcue AI account. Email invitations can be added later.</Typography>
+                        <Typography variant="h5" fontWeight={800}>Add existing EvalcueAI user</Typography>
+                        <Typography color="text.secondary" mt={.5}>For now, the person must already have an EvalcueAI account. Email invitations can be added later.</Typography>
                         <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} mt={2}>
                             <TextField label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required fullWidth />
                             <FormControl sx={{ minWidth: 190 }}>
@@ -308,7 +308,7 @@ export default function HiringTeamPage() {
                         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={2} alignItems={{ md: "center" }}>
                             <Box>
                                 <Stack direction="row" spacing={1} alignItems="center"><Typography variant="h6" fontWeight={800}>{planLabel(billing.plan)} Hiring</Typography><Chip size="small" label={billing.periodType === "lifetime" ? "Lifetime trial credits" : "Monthly capacity"} /></Stack>
-                                <Typography variant="body2" color="text.secondary" mt={.5}>{billing.used.candidateInterviews} of {billing.limits.candidateInterviews} candidate interviews used{billing.periodType === "month" ? ` in ${billing.period}` : ""}.</Typography>
+                                <Typography variant="body2" color="text.secondary" mt={.5}>{billing.used.candidateInterviews} of {billing.limits.candidateInterviews} candidate interviews used{billing.reserved?.candidateInterviews ? ` · ${billing.reserved.candidateInterviews} in progress` : ""}{billing.periodType === "month" ? ` in ${billing.period}` : ""}.</Typography>
                             </Box>
                             {billing.canManageBilling && billing.hasBillingAccount && (["starter", "growth", "enterprise"].includes(billing.plan) || needsBillingPortal) && <Button variant="outlined" disabled={billingActionLoading} onClick={() => billingRedirect("/billing/hiring/portal-session")}>Manage billing</Button>}
                         </Stack>

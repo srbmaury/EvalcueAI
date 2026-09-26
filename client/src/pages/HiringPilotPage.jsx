@@ -54,7 +54,7 @@ export default function HiringPilotPage() {
         <Container maxWidth="sm" sx={{ py: { xs: 4, md: 7 } }}>
             <Stack spacing={3}>
                 <Stack alignItems="center" textAlign="center">
-                    <Typography variant="overline" color="primary.main" fontWeight={850}>Evalcue AI Hire</Typography>
+                    <Typography variant="overline" color="primary.main" fontWeight={850}>EvalcueAI Hire</Typography>
                     <Typography component="h1" variant="h3" fontWeight={850}>Launch Pilot</Typography>
                     <Typography color="text.secondary" mt={1}>A low-commitment paid step before moving your team to a recurring Hiring plan.</Typography>
                 </Stack>
@@ -92,7 +92,7 @@ export default function HiringPilotPage() {
                 <Card variant="outlined">
                     <CardContent>
                         <Typography fontWeight={800}>Current organization access</Typography>
-                        <Typography color="text.secondary" mt={.5}>{labelForPlan(billing?.plan)} · {billing?.used?.candidateInterviews || 0} of {billing?.limits?.candidateInterviews || 0} interviews used.</Typography>
+                        <Typography color="text.secondary" mt={.5}>{labelForPlan(billing?.plan)} · {billing?.used?.candidateInterviews || 0} of {billing?.limits?.candidateInterviews || 0} interviews used{billing?.reserved?.candidateInterviews ? ` · ${billing.reserved.candidateInterviews} in progress (counts toward the limit)` : ""}.</Typography>
                         {billing?.grant?.expiresAt && <Typography variant="body2" color="text.secondary" mt={.5}>Current grant expires {new Date(billing.grant.expiresAt).toLocaleDateString()}.</Typography>}
                     </CardContent>
                 </Card>

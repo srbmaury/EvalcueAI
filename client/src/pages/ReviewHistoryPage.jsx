@@ -8,6 +8,7 @@ import {
     Checkbox,
     Chip,
     CircularProgress,
+    Collapse,
     Container,
     Divider,
     Pagination,
@@ -20,6 +21,15 @@ import api from "../api/axios";
 import { useNotify } from "../context/NotificationContext";
 
 const PAGE_SIZE = 6;
+
+const ReviewSection = ({ title, items }) => (Array.isArray(items) && items.length > 0 ? (
+    <Box>
+        <Typography component="h3" variant="subtitle2" fontWeight={750} gutterBottom>{title}</Typography>
+        <Stack component="ul" spacing={0.5} sx={{ my: 0, pl: 2.5 }}>
+            {items.map((item, index) => <Typography component="li" variant="body2" key={index}>{item}</Typography>)}
+        </Stack>
+    </Box>
+) : null);
 
 const normalizedSet = (values) => new Set((Array.isArray(values) ? values : []).map((value) => String(value).trim().toLocaleLowerCase()).filter(Boolean));
 
@@ -42,6 +52,7 @@ const DifferenceList = ({ title, added, removed, emptyText }) => (
 export default function ReviewHistoryPage() {
     const [reviews, setReviews] = useState([]);
     const [selected, setSelected] = useState([]);
+    const [expandedId, setExpandedId] = useState(null);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
@@ -170,6 +181,22 @@ export default function ReviewHistoryPage() {
                                 </Stack>
                             </Stack>
                             {review.summary && <Typography variant="body2" sx={{ mt: 2 }}>{review.summary}</Typography>}
+                            <Button size="small" sx={{ mt: 1, px: 0 }} onClick={() => setExpandedId((current) => (current === review._id ? null : review._id))} aria-expanded={expandedId === review._id}>
+                                {expandedId === review._id ? "Hide full review" : "Show full review"}
+                            </Button>
+                            <Collapse in={expandedId === review._id} unmountOnExit>
+                                <Stack spacing={2} sx={{ mt: 1 }}>
+                                    {review.roleAlignment && <Typography variant="body2" color="text.secondary">{review.roleAlignment}</Typography>}
+                                    <ReviewSection title="Strengths" items={review.strengths} />
+                                    <ReviewSection title="Gaps" items={review.gaps} />
+                                    <ReviewSection title="Suggested improvements" items={review.improvementSuggestions} />
+                                    {Array.isArray(review.keywordsMatched) && review.keywordsMatched.length > 0 && (
+                                        <Stack direction="row" useFlexGap flexWrap="wrap" gap={1}>
+                                            {review.keywordsMatched.map((keyword) => <Chip key={keyword} label={keyword} size="small" variant="outlined" />)}
+                                        </Stack>
+                                    )}
+                                </Stack>
+                            </Collapse>
                         </CardContent>
                     </Card>;
                 })}

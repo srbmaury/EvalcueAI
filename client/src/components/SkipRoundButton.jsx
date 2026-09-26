@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from "@mui/material";
 
-const SkipRoundButton = ({ onSkip }) => {
+const SkipRoundButton = ({ onSkip, disabled = false }) => {
     const [open, setOpen] = useState(false);
 
     return (
         <>
-            <Button color="error" variant="outlined" onClick={() => setOpen(true)}>
+            <Button color="error" variant="outlined" onClick={() => setOpen(true)} disabled={disabled}>
                 Skip Round
             </Button>
             <Dialog open={open} onClose={() => setOpen(false)} aria-labelledby="skip-round-title">

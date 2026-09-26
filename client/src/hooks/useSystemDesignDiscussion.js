@@ -26,6 +26,8 @@ export const useSystemDesignDiscussion = ({
     enabled,
     endpoint,
     headers = {},
+    // Extra request fields, e.g. the candidate attempt's roundIndex/questionIndex.
+    body = null,
     transcript = "",
     diagramData = "",
     interimText = "",
@@ -96,6 +98,8 @@ export const useSystemDesignDiscussion = ({
     }, [interviewerSpeaking, markCandidateTurnStart]);
 
     useEffect(() => { diagramRef.current = diagramData; }, [diagramData]);
+    const bodyRef = useRef(body);
+    useEffect(() => { bodyRef.current = body; }, [body]);
     useEffect(() => { interjectionsRef.current = interjections; }, [interjections]);
     useEffect(() => { onInterjectionRef.current = onInterjection; }, [onInterjection]);
 
@@ -127,6 +131,7 @@ export const useSystemDesignDiscussion = ({
         lastCheckedAtRef.current = now;
         try {
             const { data } = await api.post(endpoint, {
+                ...(bodyRef.current || {}),
                 transcript: currentTranscript.slice(-20000),
                 diagramData: (diagramRef.current || "").slice(0, 500000),
                 previousInterjections: previousInterjections.map((item) => item.text).slice(-8),

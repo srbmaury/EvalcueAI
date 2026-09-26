@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 
 const json = (route, body, status = 200) => route.fulfill({
     status,

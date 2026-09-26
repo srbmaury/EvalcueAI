@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 
 const json = (route, body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 
@@ -21,7 +21,7 @@ test("practice resource survives sign-in and prefills the real interview builder
     await page.getByRole("option", { name: "Senior Software Engineer" }).click();
     await page.getByLabel("Practice track").click();
     await page.getByRole("option", { name: "Design a notification service" }).click();
-    await page.getByRole("button", { name: "Practice this in Evalcue AI" }).click();
+    await page.getByRole("button", { name: "Practice this in EvalcueAI" }).click();
 
     await expect(page).toHaveURL(/\/practice\/login$/);
     await page.getByLabel("Email").fill("visitor@example.com");
@@ -66,7 +66,7 @@ test("hiring resource creates an organization-owned draft assessment", async ({ 
 
     await page.goto("/hire/resources/technical-assessment-template");
     await expect(page.getByRole("heading", { name: "Technical Assessment Template" })).toBeVisible();
-    await page.getByRole("button", { name: "Use this in Evalcue AI Hire" }).click();
+    await page.getByRole("button", { name: "Use this in EvalcueAI Hire" }).click();
 
     await expect.poll(() => createdPayload?.templateName).toBe("Technical Assessment Template");
     expect(createdPayload?.status).toBe("draft");

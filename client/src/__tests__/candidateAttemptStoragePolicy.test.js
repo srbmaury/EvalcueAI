@@ -8,13 +8,13 @@ describe("candidate attempt storage policy", () => {
         window.sessionStorage.clear();
     });
 
-    it("purges legacy persistent attempts and routes approved recovery to sessionStorage", () => {
+    it("purges legacy persistent attempts and routes recovery to tab-scoped sessionStorage without a native prompt", () => {
         const candidateKey = "assessment-attempt:shared-token:open";
         window.localStorage.clear();
         window.sessionStorage.clear();
         window.localStorage.setItem(candidateKey, "legacy-persistent-attempt");
         window.localStorage.setItem("unrelated-setting", "keep-me");
-        const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+        const confirm = vi.spyOn(window, "confirm");
 
         installCandidateAttemptStoragePolicy();
 
@@ -25,6 +25,7 @@ describe("candidate attempt storage policy", () => {
         window.localStorage.setItem(candidateKey, "tab-scoped-attempt");
         expect(window.sessionStorage.getItem(candidateKey)).toBe("tab-scoped-attempt");
         expect(window.localStorage.getItem(candidateKey)).toBe("tab-scoped-attempt");
-        expect(confirm).toHaveBeenCalledOnce();
+        // Same-tab recovery is silent; the candidate page shows its own continue/start-over notice.
+        expect(confirm).not.toHaveBeenCalled();
     });
 });

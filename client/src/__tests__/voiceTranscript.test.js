@@ -18,7 +18,15 @@ describe("voice transcript composition", () => {
         expect(sanitizeTranscriptSegment("Thanks for watching!" )).toBe("");
     });
 
+    it("drops noise-only segments such as a lone 'you'", () => {
+        for (const noise of ["You", "you.", "Thank you.", "Bye.", "um you", "♪♪♪", "♪ ♪"]) {
+            expect(sanitizeTranscriptSegment(noise)).toBe("");
+        }
+    });
+
     it("keeps real interview answers even when they are short", () => {
         expect(sanitizeTranscriptSegment("I would add retries with jitter and idempotency keys.")).toBe("I would add retries with jitter and idempotency keys.");
+        expect(sanitizeTranscriptSegment("Yes")).toBe("Yes");
+        expect(sanitizeTranscriptSegment("You could shard by tenant.")).toBe("You could shard by tenant.");
     });
 });

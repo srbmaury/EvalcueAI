@@ -5,7 +5,7 @@ import { useSystemDesignDiscussion } from "../hooks/useSystemDesignDiscussion";
 
 vi.mock("../api/axios", () => ({ default: { post: vi.fn() } }));
 
-const Harness = ({ onInterjection, micLevel = 0, listening = true, interimText = "", interviewerSpeaking = false }) => {
+const Harness = ({ onInterjection, micLevel = 0, listening = true, interimText = "", interviewerSpeaking = false, body = null }) => {
     useSystemDesignDiscussion({
         enabled: true,
         endpoint: "/system-design/checkpoint",
@@ -17,6 +17,7 @@ const Harness = ({ onInterjection, micLevel = 0, listening = true, interimText =
         interviewerSpeaking,
         intervalMs: 7000,
         onInterjection,
+        body,
     });
     return null;
 };
@@ -50,6 +51,12 @@ describe("system design silence intervention", () => {
         expect(api.post).toHaveBeenCalledTimes(1);
         expect(api.post.mock.calls[0][1]).toMatchObject({ forceInteraction: true });
         expect(onInterjection).toHaveBeenCalledTimes(1);
+    });
+
+    it("sends caller-supplied fields such as the candidate round and question index", async () => {
+        render(<Harness onInterjection={vi.fn()} body={{ roundIndex: 2, questionIndex: 0 }} />);
+        await act(async () => { vi.advanceTimersByTime(15000); await Promise.resolve(); await Promise.resolve(); });
+        expect(api.post.mock.calls[0][1]).toMatchObject({ roundIndex: 2, questionIndex: 0, forceInteraction: true });
     });
 
     it("does not interrupt while microphone activity shows the candidate is still speaking", async () => {

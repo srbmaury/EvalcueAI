@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 
 const json = (route, body, status = 200) => route.fulfill({
     status,
@@ -29,17 +29,19 @@ test("canonical Practice and Hiring auth routes override a contradictory workspa
     await mockSignedOut(page);
 
     await page.goto("/practice/login?workspace=hiring");
-    await expect(page.getByRole("heading", { name: "Sign in to Evalcue AI Practice" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to EvalcueAI Practice" })).toBeVisible();
     await expect(page.getByRole("button", { name: /work sso/i })).toHaveCount(0);
 
     await page.goto("/hire/login?workspace=practice");
-    await expect(page.getByRole("heading", { name: "Sign in to Evalcue AI Hire" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to EvalcueAI Hire" })).toBeVisible();
 
     await page.goto("/practice/register?workspace=hiring");
-    await expect(page.getByRole("heading", { name: /Evalcue AI Practice/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+    await expect(page.getByText("Get started with EvalcueAI Practice", { exact: true })).toBeVisible();
 
     await page.goto("/hire/register?workspace=practice");
-    await expect(page.getByRole("heading", { name: /Evalcue AI Hire/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+    await expect(page.getByText("Get started with EvalcueAI Hire", { exact: true })).toBeVisible();
 });
 
 test("canonical billing-success route overrides a contradictory product query", { tag: "@desktop-only" }, async ({ page }) => {
