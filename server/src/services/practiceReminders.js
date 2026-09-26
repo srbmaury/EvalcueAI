@@ -104,6 +104,6 @@ export async function deliverDuePracticeReminders(now = new Date()) {
 }
 
 export async function sendTestPracticeReminder(user) {
-    const info = await sendMail({ ...mailFor(user), subject: "Evalcue AI test weekly practice plan" });
+    const info = await sendMail({ ...mailFor(user), subject: "EvalcueAI test weekly practice plan" });
     return { messageId: info?.messageId || "" };
 }

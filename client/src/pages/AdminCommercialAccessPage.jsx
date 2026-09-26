@@ -211,7 +211,7 @@ export default function AdminCommercialAccessPage() {
             {loading && <Typography color="text.secondary">Loading admin data…</Typography>}
 
             <Typography component="h2" variant="h5" fontWeight={850} mt={3}>Platform users</Typography>
-            <Typography color="text.secondary" mt={.5} mb={2}>Admin is a platform-level role. It is separate from organization Owner/Admin roles inside Evalcue AI Hire.</Typography>
+            <Typography color="text.secondary" mt={.5} mb={2}>Admin is a platform-level role. It is separate from organization Owner/Admin roles inside EvalcueAI Hire.</Typography>
             <Grid container spacing={2}>
                 {users.map((user) => (
                     <Grid key={user._id} size={{ xs: 12, md: 6 }}>

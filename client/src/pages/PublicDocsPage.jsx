@@ -75,12 +75,12 @@ export default function PublicDocsPage() {
     const article = articles[pathname];
 
     if (!article) {
-        const title = "Evalcue AI Documentation | Technical interviews and hiring";
+        const title = "EvalcueAI Documentation | Technical interviews and hiring";
         const description = "Practical documentation for structured technical assessments, system design interviews, candidate scorecards, AI interview practice, enterprise SSO, and responsible human review.";
         return (
             <Box>
                 <Container maxWidth="lg" sx={{ py: { xs: 5, md: 9 } }}>
-                    <Seo title={title} description={description} canonicalPath="/docs" structuredData={{ "@context": "https://schema.org", "@type": "CollectionPage", name: "Evalcue AI Documentation", description }} />
+                    <Seo title={title} description={description} canonicalPath="/docs" structuredData={{ "@context": "https://schema.org", "@type": "CollectionPage", name: "EvalcueAI Documentation", description }} />
                     <Stack spacing={2} maxWidth={780}>
                         <Chip label="Documentation" color="primary" variant="outlined" sx={{ alignSelf: "flex-start" }} />
                         <Typography component="h1" variant="h2" fontWeight={900} letterSpacing="-.04em">Technical interview documentation built around evidence.</Typography>
@@ -105,11 +105,11 @@ export default function PublicDocsPage() {
     }
 
     const canonicalPath = pathname;
-    const title = `${article.title} | Evalcue AI Docs`;
+    const title = `${article.title} | EvalcueAI Docs`;
     return (
         <Box>
             <Container maxWidth="md" sx={{ py: { xs: 5, md: 9 } }}>
-                <Seo title={title} description={article.description} canonicalPath={canonicalPath} structuredData={{ "@context": "https://schema.org", "@type": "Article", headline: article.title, description: article.description, author: { "@type": "Organization", name: "Evalcue AI" }, publisher: { "@type": "Organization", name: "Evalcue AI" }, mainEntityOfPage: `${window.location.origin}${canonicalPath}` }} />
+                <Seo title={title} description={article.description} canonicalPath={canonicalPath} structuredData={{ "@context": "https://schema.org", "@type": "Article", headline: article.title, description: article.description, author: { "@type": "Organization", name: "EvalcueAI" }, publisher: { "@type": "Organization", name: "EvalcueAI" }, mainEntityOfPage: `${window.location.origin}${canonicalPath}` }} />
                 <Stack spacing={2}>
                     <Typography component={RouterLink} to="/docs" color="primary.main" sx={{ textDecoration: "none", fontWeight: 800 }}>← Documentation</Typography>
                     <Typography variant="overline" color="primary.main" fontWeight={850}>{article.eyebrow}</Typography>
@@ -126,7 +126,7 @@ export default function PublicDocsPage() {
                     ))}
                 </Stack>
                 <Divider sx={{ my: 5 }} />
-                <Typography component={RouterLink} to="/docs" color="primary.main" sx={{ textDecoration: "none", fontWeight: 800 }}>Browse all Evalcue AI documentation →</Typography>
+                <Typography component={RouterLink} to="/docs" color="primary.main" sx={{ textDecoration: "none", fontWeight: 800 }}>Browse all EvalcueAI documentation →</Typography>
             </Container>
             <SiteFooter />
         </Box>

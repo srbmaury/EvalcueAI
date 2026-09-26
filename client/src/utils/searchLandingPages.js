@@ -2,15 +2,16 @@ export const SEARCH_LANDING_PAGES = [
     {
         slug: "ai-interview-practice",
         path: "/ai-interview-practice",
+        audience: "Software engineers at any level preparing for technical interviews, from new graduates to senior and staff candidates.",
         title: "AI Interview Practice for Software Engineers",
-        metaTitle: "AI Interview Practice for Software Engineers | Evalcue AI",
+        metaTitle: "AI Interview Practice for Software Engineers | EvalcueAI",
         description: "Practice realistic software engineering interviews with an adaptive AI interviewer across technical discussion, coding, system design, debugging, and behavioral follow-ups.",
         eyebrow: "AI interview practice",
         intro: "Rehearse the parts of a software engineering interview that are difficult to practice alone: explaining decisions out loud, handling follow-up questions, defending trade-offs, and reviewing where your answers became shallow or unclear.",
         sections: [
             {
                 heading: "Practice a conversation, not a static question list",
-                body: "Evalcue AI uses the role, job description, and your previous answers as context for follow-up questions. That makes practice closer to an interview conversation where the next question depends on the evidence you have already given.",
+                body: "EvalcueAI uses the role, job description, and your previous answers as context for follow-up questions. That makes practice closer to an interview conversation where the next question depends on the evidence you have already given.",
                 points: ["Role- and job-description-specific prompts", "Adaptive follow-ups based on your answers", "Voice or text technical discussion", "Post-interview feedback and improvement suggestions"],
             },
             {
@@ -26,7 +27,7 @@ export const SEARCH_LANDING_PAGES = [
         ],
         faq: [
             ["What is AI interview practice?", "AI interview practice uses an AI interviewer to simulate interview questions, listen to or read your answers, ask follow-ups, and provide feedback so you can rehearse before a real interview."],
-            ["Can I practice technical interviews with AI?", "Yes. Evalcue AI supports software engineering practice across technical discussion, coding, system design, backend topics, debugging, and behavioral questions."],
+            ["Can I practice technical interviews with AI?", "Yes. EvalcueAI supports software engineering practice across technical discussion, coding, system design, backend topics, debugging, and behavioral questions."],
             ["Is AI interview feedback always correct?", "No. Treat AI feedback as coaching evidence rather than an unquestionable answer key. Validate technical claims and use repeated patterns across sessions to guide deliberate practice."],
         ],
         related: ["ai-mock-interview", "software-engineer-interview-practice", "technical-interview-practice"],
@@ -36,8 +37,9 @@ export const SEARCH_LANDING_PAGES = [
     {
         slug: "ai-mock-interview",
         path: "/ai-mock-interview",
+        audience: "Software engineers who want to rehearse a full interview, with follow-up pressure, before the real one.",
         title: "AI Mock Interview for Software Engineers",
-        metaTitle: "AI Mock Interview for Software Engineers | Evalcue AI",
+        metaTitle: "AI Mock Interview for Software Engineers | EvalcueAI",
         description: "Run an AI mock interview for software engineering roles with adaptive follow-ups, coding, system design, resume and job-description context, and structured feedback.",
         eyebrow: "AI mock interview",
         intro: "Use a realistic mock interview to practice how you think and communicate under follow-up pressure, not just whether you can recall an answer when reading a question by yourself.",
@@ -60,7 +62,7 @@ export const SEARCH_LANDING_PAGES = [
         ],
         faq: [
             ["How does an AI mock interview work?", "You choose a target role or interview focus, answer questions in a simulated interview, receive adaptive follow-ups, and then review feedback on the evidence and clarity in your responses."],
-            ["Can I do a software engineer mock interview online?", "Yes. Evalcue AI is browser-based and supports software engineering mock practice across conversational, coding, and system-design rounds."],
+            ["Can I do a software engineer mock interview online?", "Yes. EvalcueAI is browser-based and supports software engineering mock practice across conversational, coding, and system-design rounds."],
             ["Should I use a mock interview before every real interview?", "Mock interviews are most useful when you have a specific target and enough time to review the feedback, practice the weak area, and repeat it before the real interview."],
         ],
         related: ["ai-interview-practice", "software-engineer-interview-practice", "system-design-interview-practice"],
@@ -70,8 +72,9 @@ export const SEARCH_LANDING_PAGES = [
     {
         slug: "software-engineer-interview-practice",
         path: "/software-engineer-interview-practice",
+        audience: "Backend, frontend, full-stack, and platform engineers preparing for a software engineering interview loop.",
         title: "Software Engineer Interview Practice",
-        metaTitle: "Software Engineer Interview Practice with AI | Evalcue AI",
+        metaTitle: "Software Engineer Interview Practice with AI | EvalcueAI",
         description: "Practice software engineering interviews with AI across coding, APIs, databases, debugging, system design, reliability, projects, and behavioral ownership.",
         eyebrow: "Software engineer interview practice",
         intro: "Prepare for the complete software engineering interview loop by practicing implementation, design, production reasoning, project depth, and communication as separate signals.",
@@ -94,7 +97,7 @@ export const SEARCH_LANDING_PAGES = [
         ],
         faq: [
             ["What should a software engineer practice before an interview?", "A balanced plan usually includes coding, role-specific technical depth, system or low-level design where relevant, project deep dives, debugging and production reasoning, and behavioral ownership stories."],
-            ["Can Evalcue AI use a job description for practice?", "Yes. Job-description context can be used to shape the interview toward the technologies, responsibilities, and seniority described in the role."],
+            ["Can EvalcueAI use a job description for practice?", "Yes. Job-description context can be used to shape the interview toward the technologies, responsibilities, and seniority described in the role."],
             ["Is this only for backend engineers?", "No. The practice workflow can be configured for backend, frontend, full-stack, platform, and other software engineering roles."],
         ],
         related: ["technical-interview-practice", "coding-interview-practice", "backend-engineer-interview-practice"],
@@ -104,8 +107,9 @@ export const SEARCH_LANDING_PAGES = [
     {
         slug: "technical-interview-practice",
         path: "/technical-interview-practice",
+        audience: "Engineers who can solve problems but want to explain decisions, trade-offs, and failure modes more clearly under questioning.",
         title: "Technical Interview Practice with AI",
-        metaTitle: "Technical Interview Practice with AI for Engineers | Evalcue AI",
+        metaTitle: "Technical Interview Practice with AI for Engineers | EvalcueAI",
         description: "Practice technical interviews with adaptive AI follow-ups across coding, system design, debugging, backend engineering, APIs, databases, reliability, and project depth.",
         eyebrow: "Technical interview practice",
         intro: "Technical interview preparation becomes more useful when you have to explain your reasoning, react to new constraints, and defend decisions instead of only reading model answers.",
@@ -128,7 +132,7 @@ export const SEARCH_LANDING_PAGES = [
         ],
         faq: [
             ["What is the best way to practice a technical interview?", "Combine active problem solving with spoken or written explanation, interviewer-style follow-ups, and a review of your mistakes. Repeating weak areas deliberately is more effective than only reading more questions."],
-            ["What technical interview topics can I practice?", "Evalcue AI supports coding, system design, backend engineering, Java-oriented depth, debugging, APIs, databases, reliability, and role-specific technical discussion."],
+            ["What technical interview topics can I practice?", "EvalcueAI supports coding, system design, backend engineering, Java-oriented depth, debugging, APIs, databases, reliability, and role-specific technical discussion."],
             ["Can technical interview practice include my resume?", "Yes. When you choose to provide resume context, practice can include project and experience follow-ups in addition to general technical questions."],
         ],
         related: ["software-engineer-interview-practice", "system-design-interview-practice", "coding-interview-practice"],
@@ -138,8 +142,38 @@ export const SEARCH_LANDING_PAGES = [
     {
         slug: "system-design-interview-practice",
         path: "/system-design-interview-practice",
+        audience: "Mid-level, senior, and staff engineers preparing for system-design rounds.",
+        example: {
+            heading: "Example: a live system-design checkpoint",
+            intro: "Illustrative exchange from a URL-shortener round. The interviewer follows your discussion and canvas and speaks up only when a real interviewer would.",
+            turns: [
+                [
+                    "Candidate",
+                    "I'll generate short codes with an auto-increment ID encoded in base62, stored in a single Postgres table."
+                ],
+                [
+                    "Interviewer",
+                    "Suppose traffic grows 10x from your current assumption. What part of this design changes first?"
+                ],
+                [
+                    "Candidate",
+                    "The single ID sequence and write path become the bottleneck, so I'd pre-allocate ID ranges per app server and shard the mapping table by code."
+                ],
+                [
+                    "Interviewer",
+                    "What happens to redirects if the shard holding a popular code is unavailable?"
+                ]
+            ],
+            evaluates: [
+                "Requirements and capacity assumptions",
+                "Architecture and data flow",
+                "Scalability as load grows",
+                "Failure handling and availability",
+                "Trade-off reasoning"
+            ]
+        },
         title: "System Design Interview Practice with AI",
-        metaTitle: "System Design Interview Practice with AI | Evalcue AI",
+        metaTitle: "System Design Interview Practice with AI | EvalcueAI",
         description: "Practice system design interviews with a live AI interviewer and architecture canvas. Rehearse requirements, APIs, data models, scaling, reliability, and trade-offs.",
         eyebrow: "System design interview practice",
         intro: "Practice the conversation around an architecture, not just the finished diagram. Clarify requirements, sketch the design, explain data flow, and respond when the interviewer pushes on scale, consistency, failures, or trade-offs.",
@@ -151,7 +185,7 @@ export const SEARCH_LANDING_PAGES = [
             },
             {
                 heading: "Draw and explain the architecture together",
-                body: "Evalcue AI system-design rounds include an architecture canvas so the diagram and discussion evolve together. The interviewer can probe the design while you explain components, dependencies, data movement, and failure handling.",
+                body: "EvalcueAI system-design rounds include an architecture canvas so the diagram and discussion evolve together. The interviewer can probe the design while you explain components, dependencies, data movement, and failure handling.",
                 points: ["Live architecture canvas", "Context-aware interviewer interjections", "Component and data-flow discussion", "Diagram-aware evaluation context"],
             },
             {
@@ -162,7 +196,7 @@ export const SEARCH_LANDING_PAGES = [
         ],
         faq: [
             ["How do I practice system design interviews?", "Use a timed problem, clarify requirements first, state scale assumptions, define APIs and data, draw a coherent architecture, and spend meaningful time defending trade-offs and failure handling."],
-            ["Can I draw diagrams during Evalcue AI system design practice?", "Yes. System-design rounds use a live architecture canvas alongside the interviewer discussion."],
+            ["Can I draw diagrams during EvalcueAI system design practice?", "Yes. System-design rounds use a live architecture canvas alongside the interviewer discussion."],
             ["What system design problems should I practice?", "Common starting points include URL shorteners, notification systems, file storage, chat systems, rate limiting, job processing, feeds, and other services that expose different scaling and consistency trade-offs."],
         ],
         related: ["technical-interview-practice", "backend-engineer-interview-practice", "ai-mock-interview"],
@@ -172,8 +206,38 @@ export const SEARCH_LANDING_PAGES = [
     {
         slug: "coding-interview-practice",
         path: "/coding-interview-practice",
+        audience: "Engineers preparing for data-structures, algorithms, and practical coding rounds in JavaScript, Python, Java, or C++.",
+        example: {
+            heading: "Example: past a passing solution",
+            intro: "Illustrative follow-ups after a working answer to \"return the k most frequent elements\". The code runs, and then the interviewer tests understanding.",
+            turns: [
+                [
+                    "Candidate",
+                    "I count frequencies in a hash map, then sort the entries by count and take the first k."
+                ],
+                [
+                    "Interviewer",
+                    "What's the time complexity, and can you avoid the full sort?"
+                ],
+                [
+                    "Candidate",
+                    "Sorting is O(n log n). A min-heap of size k gives O(n log k), and bucket sort by frequency gives O(n)."
+                ],
+                [
+                    "Interviewer",
+                    "Which would you choose if the input were a stream you couldn't hold in memory?"
+                ]
+            ],
+            evaluates: [
+                "Correctness, verified by running the code",
+                "Time and space complexity",
+                "Choosing alternative approaches",
+                "Code quality",
+                "Reasoning about constraints"
+            ]
+        },
         title: "Coding Interview Practice with AI",
-        metaTitle: "Coding Interview Practice with AI for Software Engineers | Evalcue AI",
+        metaTitle: "Coding Interview Practice with AI for Software Engineers | EvalcueAI",
         description: "Practice coding interviews with AI follow-ups on reasoning, implementation, complexity, tests, edge cases, and optimization across common DSA topics.",
         eyebrow: "Coding interview practice",
         intro: "Practice coding as an interview skill: clarify the problem, explain the approach, implement it, test edge cases, analyze complexity, and respond to optimization follow-ups.",
@@ -196,7 +260,7 @@ export const SEARCH_LANDING_PAGES = [
         ],
         faq: [
             ["How should I practice coding interviews?", "Solve problems under interview-like constraints and explain your thinking as you go. Always finish with complexity analysis, tests, edge cases, and at least one possible follow-up or optimization."],
-            ["Does Evalcue AI support coding rounds?", "Yes. Practice can include coding and online-assessment style rounds with interviewer context and post-session feedback."],
+            ["Does EvalcueAI support coding rounds?", "Yes. Practice can include coding and online-assessment style rounds with interviewer context and post-session feedback."],
             ["Should I memorize coding solutions?", "Memorizing exact solutions is brittle. Learn reusable problem-solving patterns and practice deriving the approach from constraints so you can adapt when the interviewer changes the problem."],
         ],
         related: ["technical-interview-practice", "software-engineer-interview-practice", "backend-engineer-interview-practice"],
@@ -206,8 +270,34 @@ export const SEARCH_LANDING_PAGES = [
     {
         slug: "backend-engineer-interview-practice",
         path: "/backend-engineer-interview-practice",
+        audience: "Backend and platform engineers preparing for rounds on APIs, databases, caching, messaging, and reliability.",
+        example: {
+            heading: "Example: testing a resume claim",
+            intro: "Illustrative resume probe. EvalcueAI asks about claims that are actually in your resume, looking for your own contribution and how the result was measured.",
+            turns: [
+                [
+                    "Interviewer",
+                    "You mentioned \"reduced checkout API p99 latency by 40%\". What was your specific technical contribution to that result?"
+                ],
+                [
+                    "Candidate",
+                    "I found an N+1 query in the pricing service and replaced it with a batched lookup plus a per-request cache."
+                ],
+                [
+                    "Interviewer",
+                    "How did you measure the result and establish that your change actually caused it?"
+                ]
+            ],
+            evaluates: [
+                "Ownership of the work",
+                "Measurement and evidence",
+                "Backend fundamentals",
+                "Technical trade-offs",
+                "Communication"
+            ]
+        },
         title: "Backend Engineer Interview Practice",
-        metaTitle: "Backend Engineer Interview Practice with AI | Evalcue AI",
+        metaTitle: "Backend Engineer Interview Practice with AI | EvalcueAI",
         description: "Practice backend engineering interviews across APIs, databases, transactions, caching, queues, concurrency, distributed systems, reliability, observability, and system design.",
         eyebrow: "Backend interview practice",
         intro: "Prepare for backend interviews that connect code to production systems. Practice API and data design, concurrency, caching, asynchronous workflows, failure handling, observability, and architecture trade-offs.",
@@ -230,7 +320,7 @@ export const SEARCH_LANDING_PAGES = [
         ],
         faq: [
             ["What should I study for a backend engineer interview?", "Focus on your primary language, API design, databases and transactions, concurrency, caching, queues, distributed systems, reliability, observability, testing, and system design at the depth expected for your seniority."],
-            ["Can I practice Java backend interviews?", "Yes. Evalcue AI already includes Java-oriented practice covering core Java, collections, concurrency, and backend engineering topics."],
+            ["Can I practice Java backend interviews?", "Yes. EvalcueAI already includes Java-oriented practice covering core Java, collections, concurrency, and backend engineering topics."],
             ["Are backend interviews only coding interviews?", "No. Many backend roles combine coding with API and database design, debugging, distributed-systems reasoning, production reliability, and system design."],
         ],
         related: ["system-design-interview-practice", "technical-interview-practice", "debugging-interview-practice"],
@@ -240,8 +330,38 @@ export const SEARCH_LANDING_PAGES = [
     {
         slug: "debugging-interview-practice",
         path: "/debugging-interview-practice",
+        audience: "Engineers facing debugging or \"fix this codebase\" rounds, and anyone who wants to practice production-style diagnosis.",
+        example: {
+            heading: "Example: a debugging round",
+            intro: "Illustrative flow on a multi-file service where orders are occasionally charged twice. In fix mode, your change is graded against hidden tests you cannot see.",
+            turns: [
+                [
+                    "Candidate",
+                    "The retry wrapper in payments/client.js retries on timeout, but the charge request carries no idempotency key, so a slow success gets charged again."
+                ],
+                [
+                    "Interviewer",
+                    "How did you confirm that before changing code?"
+                ],
+                [
+                    "Candidate",
+                    "I reproduced it with a delayed mock response, and the log showed two charge calls sharing one order ID. Then I passed the order ID as the idempotency key."
+                ],
+                [
+                    "Interviewer",
+                    "What else in this codebase would break if the payment provider ignored that key?"
+                ]
+            ],
+            evaluates: [
+                "Reproducing before changing code",
+                "Root cause, not just the symptom",
+                "A fix that passes the hidden tests",
+                "Side effects and regression risk",
+                "Explaining the diagnosis"
+            ]
+        },
         title: "Debugging Interview Practice for Software Engineers",
-        metaTitle: "Debugging Interview Practice for Software Engineers | Evalcue AI",
+        metaTitle: "Debugging Interview Practice for Software Engineers | EvalcueAI",
         description: "Practice software engineering debugging interviews with production-style scenarios, hypothesis-driven investigation, code evidence, tests, and root-cause reasoning.",
         eyebrow: "Debugging interview practice",
         intro: "Debugging interviews test how you investigate uncertainty. Practice forming hypotheses, collecting evidence, narrowing the failure, validating the root cause, and explaining a safe fix instead of guessing from symptoms.",
@@ -265,7 +385,7 @@ export const SEARCH_LANDING_PAGES = [
         faq: [
             ["What is a debugging interview?", "A debugging interview evaluates how you investigate an unfamiliar failure, use evidence, reason about root causes, and validate a fix. It may use a scenario, logs, or an existing codebase rather than a blank coding problem."],
             ["How can I get better at debugging interviews?", "Practice narrating a structured investigation. Avoid jumping immediately to a fix; explain what evidence you would inspect, what each observation would imply, and how you would falsify your hypotheses."],
-            ["Does Evalcue AI support debugging assessments?", "Evalcue AI Hire supports production-style multi-file debugging assessments, while candidate practice can be configured around debugging and production-reasoning scenarios."],
+            ["Does EvalcueAI support debugging assessments?", "EvalcueAI Hire supports production-style multi-file debugging assessments, while candidate practice can be configured around debugging and production-reasoning scenarios."],
         ],
         related: ["backend-engineer-interview-practice", "technical-interview-practice", "software-engineer-interview-practice"],
         practiceResource: "software-engineer-mock-interview",
@@ -275,7 +395,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "system-design",
         path: "/system-design",
         title: "System Design Interview Questions & Practice",
-        metaTitle: "System Design Interview Questions & Practice | Evalcue AI",
+        metaTitle: "System Design Interview Questions & Practice | EvalcueAI",
         description: "Practice common system design interview problems with requirements, APIs, data models, architecture, scalability, reliability, and trade-off follow-ups.",
         eyebrow: "System design interview hub",
         intro: "Use this collection to practice system design as an interview conversation. Start from an open-ended problem, clarify requirements, define APIs and data, draw the architecture, then defend the design under scaling and failure follow-ups.",
@@ -309,7 +429,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "url-shortener-system-design",
         path: "/system-design/url-shortener",
         title: "Design a URL Shortener",
-        metaTitle: "Design a URL Shortener: System Design Interview | Evalcue AI",
+        metaTitle: "Design a URL Shortener: System Design Interview | EvalcueAI",
         description: "Practice the URL shortener system design interview: requirements, short-code generation, APIs, storage, caching, redirects, hotspots, analytics, and trade-offs.",
         eyebrow: "System design problem",
         intro: "Design a Bitly- or TinyURL-like service that maps long URLs to compact aliases and serves extremely fast redirects. Use the problem to practice read-heavy architecture, unique ID generation, caching, hotspots, and failure handling.",
@@ -343,7 +463,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "rate-limiter-system-design",
         path: "/system-design/rate-limiter",
         title: "Design a Distributed Rate Limiter",
-        metaTitle: "Design a Distributed Rate Limiter: System Design Interview | Evalcue AI",
+        metaTitle: "Design a Distributed Rate Limiter: System Design Interview | EvalcueAI",
         description: "Practice distributed rate limiter system design across algorithms, APIs, Redis-style shared state, atomicity, sharding, failure modes, and multi-region trade-offs.",
         eyebrow: "System design problem",
         intro: "Design a rate-limiting service that protects APIs across many application servers. The interview tests algorithm choice, distributed state, atomic updates, failure behavior, fairness, and the balance between strictness and availability.",
@@ -377,7 +497,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "google-drive-system-design",
         path: "/system-design/google-drive",
         title: "Design Google Drive or Cloud File Storage",
-        metaTitle: "Design Google Drive: File Storage System Design Interview | Evalcue AI",
+        metaTitle: "Design Google Drive: File Storage System Design Interview | EvalcueAI",
         description: "Practice a Google Drive-like system design covering uploads, metadata, chunking, object storage, versioning, sharing, synchronization, consistency, and reliability.",
         eyebrow: "System design problem",
         intro: "Design a cloud file storage and synchronization service. The problem combines large-object transfer, metadata, permissions, versioning, sync, offline changes, and reliability across devices and regions.",
@@ -411,7 +531,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "notification-service-system-design",
         path: "/system-design/notification-service",
         title: "Design a Notification Service",
-        metaTitle: "Design a Notification Service: System Design Interview | Evalcue AI",
+        metaTitle: "Design a Notification Service: System Design Interview | EvalcueAI",
         description: "Practice notification service system design across APIs, fan-out, queues, user preferences, retries, rate limits, providers, idempotency, tracking, and delivery guarantees.",
         eyebrow: "System design problem",
         intro: "Design a platform that sends push, email, and SMS notifications at scale. This problem tests asynchronous processing, fan-out, provider abstraction, user preferences, retries, rate limits, idempotency, and observability.",
@@ -445,7 +565,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "payment-system-design",
         path: "/system-design/payment-system",
         title: "Design a Payment System",
-        metaTitle: "Design a Payment System: System Design Interview | Evalcue AI",
+        metaTitle: "Design a Payment System: System Design Interview | EvalcueAI",
         description: "Practice payment system design across payment intents, idempotency, ledgers, provider integration, webhooks, retries, reconciliation, consistency, and failure handling.",
         eyebrow: "System design problem",
         intro: "Design a payment platform where correctness matters more than simply maximizing throughput. The interview focuses on idempotency, durable state transitions, money movement records, provider uncertainty, reconciliation, and safe retries.",
@@ -479,7 +599,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "interview-questions",
         path: "/interview-questions",
         title: "Software Engineering Interview Questions",
-        metaTitle: "Software Engineering Interview Questions by Topic | Evalcue AI",
+        metaTitle: "Software Engineering Interview Questions by Topic | EvalcueAI",
         description: "Prepare for software engineering interviews with focused questions on Java, Spring Boot, Redis, distributed systems, microservices, coding, and system design.",
         eyebrow: "Technical interview question hub",
         intro: "Use topic-specific question sets to identify gaps, then practice the same area in an adaptive interview where follow-ups test whether you can apply the concept rather than only repeat a definition.",
@@ -513,7 +633,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "java-interview-questions-guide",
         path: "/interview-questions/java",
         title: "Java Interview Questions for Software Engineers",
-        metaTitle: "Java Interview Questions for Backend Engineers | Evalcue AI",
+        metaTitle: "Java Interview Questions for Backend Engineers | EvalcueAI",
         description: "Prepare for Java interviews across JVM, collections, equality, generics, exceptions, concurrency, executors, CompletableFuture, memory, and backend scenarios.",
         eyebrow: "Java interview questions",
         intro: "Prepare for Java interviews by connecting language fundamentals to production behavior. Strong answers explain not only what an API does, but also memory, concurrency, correctness, and trade-offs.",
@@ -537,7 +657,7 @@ export const SEARCH_LANDING_PAGES = [
         faq: [
             ["What Java topics are most common in backend interviews?", "Collections, equality and hashing, exceptions, generics, concurrency, thread pools, CompletableFuture, JVM memory, garbage collection, immutability, and practical Spring/backend scenarios are common."],
             ["Should I memorize HashMap internals?", "Understand the behavior and why it matters: hashing, bucket selection, collisions, equality, resizing, complexity, and thread-safety limitations. Memorizing implementation trivia without reasoning is less useful."],
-            ["How do I practice Java interview follow-ups?", "After answering a concept question, add a scenario: concurrency, performance, failure, testing, or API design. Evalcue AI's Java practice track can use adaptive follow-ups instead of a fixed question list."],
+            ["How do I practice Java interview follow-ups?", "After answering a concept question, add a scenario: concurrency, performance, failure, testing, or API design. EvalcueAI's Java practice track can use adaptive follow-ups instead of a fixed question list."],
         ],
         related: ["interview-questions", "spring-boot-interview-questions", "distributed-systems-interview-questions", "backend-engineer-interview-practice"],
         practiceResource: "java-interview-questions",
@@ -547,7 +667,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "spring-boot-interview-questions",
         path: "/interview-questions/spring-boot",
         title: "Spring Boot Interview Questions for Backend Engineers",
-        metaTitle: "Spring Boot Interview Questions for Backend Engineers | Evalcue AI",
+        metaTitle: "Spring Boot Interview Questions for Backend Engineers | EvalcueAI",
         description: "Prepare for Spring Boot interviews across dependency injection, auto-configuration, REST APIs, transactions, JPA, validation, security, testing, Actuator, and resilience.",
         eyebrow: "Spring Boot interview questions",
         intro: "Spring Boot interviews often test whether you understand what the framework is doing around your application. Prepare to explain dependency injection, transactions, persistence, web request handling, testing, security, and production operations.",
@@ -581,7 +701,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "redis-interview-questions",
         path: "/interview-questions/redis",
         title: "Redis Interview Questions for Backend Engineers",
-        metaTitle: "Redis Interview Questions: Caching, Persistence & Scaling | Evalcue AI",
+        metaTitle: "Redis Interview Questions: Caching, Persistence & Scaling | EvalcueAI",
         description: "Prepare for Redis interviews across data structures, caching, TTLs, eviction, persistence, replication, clustering, pipelining, locks, cache stampede, and failure modes.",
         eyebrow: "Redis interview questions",
         intro: "Redis interview questions become much more useful when tied to production caching and coordination problems. Prepare to explain data structures, eviction, persistence, replication, clustering, and what can go wrong under load.",
@@ -615,7 +735,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "distributed-systems-interview-questions",
         path: "/interview-questions/distributed-systems",
         title: "Distributed Systems Interview Questions",
-        metaTitle: "Distributed Systems Interview Questions for Engineers | Evalcue AI",
+        metaTitle: "Distributed Systems Interview Questions for Engineers | EvalcueAI",
         description: "Prepare for distributed systems interviews across consistency, replication, partitioning, consensus, queues, idempotency, retries, clocks, failures, and observability.",
         eyebrow: "Distributed systems interview questions",
         intro: "Distributed systems interviews test whether you can reason about partial failure and trade-offs. Prepare to explain what happens when machines disagree, messages are duplicated, networks partition, or dependencies become slower than your service target.",
@@ -649,7 +769,7 @@ export const SEARCH_LANDING_PAGES = [
         slug: "microservices-interview-questions",
         path: "/interview-questions/microservices",
         title: "Microservices Interview Questions for Backend Engineers",
-        metaTitle: "Microservices Interview Questions for Backend Engineers | Evalcue AI",
+        metaTitle: "Microservices Interview Questions for Backend Engineers | EvalcueAI",
         description: "Prepare for microservices interviews across service boundaries, communication, data ownership, sagas, idempotency, discovery, resilience, observability, deployment, and trade-offs.",
         eyebrow: "Microservices interview questions",
         intro: "Microservices interviews should be about boundaries and operational trade-offs, not simply naming infrastructure. Prepare to explain when services should be separated, how they communicate, who owns data, and how failures are contained.",
@@ -678,6 +798,191 @@ export const SEARCH_LANDING_PAGES = [
         related: ["interview-questions", "distributed-systems-interview-questions", "spring-boot-interview-questions", "backend-engineer-interview-practice"],
         practiceResource: "software-engineer-mock-interview",
         schema: "TechArticle",
+    },
+    {
+        slug: "ai-interview-platform",
+        path: "/ai-interview-platform",
+        title: "AI Interview Platform for Software Engineering",
+        metaTitle: "AI Interview Platform for Coding, System Design & Debugging | EvalcueAI",
+        description: "EvalcueAI is an AI interview platform built for software engineering: coding, system design, debugging, and technical interviews with adaptive follow-ups, for both candidate practice and structured hiring.",
+        eyebrow: "AI interview platform",
+        audience: "Software engineers preparing for technical interviews, and engineering teams that want structured, evidence-based technical assessments with human hiring decisions.",
+        intro: "Most AI interview tools are built for general hiring. EvalcueAI is built for engineering: the interviewer runs coding, system-design, debugging, and technical-discussion rounds, asks follow-ups based on what you actually said, and records the evidence behind every score.",
+        sections: [
+            {
+                heading: "What EvalcueAI is",
+                body: "EvalcueAI has two products that share one interview engine. EvalcueAI Practice lets engineers rehearse realistic interview rounds and review feedback. EvalcueAI Hire lets engineering teams build structured assessments, invite candidates, and review evidence-based scorecards.",
+                points: ["EvalcueAI Practice for candidates", "EvalcueAI Hire for engineering teams", "One adaptive interview engine behind both", "Browser-based, with no install required"],
+            },
+            {
+                heading: "How an EvalcueAI interview works",
+                body: "Before a round starts, EvalcueAI turns the role, job description, round purpose, and optional resume into an evidence plan: the three to six competencies the round should measure. Each answer is scored against that plan, and the next question targets whichever important competency still has the least evidence.",
+                points: ["Evidence plan built from role and job description", "Adaptive follow-ups aimed at the weakest evidence", "Difficulty adjusts one level at a time", "Round ends when competencies are covered, not after a fixed script"],
+            },
+            {
+                heading: "What it can evaluate",
+                body: "Each round type collects a different kind of engineering signal, so EvalcueAI treats them as separate rounds with their own competencies. It does not run them as one generic question-and-answer session.",
+                points: ["Coding: correctness, complexity, code quality", "System design: requirements, architecture, scale, trade-offs", "Debugging: diagnosis and fixes checked by hidden tests", "Technical depth: trade-offs, failure modes, production judgment"],
+            },
+        ],
+        faq: [
+            ["What is EvalcueAI?", "EvalcueAI is an AI interview platform for software engineering. Engineers use it to practice coding, system-design, debugging, and technical interviews with adaptive AI follow-ups, and hiring teams use it to run structured engineering assessments with human-reviewed scorecards."],
+            ["Is EvalcueAI the same as EvalAI?", "No. EvalAI is an open-source platform for evaluating machine-learning models on benchmarks. EvalcueAI is a separate product for software engineering interview practice and technical hiring."],
+            ["Does EvalcueAI make hiring decisions?", "No. EvalcueAI produces evidence and scores. Advance, hold, or reject decisions are recorded by a human reviewer, who must write an evidence note to support the decision."],
+        ],
+        related: ["ai-interview-evaluation-methodology", "engineering-assessment", "ai-mock-interview"],
+        practiceResource: "software-engineer-mock-interview",
+        schema: "WebPage",
+    },
+    {
+        slug: "engineering-assessment",
+        path: "/engineering-assessment",
+        title: "Structured Engineering Assessments with AI Interviews",
+        metaTitle: "Engineering Assessment Platform with Adaptive AI Interviews | EvalcueAI",
+        description: "Build structured software engineering assessments with coding, system design, debugging, and adaptive technical interviews, then review evidence-based scorecards with human-controlled hiring decisions.",
+        eyebrow: "Engineering assessments",
+        audience: "Engineering managers, hiring managers, and recruiters hiring software engineers who want consistent technical signal without scheduling a live interviewer for every early-stage candidate.",
+        intro: "A take-home or a single coding test shows only a small part of how an engineer works. EvalcueAI Hire combines coding, system design, debugging, and adaptive technical discussion in one structured assessment, and every score links back to what the candidate actually said or wrote.",
+        sections: [
+            {
+                heading: "Design the assessment around the role",
+                body: "Start from a job description or a template, choose the rounds, and set the rubric. EvalcueAI turns each round into weighted competencies so every candidate for the role is measured against the same plan.",
+                points: ["Role-specific rounds and weighted competencies", "Coding, system design, debugging, and discussion rounds", "Multi-file debugging projects with hidden tests", "Invite-only links, time windows, and time limits"],
+            },
+            {
+                heading: "Adaptive interviews, consistent evidence",
+                body: "Follow-up questions target whichever competency has the least evidence so far, and difficulty moves at most one level per question. Candidates get a real conversation, and reviewers get comparable evidence for every competency.",
+                points: ["Follow-ups based on candidate answers", "Resume claims probed for ownership and measurement", "Scores with separate confidence levels", "Evidence quotes behind each competency score"],
+            },
+            {
+                heading: "Humans make the hiring decision",
+                body: "Reviewers record advance, hold, or reject decisions, and a decision cannot be saved without a written evidence note. Calibration views compare AI scores with reviewer scores for each competency and flag attempts where the two differ by 1.5 points or more.",
+                points: ["Human-recorded hiring decisions", "Required evidence notes", "AI-vs-reviewer calibration by competency", "Disagreement queue for review"],
+            },
+        ],
+        faq: [
+            ["What is an engineering assessment?", "An engineering assessment is a structured evaluation of a software engineering candidate across the skills the role needs, such as coding, system design, debugging, and technical judgment. Every candidate is measured against the same competencies and rubric."],
+            ["How is EvalcueAI different from a coding test?", "A coding test mostly measures whether code passes. EvalcueAI also runs system-design and debugging rounds and asks adaptive follow-ups about trade-offs, failure modes, and resume claims, then shows the evidence behind each score."],
+            ["Can candidates be rejected automatically?", "No. EvalcueAI does not make employment decisions. A human reviewer records every decision along with a written evidence note."],
+        ],
+        related: ["ai-interview-platform", "ai-interview-evaluation-methodology", "system-design-interview-practice"],
+        practiceResource: "software-engineer-mock-interview",
+        cta: { surface: "hiring", path: "/hire", label: "Explore EvalcueAI Hire" },
+        schema: "WebPage",
+    },
+    {
+        slug: "ai-interview-evaluation-methodology",
+        path: "/ai-interview-evaluation-methodology",
+        title: "How EvalcueAI Evaluates Engineering Interviews",
+        metaTitle: "AI Interview Evaluation Methodology: Scoring, Follow-ups & Difficulty | EvalcueAI",
+        description: "How EvalcueAI plans competencies, scores answers with evidence and confidence, chooses follow-up questions, adapts difficulty, evaluates coding, system design, and debugging, and keeps hiring decisions with humans.",
+        eyebrow: "Evaluation methodology",
+        audience: "Engineers who want to know how their practice answers are judged, and hiring teams deciding whether they can trust EvalcueAI's scorecards.",
+        intro: "\"AI-powered\" tells you nothing about how answers are judged. This page explains, step by step, how an EvalcueAI round decides what to measure, how answers are scored, how the next question is chosen, and where a human stays in control.",
+        sections: [
+            {
+                heading: "1. Each round starts with an evidence plan",
+                body: "Before the first question, EvalcueAI uses the role, job description, round purpose, and optional resume to select three to six observable competencies for the round. Core competencies can carry more weight, up to 1.5x. Up to six concrete resume claims, such as a migration, a scale figure, or a performance improvement, are marked for verification. If planning fails, standard competency sets for the round type are used instead.",
+                points: ["System design: requirements, architecture, data and APIs, scalability and reliability, trade-off reasoning", "Coding: problem solving, correctness, complexity, code quality", "Backend: fundamentals, data and APIs, reliability, technical trade-offs", "Behavioral: ownership, decision quality, communication, execution"],
+            },
+            {
+                heading: "2. Answers are scored on evidence, with separate confidence",
+                body: "Each answer is scored from 0 to 10 on the relevant dimensions: technical correctness, depth, trade-off reasoning, communication, and production awareness. Scores may only use evidence that is present in the answer, and every competency score records short quotes or observations that justify it. Confidence is recorded separately from the score, so a thin answer produces low confidence, not just a low score.",
+                points: ["No credit for knowledge the candidate did not state", "Evidence observations attached to each score", "Confidence tracked separately from score", "Scores combined across questions into a running estimate"],
+            },
+            {
+                heading: "3. Follow-ups target the weakest evidence",
+                body: "The next question goes to the competency with the highest priority, calculated as its weight multiplied by how uncertain its evidence still is, with extra priority when its score so far is low. Resume-claim questions ask about your personal contribution, how the result was measured, the key trade-off, and the hardest failure mode. They are capped at two per round, and generated questions are checked so they don't repeat earlier questions or invent details that aren't in your resume or job description.",
+                points: ["Targets the competency with the least evidence", "Probes resume claims for ownership and measurement", "Rejects repeated questions", "Rejects details not in the resume or job description"],
+            },
+            {
+                heading: "4. Difficulty adapts gradually",
+                body: "Difficulty runs from 1 to 5 and normally starts at 3, or at 4 for clearly senior roles. After each answer it can move by at most one level: up after strong, high-confidence evidence, and down only after repeated trouble engaging with the question. A single weak answer does not make the rest of the interview easy.",
+                points: ["Five-level difficulty scale", "At most one level of change per question", "No drop in difficulty after one weak answer", "Starting level set by role seniority"],
+            },
+            {
+                heading: "5. The round ends when the evidence is sufficient",
+                body: "Each round has a minimum and maximum number of questions. It can end early only when weighted coverage across competencies reaches 72% and no important competency still has confidence below 0.35, or when coverage reaches 90%. This avoids both stopping on thin evidence and asking redundant questions.",
+                points: ["Minimum number of questions before stopping", "Coverage threshold before ending early", "No important competency left under-evidenced", "Hard maximum question budget"],
+            },
+            {
+                heading: "6. System design is a live, two-way discussion",
+                body: "In system-design rounds the AI interviewer follows your spoken or typed discussion and a summary of your architecture canvas. It speaks up only when a real interviewer would: when a requirement is ambiguous, an assumption hasn't been checked, a key choice isn't justified, scale would change the design, a failure mode is being skipped, or a trade-off is claimed without support. If you ask a clarifying question, it answers with a concrete requirement. It never coaches you or reveals an ideal architecture.",
+                points: ["Interjection types: clarify, challenge, constraint, scale", "Also: failure, trade-off, security, observability", "Grounded in what you said or drew", "No hints and no ideal answer revealed"],
+            },
+            {
+                heading: "7. Coding and debugging are checked by running code",
+                body: "Coding answers run in a sandboxed execution service that supports JavaScript, Python, Java, and C++, and they are judged on correctness, complexity, and code quality alongside your explanation. Debugging rounds use realistic multi-file projects. In fix mode, your change is graded against hidden tests you cannot see, and assignments are validated so those tests fail only because of the intended bug. In findings mode, you submit a written diagnosis that is reviewed.",
+                points: ["Sandboxed code execution in four languages", "Multi-file debugging projects", "Fixes graded by hidden tests", "Assignments validated against unrelated failures"],
+            },
+            {
+                heading: "8. A correct answer is not the same as a good engineering answer",
+                body: "Naming a technology that fits can be technically correct and still show little engineering judgment. Scoring keeps correctness separate from depth, trade-off reasoning, and production awareness, so \"use Redis\" scores differently from \"use Redis, because of this read pattern, and here is what happens when it's unavailable\".",
+                points: ["Correctness scored separately from depth", "Trade-offs must be explained, not just named", "Failure handling earns production credit", "Communication scored as its own dimension"],
+            },
+            {
+                heading: "9. Humans own every hiring decision",
+                body: "In EvalcueAI Hire, AI output is evidence, not a verdict. Reviewers record advance, hold, or reject decisions and must write an evidence note. Calibration views track the average difference between AI and reviewer scores for each competency and queue attempts where they differ by 1.5 points or more, so teams can see where the AI scores too high or too low.",
+                points: ["Advance, hold, or reject recorded by a person", "Written evidence note required", "Per-competency AI-vs-reviewer bias tracking", "Disagreement queue for large score gaps"],
+            },
+        ],
+        example: {
+            heading: "Example: one answer, three follow-ups",
+            intro: "Illustrative exchange from a backend system-design round, showing how a follow-up tests the reasoning behind a technology choice instead of accepting it.",
+            turns: [
+                ["Candidate", "For the product catalog reads, I'd put Redis in front of the database."],
+                ["Interviewer", "Why Redis rather than relying on the database's own cache or read replicas?"],
+                ["Candidate", "Reads are about 50 times more frequent than writes and the hot set is small, so an in-memory cache takes most of the load off the primary. Replicas would still pay the query cost."],
+                ["Interviewer", "What happens to the system when the Redis cluster becomes unavailable?"],
+                ["Candidate", "Reads fall back to the database behind a circuit breaker with request coalescing, so a cold cache doesn't cause a stampede. Latency goes up, but correctness holds."],
+                ["Interviewer", "How do you keep the cache consistent when a price changes?"],
+            ],
+            evaluates: ["Reasoning: why this component fits the access pattern", "Trade-offs: cache vs replicas, latency vs cost", "Failure handling: cache outage and stampede protection", "Scalability: read-to-write ratio and hot set size", "Correctness: consistency when data changes"],
+        },
+        faq: [
+            ["Is AI interview scoring accurate?", "It is evidence-based, not infallible. Scores only credit what the answer contains, carry an explicit confidence level, and in hiring are compared against human reviewer scores so systematic bias shows up in calibration."],
+            ["Does EvalcueAI penalize one bad answer?", "One weak answer lowers that competency's estimate. Difficulty can drop by at most one level, and only after repeated trouble engaging, and later questions keep gathering evidence."],
+            ["Can EvalcueAI invent questions about my resume?", "Resume questions must be based on claims that actually appear in your resume. Generated questions are checked for details that aren't in your resume or job description, and resume probing is capped at two questions per round."],
+            ["Who decides whether a candidate advances?", "A human reviewer. EvalcueAI does not make employment decisions."],
+        ],
+        related: ["ai-interview-platform", "system-design-interview-practice", "debugging-interview-practice"],
+        practiceResource: "software-engineer-mock-interview",
+        schema: "TechArticle",
+    },
+    {
+        slug: "about",
+        path: "/about",
+        title: "About EvalcueAI",
+        metaTitle: "About EvalcueAI | AI Interview Practice & Technical Hiring for Engineers",
+        description: "EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, debugging, and technical interviews with adaptive follow-ups.",
+        eyebrow: "About",
+        audience: "Anyone who wants an accurate summary of what EvalcueAI is, including journalists, reviewers, search engines, and AI assistants.",
+        intro: "EvalcueAI (one word) is AI interview practice and structured technical hiring for software engineers. It runs coding, system-design, debugging, and technical-discussion interviews with adaptive AI follow-ups, and produces evidence-based feedback and scorecards.",
+        sections: [
+            {
+                heading: "Products",
+                body: "EvalcueAI Practice (practice.evalcueai.com) is for engineers preparing for interviews. EvalcueAI Hire (hiring.evalcueai.com) is for engineering teams running structured technical assessments. The main website and documentation are at evalcueai.com.",
+                points: ["EvalcueAI Practice for candidates", "EvalcueAI Hire for hiring teams", "Documentation at evalcueai.com/docs", "Source code on GitHub (srbmaury/EvalcueAI)"],
+            },
+            {
+                heading: "Supported interview types",
+                body: "Each round type is a separate interview with its own competencies. Rounds can be combined to match a real interview loop.",
+                points: ["Coding with code execution", "Live system design with an architecture canvas", "Debugging on multi-file projects with hidden tests", "Technical, backend, project-depth, and behavioral discussion"],
+            },
+            {
+                heading: "Terminology",
+                body: "These terms appear throughout the product and documentation.",
+                points: ["Round: one interview segment, such as coding or system design", "Competency: an observable skill a round measures, with a weight", "Evidence: quotes or observations that justify a score", "Scorecard: competency scores, evidence, and the reviewer's decision"],
+            },
+        ],
+        faq: [
+            ["How do you spell EvalcueAI?", "EvalcueAI, written as one word. It is not related to EvalAI, the open-source platform for benchmarking machine-learning models."],
+            ["Who is EvalcueAI for?", "Software engineers preparing for technical interviews, and engineering teams hiring software engineers."],
+            ["Is there a free plan?", "Yes. The free practice plan includes 3 AI practice interviews per month, with no card required."],
+        ],
+        related: ["ai-interview-platform", "ai-interview-evaluation-methodology", "engineering-assessment"],
+        practiceResource: "software-engineer-mock-interview",
+        schema: "AboutPage",
     }
 ];
 

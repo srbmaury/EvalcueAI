@@ -66,7 +66,7 @@ export const buildHiringInvitationEmail = ({
         details,
         note: "Open the assessment when you have enough uninterrupted time to finish. If an access or accommodation issue prevents you from starting, contact the recruiting team before the deadline.",
         supportEmail: contactEmail,
-        footer: "This invitation was sent because a recruiting team added your email to an Evalcue AI assessment.",
+        footer: "This invitation was sent because a recruiting team added your email to an EvalcueAI assessment.",
     });
 
     return {

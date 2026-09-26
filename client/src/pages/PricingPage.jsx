@@ -63,7 +63,7 @@ export default function PricingPage() {
 
     return <Container maxWidth="md" sx={{ py: { xs: 4, md: 7 } }}>
         <Stack alignItems="center" textAlign="center" mb={4}>
-            <Typography variant="overline" color="primary.main" fontWeight={850}>Evalcue AI Practice</Typography>
+            <Typography variant="overline" color="primary.main" fontWeight={850}>EvalcueAI Practice</Typography>
             <Typography component="h1" variant="h3" fontWeight={850}>Choose your Practice plan</Typography>
             <Typography color="text.secondary" mt={1}>Choose the plan that fits how often you practice and review your resume.</Typography>
         </Stack>

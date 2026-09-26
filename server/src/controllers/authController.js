@@ -259,7 +259,7 @@ export const googleSignIn = async (req, res, next) => {
 
         if (user.email !== email) {
             const conflict = await User.exists({ email, _id: { $ne: user._id } });
-            if (conflict) return res.status(409).json({ message: "That Google email belongs to another Evalcue AI account", code: "GOOGLE_EMAIL_CONFLICT" });
+            if (conflict) return res.status(409).json({ message: "That Google email belongs to another EvalcueAI account", code: "GOOGLE_EMAIL_CONFLICT" });
             user.email = email;
         }
         user.isVerified = true;

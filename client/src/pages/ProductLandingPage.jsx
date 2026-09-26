@@ -16,10 +16,11 @@ import SiteFooter from "../components/SiteFooter";
 import { productHomePath, productLoginPath, productRegisterPath } from "../utils/productRoutes";
 import { resourcePagesForSurface, resourcePathFor } from "../utils/productResourcePages";
 import { setWorkspacePreference } from "../utils/workspacePreference";
+import { deploymentOrigins } from "../utils/deploymentSurface";
 
 const COPY = {
     practice: {
-        eyebrow: "Evalcue AI Practice",
+        eyebrow: "EvalcueAI Practice",
         icon: SchoolOutlined,
         headline: "Practice for the interview you actually have.",
         subheadline: "Use your target role, job description, and resume to run realistic technical interviews, then see exactly what to improve next.",
@@ -38,7 +39,7 @@ const COPY = {
         ],
     },
     hiring: {
-        eyebrow: "Evalcue AI Hire",
+        eyebrow: "EvalcueAI Hire",
         icon: WorkOutlineRounded,
         headline: "Screen technical candidates with clearer evidence.",
         subheadline: "Build structured assessments from the role, invite candidates with one link, and review consistent evidence before spending interviewer time.",
@@ -63,6 +64,7 @@ export default function ProductLandingPage({ surface = "practice" }) {
     const config = COPY[surface] || COPY.practice;
     const workspace = surface === "hiring" ? "hiring" : "practice";
     const ProductIcon = config.icon;
+    const origins = deploymentOrigins();
     const primaryPath = user ? productHomePath(workspace) : productRegisterPath(workspace);
     const secondaryPath = productLoginPath(workspace);
     const featuredResources = resourcePagesForSurface(workspace).slice(0, 3);
@@ -78,8 +80,8 @@ export default function ProductLandingPage({ surface = "practice" }) {
                         ? "radial-gradient(circle at 50% 0%, rgba(31,156,142,.2), transparent 38%), #081412"
                         : "radial-gradient(circle at 50% 0%, rgba(31,156,142,.13), transparent 38%), linear-gradient(180deg,#f4fbf9,#fff)"
                     : theme.palette.mode === "dark"
-                        ? "radial-gradient(circle at 50% 0%, rgba(124,92,255,.2), transparent 38%), #0b1020"
-                        : "radial-gradient(circle at 50% 0%, rgba(99,91,255,.14), transparent 38%), linear-gradient(180deg,#f8f9ff,#fff)",
+                        ? "#0e0f11"
+                        : "radial-gradient(circle at 50% 0%, rgba(36,81,199,.14), transparent 38%), linear-gradient(180deg,#f8f9fb,#fff)",
             })}>
                 <Container maxWidth="md">
                     <Stack spacing={2.5} alignItems="center" textAlign="center">
@@ -152,7 +154,7 @@ export default function ProductLandingPage({ surface = "practice" }) {
                 <Stack spacing={1} mb={3}>
                     <Typography variant="overline" color="primary.main" fontWeight={850}>{surface === "hiring" ? "Hiring resources" : "Practice resources"}</Typography>
                     <Typography variant="h4" fontWeight={850}>{surface === "hiring" ? "Start from a working assessment template." : "Turn a guide into a practice session."}</Typography>
-                    <Typography color="text.secondary">These pages are interactive entry points into Evalcue AI, not standalone blog posts.</Typography>
+                    <Typography color="text.secondary">These pages are interactive entry points into EvalcueAI, not standalone blog posts.</Typography>
                 </Stack>
                 <Grid container spacing={2.5}>
                     {featuredResources.map((page) => (
@@ -174,7 +176,7 @@ export default function ProductLandingPage({ surface = "practice" }) {
                             <ShieldOutlined color="primary" />
                             <Box>
                                 <Typography fontWeight={850}>AI organizes evidence. People make employment decisions.</Typography>
-                                <Typography variant="body2" color="text.secondary" mt={.5}>Evalcue AI Hire is designed for structured evidence collection and human review—not fully automated hiring decisions.</Typography>
+                                <Typography variant="body2" color="text.secondary" mt={.5}>EvalcueAI Hire is designed for structured evidence collection and human review—not fully automated hiring decisions.</Typography>
                             </Box>
                         </Stack>
                     </Paper>
@@ -188,6 +190,18 @@ export default function ProductLandingPage({ surface = "practice" }) {
                 <Button component={RouterLink} to={primaryPath} onClick={rememberSurface} variant="contained" size="large" endIcon={<ArrowForwardRounded />} sx={{ mt: 3, px: 3.5 }}>
                     {user ? `Open ${surface === "hiring" ? "Hire" : "Practice"}` : config.primary}
                 </Button>
+            </Container>
+
+            <Container maxWidth="lg" sx={{ pb: { xs: 6, md: 8 } }}>
+                <Paper variant="outlined" sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 3 }}>
+                    <Typography component="h2" variant="h6" fontWeight={850} mb={1}>Explore EvalcueAI</Typography>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                        <Button component="a" href={`${origins.landing || "https://evalcueai.com"}/`}>Main website and interview guides</Button>
+                        <Button component="a" href={`${origins.practice || "https://practice.evalcueai.com"}/practice`}>AI interview practice</Button>
+                        <Button component="a" href={`${origins.hiring || "https://hiring.evalcueai.com"}/hire`}>Structured technical hiring</Button>
+                        <Button component="a" href={`${origins.landing || "https://evalcueai.com"}/docs`}>Product documentation</Button>
+                    </Stack>
+                </Paper>
             </Container>
 
             <SiteFooter />

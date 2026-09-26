@@ -193,7 +193,7 @@ export default function ProductResourcePage({ surface }) {
                                     </TextField>
                                     <Typography variant="body2" color="text.secondary">{selected.summary}</Typography>
                                     <Button variant="contained" size="large" endIcon={creating ? <CircularProgress size={18} color="inherit" /> : <ArrowForwardRounded />} onClick={primaryAction} disabled={creating}>
-                                        {creating ? "Creating draft…" : isHiring ? "Use this in Evalcue AI Hire" : "Practice this in Evalcue AI"}
+                                        {creating ? "Creating draft…" : isHiring ? "Use this in EvalcueAI Hire" : "Practice this in EvalcueAI"}
                                     </Button>
                                 </Stack>
                             </Paper>

@@ -39,7 +39,7 @@ export default function HiringOrganizationGate({ children }) {
         try {
             const organizations = await refreshOrganizations();
             if (!organizations?.length) {
-                setAccessMessage("No organization access yet. Ask an organization owner or admin to add the email address you use for Evalcue AI, then check again.");
+                setAccessMessage("No organization access yet. Ask an organization owner or admin to add the email address you use for EvalcueAI, then check again.");
             }
         } catch (err) {
             setCreateError(describeError(err, "Could not check organization access"));
@@ -74,7 +74,7 @@ export default function HiringOrganizationGate({ children }) {
 
                     <Box>
                         <Typography variant="h6" fontWeight={800}>Already part of a hiring team?</Typography>
-                        <Typography variant="body2" color="text.secondary" mt={.5}>Ask an organization owner or admin to add the email address you use for Evalcue AI. You do not need to create another organization.</Typography>
+                        <Typography variant="body2" color="text.secondary" mt={.5}>Ask an organization owner or admin to add the email address you use for EvalcueAI. You do not need to create another organization.</Typography>
                         <Button type="button" variant="outlined" sx={{ mt: 2 }} onClick={checkAccess} disabled={checking || creating}>{checking ? "Checking…" : "Check for organization access"}</Button>
                     </Box>
                 </Stack>

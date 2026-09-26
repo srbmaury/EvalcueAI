@@ -34,7 +34,7 @@ export default function DeploymentSurfaceGuard({ children }) {
     if (!shouldSwitchDomain) return children;
 
     return (
-        <Box sx={{ minHeight: "60vh", display: "grid", placeItems: "center" }} role="status" aria-label="Opening Evalcue AI workspace">
+        <Box sx={{ minHeight: "60vh", display: "grid", placeItems: "center" }} role="status" aria-label="Opening EvalcueAI workspace">
             <CircularProgress />
         </Box>
     );

@@ -39,7 +39,7 @@ const expectNoHorizontalOverflow = async (page) => {
 test.describe("production public surfaces", () => {
     test("landing, Practice, and Hiring surfaces are independently reachable", async ({ page }) => {
         const surfaces = [
-            [config.landingOrigin, /Prepare better|Evalcue AI/i],
+            [config.landingOrigin, /Prepare better|EvalcueAI/i],
             [`${config.practiceOrigin}/practice`, /Practice for the interview/i],
             [`${config.hiringOrigin}/hire`, /Hire with clearer evidence|Technical hiring/i],
         ];

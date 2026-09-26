@@ -12,6 +12,21 @@ import {
     SEARCH_LANDING_PAGES,
     searchLandingPaths,
 } from "./src/utils/searchLandingPages.js";
+import {
+    BRAND_DESCRIPTION,
+    BRAND_NAME,
+    BRAND_POSITIONING,
+    BRAND_TAGLINE,
+    BRAND_URLS,
+    HIRING_PLAN_SUMMARY,
+    INTERVIEW_TYPES,
+    PRACTICE_PLANS,
+    breadcrumbSchema,
+    faqSchema,
+    organizationSchema,
+    publisherRef,
+    softwareApplicationSchema,
+} from "./src/utils/brandEntity.js";
 
 const LANDING_INDEXABLE_ROUTES = [
     "/",
@@ -48,10 +63,15 @@ const APP_SURFACE_ORIGINS = Object.freeze({
     hiring: "https://hiring.evalcueai.com",
 });
 
-const canonicalRouteUrl = (route, surface, publicOrigin) => {
-    const origin = APP_SURFACE_ORIGINS[surface] || publicOrigin || "";
-    return `${origin}${route}`;
-};
+// Mirrors PublicRouteSeo: VITE_PUBLIC_ORIGIN overrides only the landing origin, while Practice and
+// Hiring use their own surface origin (VITE_PRACTICE_ORIGIN / VITE_HIRING_ORIGIN, else production).
+const originForSurface = (surface, publicOrigin = "", surfaceOrigins = {}) => (
+    surface === "landing"
+        ? publicOrigin || APP_SURFACE_ORIGINS.landing
+        : surfaceOrigins[surface] || APP_SURFACE_ORIGINS[surface] || publicOrigin
+);
+
+const canonicalRouteUrl = (route, surface, publicOrigin, surfaceOrigins = {}) => `${originForSurface(surface, publicOrigin, surfaceOrigins)}${route}`;
 
 const normalizePublicOrigin = (raw) => {
     const value = String(raw || "").trim();
@@ -76,19 +96,19 @@ const resourcePageForRoute = (route) => PRODUCT_RESOURCE_PAGES.find((page) => re
 
 const STATIC_PRODUCT_COPY = {
     "/": {
-        title: "AI Interview Practice for Software Engineers | Evalcue AI",
-        description: "Practice AI mock interviews for software engineering roles with adaptive follow-ups, coding, system design, debugging, resume context, and structured feedback.",
-        heading: "AI interview practice for software engineers. Structured technical hiring for teams.",
+        title: "EvalcueAI | AI Coding, System Design & Debugging Interviews for Engineers",
+        description: "EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, debugging, and technical interviews with adaptive AI follow-ups.",
+        heading: "AI interview practice and structured technical hiring for software engineers",
         intro: "Practice realistic coding, system-design, debugging, and technical interviews with adaptive AI follow-ups, or build evidence-focused engineering assessments for your hiring team.",
     },
     "/practice": {
-        title: "AI Technical Interview Practice for Software Engineers | Evalcue AI",
+        title: "AI Technical Interview Practice for Software Engineers | EvalcueAI",
         description: "Practice role-specific software engineering interviews with adaptive follow-ups, coding rounds, system design, resume context, and evidence-backed feedback.",
         heading: "AI technical interview practice for software engineers",
         intro: "Run role-specific mock interviews across technical discussion, coding, system design, debugging, and project depth, then review the evidence and feedback from each session.",
     },
     "/hire": {
-        title: "Structured Technical Hiring & AI Candidate Assessments | Evalcue AI",
+        title: "Structured Technical Hiring & AI Candidate Assessments | EvalcueAI",
         description: "Create structured engineering assessments, invite candidates, run adaptive technical interviews, and review evidence-rich scorecards with human-controlled hiring decisions.",
         heading: "Structured technical hiring for software engineering teams",
         intro: "Create role-specific technical assessments across discussion, coding, system design, and debugging while keeping candidate evidence review and employment decisions human-controlled.",
@@ -121,12 +141,13 @@ const staticConfigForRoute = (route) => {
     return STATIC_PRODUCT_COPY[route] || null;
 };
 
-const renderSearchPageMarkup = (page, practiceOrigin = APP_SURFACE_ORIGINS.practice) => `
+const renderSearchPageMarkup = (page, practiceOrigin = APP_SURFACE_ORIGINS.practice, hiringOrigin = APP_SURFACE_ORIGINS.hiring) => `
 <main data-static-seo="search-landing">
-  <nav aria-label="Breadcrumb"><a href="${APP_SURFACE_ORIGINS.landing}/">Evalcue AI</a></nav>
+  <nav aria-label="Breadcrumb"><a href="${APP_SURFACE_ORIGINS.landing}/">${BRAND_NAME}</a></nav>
   <p>${escapeHtml(page.eyebrow)}</p>
   <h1>${escapeHtml(page.title)}</h1>
   <p>${escapeHtml(page.intro)}</p>
+  ${page.audience ? `<section><h2>Who it's for</h2><p>${escapeHtml(page.audience)}</p></section>` : ""}
   ${page.sections.map((section) => `
     <section>
       <h2>${escapeHtml(section.heading)}</h2>
@@ -134,6 +155,22 @@ const renderSearchPageMarkup = (page, practiceOrigin = APP_SURFACE_ORIGINS.pract
       <ul>${section.points.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}</ul>
     </section>
   `).join("")}
+  ${page.example ? `
+  <section>
+    <h2>${escapeHtml(page.example.heading)}</h2>
+    <p>${escapeHtml(page.example.intro)}</p>
+    <dl>${page.example.turns.map(([speaker, text]) => `<dt>${escapeHtml(speaker)}</dt><dd>${escapeHtml(text)}</dd>`).join("")}</dl>
+    <h3>What ${BRAND_NAME} evaluates here</h3>
+    <ul>${page.example.evaluates.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+  </section>` : ""}
+  ${page.schema !== "TechArticle" ? `
+  <section>
+    <h2>Pricing</h2>
+    <ul>
+      ${PRACTICE_PLANS.map((plan) => `<li>Practice ${escapeHtml(plan.name)}: ${escapeHtml(plan.summary)}</li>`).join("")}
+      <li>Hire: ${escapeHtml(HIRING_PLAN_SUMMARY)}</li>
+    </ul>
+  </section>` : ""}
   <section>
     <h2>Frequently asked questions</h2>
     ${page.faq.map(([question, answer]) => `<h3>${escapeHtml(question)}</h3><p>${escapeHtml(answer)}</p>`).join("")}
@@ -147,12 +184,14 @@ const renderSearchPageMarkup = (page, practiceOrigin = APP_SURFACE_ORIGINS.pract
       }).join("")}
     </ul>
   </section>
-  <p><a href="${escapeHtml(`${practiceOrigin || ""}/practice/resources/${page.practiceResource}`)}">Start AI interview practice</a></p>
+  <p><a href="${escapeHtml(page.cta?.surface === "hiring"
+      ? `${hiringOrigin || APP_SURFACE_ORIGINS.hiring}${page.cta.path}`
+      : `${practiceOrigin || APP_SURFACE_ORIGINS.practice}/practice/resources/${page.practiceResource}`)}">${escapeHtml(page.cta?.label || "Start AI interview practice")}</a></p>
 </main>`;
 
 const renderResourcePageMarkup = (page) => `
 <main data-static-seo="product-resource">
-  <nav aria-label="Breadcrumb"><a href="${APP_SURFACE_ORIGINS.landing}/">Home</a> › <a href="${page.surface === "hiring" ? APP_SURFACE_ORIGINS.hiring : APP_SURFACE_ORIGINS.practice}/${page.surface === "hiring" ? "hire" : "practice"}">Evalcue AI ${page.surface === "hiring" ? "Hire" : "Practice"}</a></nav>
+  <nav aria-label="Breadcrumb"><a href="${APP_SURFACE_ORIGINS.landing}/">Home</a> › <a href="${page.surface === "hiring" ? APP_SURFACE_ORIGINS.hiring : APP_SURFACE_ORIGINS.practice}/${page.surface === "hiring" ? "hire" : "practice"}">EvalcueAI ${page.surface === "hiring" ? "Hire" : "Practice"}</a></nav>
   <p>${escapeHtml(page.eyebrow)}</p>
   <h1>${escapeHtml(page.title)}</h1>
   <p>${escapeHtml(page.intro)}</p>
@@ -199,54 +238,98 @@ const renderProductMarkup = (route, config, surface) => {
           return `<li><a href="${escapeHtml(destination)}">${escapeHtml(label)}</a></li>`;
       }).join("")}</ul>
   </section>
-  ${route === "/practice" || route === "/hire" ? `<p><a href="${APP_SURFACE_ORIGINS.landing}/">Evalcue AI home</a></p>` : ""}
+  ${route === "/practice" || route === "/hire" ? `<p><a href="${APP_SURFACE_ORIGINS.landing}/">EvalcueAI home</a></p>` : ""}
 </main>`;
 };
 
 const renderStaticMarkup = (route, config, surfaceOrigins = {}) => {
-    if (config.searchPage) return renderSearchPageMarkup(config.searchPage, surfaceOrigins.practice);
+    if (config.searchPage) return renderSearchPageMarkup(config.searchPage, surfaceOrigins.practice, surfaceOrigins.hiring);
     if (config.resourcePage) return renderResourcePageMarkup(config.resourcePage);
     const surface = route === "/practice" ? "practice" : route === "/hire" ? "hiring" : "landing";
     return renderProductMarkup(route, config, surface);
 };
 
 const structuredDataForStaticRoute = (route, config, canonicalUrl) => {
+    const graph = [organizationSchema()];
     if (route === "/") {
-        return {
-            "@context": "https://schema.org",
-            "@graph": [
-                { "@type": "WebSite", name: "Evalcue AI", url: canonicalUrl, description: config.description },
-                { "@type": "Organization", name: "Evalcue AI", url: canonicalUrl },
-            ],
-        };
-    }
-
-    if (route === "/practice" || route === "/hire") {
-        return {
-            "@context": "https://schema.org",
+        graph.push(
+            { "@type": "WebSite", "@id": `${BRAND_URLS.landing}/#website`, name: BRAND_NAME, alternateName: "Evalcue", url: canonicalUrl, description: config.description, publisher: publisherRef() },
+            softwareApplicationSchema(),
+        );
+    } else if (route === "/practice" || route === "/hire") {
+        graph.push({
             "@type": "SoftwareApplication",
-            name: config.heading,
+            name: route === "/practice" ? `${BRAND_NAME} Practice` : `${BRAND_NAME} Hire`,
             description: config.description,
             url: canonicalUrl,
             applicationCategory: route === "/practice" ? "EducationalApplication" : "BusinessApplication",
             operatingSystem: "Web",
-            publisher: { "@type": "Organization", name: "Evalcue AI" },
-        };
+            isPartOf: { "@id": `${BRAND_URLS.landing}/#software` },
+            publisher: publisherRef(),
+        });
+    } else {
+        graph.push({
+            "@type": config.schema || "WebPage",
+            name: config.heading,
+            headline: config.schema === "TechArticle" ? config.heading : undefined,
+            description: config.description,
+            url: canonicalUrl,
+            publisher: publisherRef(),
+            about: config.searchPage ? { "@id": `${BRAND_URLS.landing}/#software` } : undefined,
+        });
+        graph.push(breadcrumbSchema([[BRAND_NAME, `${BRAND_URLS.landing}/`], [config.heading, canonicalUrl]]));
+        const faq = config.searchPage ? faqSchema(config.searchPage.faq) : null;
+        if (faq) graph.push(faq);
     }
-
-    return {
-        "@context": "https://schema.org",
-        "@type": config.schema || "WebPage",
-        name: config.heading,
-        headline: config.schema === "TechArticle" ? config.heading : undefined,
-        description: config.description,
-        url: canonicalUrl,
-        publisher: { "@type": "Organization", name: "Evalcue AI" },
-    };
+    return { "@context": "https://schema.org", "@graph": graph };
 };
 
+// /llms.txt: a plain-language product summary for AI assistants and answer engines (llmstxt.org).
+const renderLlmsTxt = () => [
+    `# ${BRAND_NAME}`,
+    "",
+    `> ${BRAND_NAME} — ${BRAND_TAGLINE}. ${BRAND_POSITIONING}`,
+    "",
+    BRAND_DESCRIPTION,
+    "",
+    `${BRAND_NAME} is written as one word. It is not EvalAI, the open-source machine-learning benchmark platform.`,
+    "",
+    "## Products",
+    "",
+    `- [${BRAND_NAME} Practice](${BRAND_URLS.practice}/practice): AI interview practice for software engineers.`,
+    `- [${BRAND_NAME} Hire](${BRAND_URLS.hiring}/hire): structured engineering assessments with human-controlled hiring decisions.`,
+    "",
+    "## Supported interview types",
+    "",
+    ...INTERVIEW_TYPES.map((item) => `- ${item}`),
+    "",
+    "## Pricing",
+    "",
+    ...PRACTICE_PLANS.map((plan) => `- Practice ${plan.name}: ${plan.summary}`),
+    `- Hire: ${HIRING_PLAN_SUMMARY}`,
+    "",
+    "## Key pages",
+    "",
+    ...SEARCH_LANDING_PAGES.filter((page) => page.schema !== "TechArticle" || page.slug === "ai-interview-evaluation-methodology")
+        .map((page) => `- [${page.title}](${BRAND_URLS.landing}${page.path}): ${page.description}`),
+    "",
+    "## Interview guides",
+    "",
+    ...SEARCH_LANDING_PAGES.filter((page) => page.schema === "TechArticle" && page.slug !== "ai-interview-evaluation-methodology")
+        .map((page) => `- [${page.title}](${BRAND_URLS.landing}${page.path}): ${page.description}`),
+    "",
+    "## Official URLs",
+    "",
+    `- Website: ${BRAND_URLS.landing}/`,
+    `- Documentation: ${BRAND_URLS.docs}`,
+    `- About: ${BRAND_URLS.about}`,
+    `- Evaluation methodology: ${BRAND_URLS.methodology}`,
+    `- Source code: ${BRAND_URLS.source}`,
+    "",
+].join("\n");
+
 const applyStaticRouteHtml = (baseHtml, route, origin, config, surfaceOrigins = {}, surface = "landing") => {
-    const canonicalUrl = canonicalRouteUrl(route, surface, origin);
+    const canonicalUrl = canonicalRouteUrl(route, surface, origin, surfaceOrigins);
     const markup = renderStaticMarkup(route, config, surfaceOrigins);
     const structuredData = JSON.stringify(structuredDataForStaticRoute(route, config, canonicalUrl)).replace(/</g, "\\u003c");
 
@@ -281,22 +364,21 @@ const writeStaticRoute = async (outDir, route, html) => {
     await writeFile(path.join(routeDir, "index.html"), html);
 };
 
-const seoFilesPlugin = (origin, routes, surfaceOrigins = {}) => ({
+const seoFilesPlugin = (origin, routes, surfaceOrigins = {}, appSurface = null) => ({
     name: "evalcue-seo-files",
     async closeBundle() {
         if (!origin) return;
         const outDir = path.resolve(process.cwd(), "dist");
         await mkdir(outDir, { recursive: true });
 
-        const deploymentSurface = ["landing", "practice", "hiring"].includes(process.env.VITE_APP_SURFACE)
-            ? process.env.VITE_APP_SURFACE
-            : "landing";
-        const urls = routes.map((route) => `  <url><loc>${escapeHtml(canonicalRouteUrl(route, deploymentSurface, origin))}</loc></url>`).join("\n");
+        // appSurface comes from loadEnv, so a surface set in client/.env works as well as a CI env var.
+        const deploymentSurface = appSurface || "landing";
+        const urls = routes.map((route) => `  <url><loc>${escapeHtml(canonicalRouteUrl(route, deploymentSurface, origin, surfaceOrigins))}</loc></url>`).join("\n");
         const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
         const robots = [
             "User-agent: *",
             "Allow: /",
-            `Sitemap: ${origin}/sitemap.xml`,
+            `Sitemap: ${originForSurface(deploymentSurface, origin, surfaceOrigins)}/sitemap.xml`,
             ...(deploymentSurface === "landing"
                 ? [
                     `Sitemap: ${APP_SURFACE_ORIGINS.practice}/sitemap.xml`,
@@ -319,6 +401,7 @@ const seoFilesPlugin = (origin, routes, surfaceOrigins = {}) => ({
         await Promise.all([
             writeFile(path.join(outDir, "sitemap.xml"), sitemap),
             writeFile(path.join(outDir, "robots.txt"), robots),
+            ...(deploymentSurface === "landing" ? [writeFile(path.join(outDir, "llms.txt"), renderLlmsTxt())] : []),
             ...staticRouteWrites,
         ]);
     },
@@ -364,7 +447,7 @@ export default defineConfig(({ mode }) => {
     const indexableRoutes = appSurface
         ? INDEXABLE_ROUTES_BY_SURFACE[appSurface]
         : ALL_INDEXABLE_ROUTES;
-    const sitemapOrigin = publicOrigin || (appSurface ? APP_SURFACE_ORIGINS[appSurface] : "");
+    const sitemapOrigin = appSurface ? originForSurface(appSurface, publicOrigin, surfaceOrigins) : publicOrigin;
 
     return {
         test: {
@@ -372,7 +455,7 @@ export default defineConfig(({ mode }) => {
             globals: true,
             exclude: ["e2e/**", "node_modules/**"],
         },
-        plugins: [react(), seoRouteMetaPlugin(), seoFilesPlugin(sitemapOrigin, indexableRoutes, surfaceOrigins)],
+        plugins: [react(), seoRouteMetaPlugin(), seoFilesPlugin(sitemapOrigin, indexableRoutes, surfaceOrigins, appSurface)],
         build: {
             manifest: true,
             rollupOptions: {

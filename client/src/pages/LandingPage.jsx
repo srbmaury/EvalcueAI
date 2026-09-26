@@ -6,6 +6,7 @@ import { AuthContext } from "../context/AuthContext";
 import SiteFooter from "../components/SiteFooter";
 import { setWorkspacePreference } from "../utils/workspacePreference";
 import { SEARCH_LANDING_PAGES } from "../utils/searchLandingPages";
+import { deploymentOrigins } from "../utils/deploymentSurface";
 
 const choices = [
     {
@@ -28,6 +29,7 @@ const choices = [
 
 export default function LandingPage() {
     const { user } = useContext(AuthContext);
+    const origins = deploymentOrigins();
 
     const destinationFor = (workspace) => {
         if (workspace === "hiring") return user ? "/hire/assessments" : "/hire/register";
@@ -46,14 +48,14 @@ export default function LandingPage() {
                 display: "flex",
                 alignItems: "center",
                 background: theme.palette.mode === "dark"
-                    ? "radial-gradient(circle at 50% 0%, rgba(124,92,255,.2), transparent 38%), #0b1020"
-                    : "radial-gradient(circle at 50% 0%, rgba(99,91,255,.14), transparent 38%), linear-gradient(180deg,#f8f9ff,#fff)",
+                    ? "#0e0f11"
+                    : "radial-gradient(circle at 50% 0%, rgba(36,81,199,.14), transparent 38%), linear-gradient(180deg,#f8f9fb,#fff)",
             })}>
                 <Container maxWidth="lg">
                     <Stack spacing={2} alignItems="center" textAlign="center" mb={{ xs: 4, md: 6 }}>
-                        <Chip label="Choose your Evalcue AI workspace" color="primary" variant="outlined" />
+                        <Chip label="Choose your EvalcueAI workspace" color="primary" variant="outlined" />
                         <Typography component="h1" sx={{ fontSize: { xs: "2.5rem", sm: "3.5rem", md: "4.4rem" }, lineHeight: 1, letterSpacing: "-.05em", fontWeight: 850, maxWidth: 820 }}>
-                            AI interview practice for software engineers. Structured technical hiring for teams.
+                            AI interview practice and structured technical hiring for software engineers.
                         </Typography>
                         <Typography color="text.secondary" sx={{ fontSize: { xs: "1.05rem", md: "1.2rem" }, lineHeight: 1.65, maxWidth: 680 }}>
                             Practice realistic coding, system-design, debugging, and technical interviews with adaptive AI follow-ups—or build evidence-focused engineering assessments for your hiring team.
@@ -123,7 +125,7 @@ export default function LandingPage() {
                                 Practice the exact interview round you need to improve.
                             </Typography>
                             <Typography color="text.secondary" sx={{ maxWidth: 720, lineHeight: 1.7 }}>
-                                Start with a focused guide, then move directly into an adaptive Evalcue AI practice session.
+                                Start with a focused guide, then move directly into an adaptive EvalcueAI practice session.
                             </Typography>
                         </Stack>
                         <Grid container spacing={2}>
@@ -159,6 +161,11 @@ export default function LandingPage() {
                             <Button component={RouterLink} to="/interview-questions" variant="text" endIcon={<ArrowForwardRounded />}>
                                 Backend interview questions
                             </Button>
+                        </Stack>
+                        <Stack direction="row" spacing={2.5} justifyContent="center" flexWrap="wrap" useFlexGap mt={2}>
+                            <Button component="a" href={`${origins.practice || "https://practice.evalcueai.com"}/practice`} variant="text">AI interview practice workspace</Button>
+                            <Button component="a" href={`${origins.hiring || "https://hiring.evalcueai.com"}/hire`} variant="text">Structured technical hiring workspace</Button>
+                            <Button component={RouterLink} to="/docs" variant="text">Product and technical documentation</Button>
                         </Stack>
                     </Box>
                 </Container>

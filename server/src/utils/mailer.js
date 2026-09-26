@@ -38,7 +38,7 @@ export const sendMail = async ({ to, subject, html, text, replyTo }) => {
     if (process.env.NODE_ENV === "test" && process.env.ALLOW_TEST_EMAIL !== "true") return;
     const senderEmail = envTrim(process.env.BREVO_SENDER_EMAIL);
     if (!senderEmail) throw new Error("BREVO_SENDER_EMAIL is not configured");
-    const senderName = envTrim(process.env.BREVO_SENDER_NAME) || "Evalcue AI";
+    const senderName = envTrim(process.env.BREVO_SENDER_NAME) || "EvalcueAI";
     const replyToEmail = envTrim(replyTo) || senderEmail;
     return brevoRequest("/smtp/email", {
         method: "POST",
@@ -60,12 +60,12 @@ export const verifyEmailProvider = async () => {
 };
 
 export const buildVerificationEmail = (name, verifyUrl) => buildTransactionalEmail({
-    subject: "Verify your Evalcue AI email",
-    preheader: "Verify your email to finish creating your Evalcue AI account.",
+    subject: "Verify your EvalcueAI email",
+    preheader: "Verify your email to finish creating your EvalcueAI account.",
     greeting: `Hi ${name || "there"},`,
     heading: "Verify your email",
-    intro: "Confirm this email address to finish setting up your Evalcue AI account.",
+    intro: "Confirm this email address to finish setting up your EvalcueAI account.",
     cta: { label: "Verify email", url: verifyUrl },
     note: "This verification link expires after 24 hours. If you did not create this account, you can ignore this message.",
-    footer: "You received this email because an Evalcue AI account was created with this address.",
+    footer: "You received this email because an EvalcueAI account was created with this address.",
 });

@@ -1,6 +1,6 @@
 # React + Vite
 
-This client is the Evalcue AI React/Vite application.
+This client is the EvalcueAI React/Vite application.
 
 ## Client configuration
 

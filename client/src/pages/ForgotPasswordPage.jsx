@@ -24,7 +24,7 @@ const ForgotPasswordPage = () => {
         return workspaceForSurface(surfaceForPath(location.state?.from?.pathname || "")) || getWorkspacePreference() || "practice";
     }, [location.search, location.state]);
     const loginPath = productLoginPath(workspace);
-    const productName = workspace === "hiring" ? "Evalcue AI Hire" : "Evalcue AI Practice";
+    const productName = workspace === "hiring" ? "EvalcueAI Hire" : "EvalcueAI Practice";
 
     useEffect(() => {
         setWorkspacePreference(workspace);
