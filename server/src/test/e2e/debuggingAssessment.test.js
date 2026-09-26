@@ -14,6 +14,8 @@ vi.mock("../../services/debuggingProjectRunner.js", async (importOriginal) => {
 // single shared organization starts several candidates across its test cases, more than
 // the default trial cap of 5.
 process.env.HIRING_TRIAL_CANDIDATE_INTERVIEWS = "50";
+// Keep the suite independent of a developer's local runtime allowlist in .env (empty = all runtimes).
+process.env.DEBUGGING_RUNTIMES = "";
 
 const { default: app } = await import("../../app.js");
 const { default: connectDB } = await import("../../config/db.js");
@@ -117,6 +119,55 @@ describe("debugging assessment API", () => {
         expect(run.body).toEqual({ status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] });
         expect(runDebuggingProject).toHaveBeenLastCalledWith(expect.objectContaining({ includeHiddenTests: true, files: expect.arrayContaining([expect.objectContaining({ path: "tests/boundary.test.js", content: "INTERNAL_ASSERTION" })]) }));
         expect(JSON.stringify(run.body)).not.toMatch(/boundary\.test\.js|INTERNAL_ASSERTION/i);
+    });
+
+    it("keeps autosaves that overlap a slow test run from failing and preserves both writes", async () => {
+        process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
+        const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound(), { title: "Concurrency screen" })).expect(201);
+        const started = await startCandidate(created.body.shareToken, "concurrency@example.com");
+        const base = `/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/debugging/0`;
+        const save = (content) => write(agent.put(`${base}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ changedFiles: [{ path: "src/index.js", content }], createdFiles: [], deletedFiles: [] });
+        await save("export const increment = (value) => value;").expect(200);
+
+        runDebuggingProject.mockImplementationOnce(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 150));
+            return { status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] };
+        });
+        const results = await Promise.all([
+            write(agent.post(`${base}/run-tests`)).set("x-attempt-token", started.body.attemptToken).send({}),
+            save("export const increment = (value) => value + 1;"),
+            save("export const increment = (value) => value + 2;"),
+        ]);
+        expect(results.map((result) => result.status)).toEqual([200, 200, 200]);
+
+        const saved = await CandidateAttempt.findById(started.body.attempt._id).lean();
+        const response = saved.debuggingResponses.find((item) => item.roundIndex === 0);
+        expect(response.testRuns).toHaveLength(1);
+        expect(response.changedFiles[0].content).toMatch(/value \+ [12];/);
+    });
+
+    it("lets the hiring team end an in-progress attempt, freeing its slot and cutting off the candidate", async () => {
+        process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
+        const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound(), { title: "End attempt screen" })).expect(201);
+        const started = await startCandidate(created.body.shareToken, "abandoned@example.com");
+        const ended = await write(agent.post(`/api/assessments/${created.body._id}/attempts/${started.body.attempt._id}/end`), ownerAuth).send({}).expect(200);
+        expect(ended.body).toMatchObject({ attempt: { status: "revoked" }, released: true });
+
+        const base = `/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/debugging/0`;
+        await write(agent.put(`${base}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ changedFiles: [], createdFiles: [], deletedFiles: [] }).expect(401);
+        await write(agent.post(`/api/assessments/${created.body._id}/attempts/${started.body.attempt._id}/end`), ownerAuth).send({}).expect(409);
+    });
+
+    it("accepts candidate system-design checkpoints only with the round and question index", async () => {
+        const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput({
+            name: "System design", description: "Design a service.", deliveryMode: "system-design", questionCount: 1,
+            questions: [{ text: "Design a URL shortener.", required: true }],
+        }, { title: "System design screen" })).expect(201);
+        const started = await startCandidate(created.body.shareToken, "designer@example.com");
+        const url = `/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/system-design/checkpoint`;
+        const transcript = "I would start with requirements, then an API service, a key-value store, and a cache in front of reads.";
+        await write(agent.post(url)).set("x-attempt-token", started.body.attemptToken).send({ transcript }).expect(400);
+        await write(agent.post(url)).set("x-attempt-token", started.body.attemptToken).send({ transcript, roundIndex: 0, questionIndex: 0 }).expect(200);
     });
 
     it("final submission returns the same candidate-safe test evidence with the diff", async () => {

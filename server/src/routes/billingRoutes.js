@@ -154,6 +154,8 @@ router.get("/hiring/entitlements", protect, organizationContext, async (req, res
             safePrice("hiring", "growth"),
         ]);
         const used = counter?.used || 0;
+        // In-progress candidates hold a reservation that counts toward the limit when starting new attempts.
+        const reserved = counter?.reserved || 0;
         const hasBillingAccount = Boolean(billingOrganization?.hiringBillingCustomerId);
         return res.json({
             product: "hiring",
@@ -167,7 +169,8 @@ router.get("/hiring/entitlements", protect, organizationContext, async (req, res
             periodType: period.cadence,
             limits: { candidateInterviews: limits.candidateInterviews },
             used: { candidateInterviews: used },
-            remaining: Math.max(limits.candidateInterviews - used, 0),
+            reserved: { candidateInterviews: reserved },
+            remaining: Math.max(limits.candidateInterviews - used - reserved, 0),
             grant: limits.accessType === "grant" ? {
                 type: limits.plan,
                 grantId: limits.grantId,

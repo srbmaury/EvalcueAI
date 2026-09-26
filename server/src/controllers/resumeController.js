@@ -267,6 +267,9 @@ Return ONLY JSON with this exact shape:
   "roleAlignment": string
 }
 Use clear, concise language. No markdown. No code fences. Be constructive.
+The resume owner reads this review: write summary, gaps, improvementSuggestions, and roleAlignment in second person ("Your resume shows…", "Add…"), never "the candidate".
+Base every strength and gap only on RESUME_TEXT. A point must not appear as both a strength and a gap; if evidence is partial, list it once as a gap that says what is missing.
+keywordsMatched must contain only job-description terms that literally appear (or have an obvious synonym) in RESUME_TEXT; job-description terms missing from the resume belong in gaps, not keywordsMatched.
 
 ROLE: ${safeRole || "(not provided)"}
 JOB_DESCRIPTION: ${safeJD || "(not provided)"}

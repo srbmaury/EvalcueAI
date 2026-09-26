@@ -5,6 +5,7 @@ import { normalize, sanitizeText } from "./textUtils.js";
 import { extractRoundKeywords } from "./roundKeywords.js";
 import { getTechnicalTermsFromResume } from "./aiExtraction.js";
 import { webSearchReferenceQuestions } from "./webGrounding.js";
+import { fitsDeliveryMode, recordGuardEvent } from "./questionGuards.js";
 
 const containsAllowed = (question, allowedSet) => {
     if (!allowedSet || allowedSet.size === 0) return true;
@@ -213,7 +214,12 @@ export const generateQuestionsForRound = async ({
         const seen = new Set(
             Array.from(excludeTexts || []).map((t) => normalize(String(t)).slice(0, 200))
         );
-        for (const item of cleaned) {
+        // Drop questions in the wrong format for the round (coding tasks in a conversation round, pure
+        // discussion in a coding round), unless that would leave nothing usable.
+        const formatted = cleaned.filter((item) => fitsDeliveryMode(typeof item === "string" ? item : item?.text, deliveryMode));
+        const candidates = formatted.length ? formatted : cleaned;
+        for (let i = 0; i < cleaned.length - formatted.length && formatted.length; i += 1) recordGuardEvent("question_generation", "format", "filtered");
+        for (const item of candidates) {
             const rawText = typeof item === "string" ? item : item?.text;
             const rawTags = Array.isArray(item?.tags) ? item.tags : [];
             const s = sanitizeText(rawText, 200);

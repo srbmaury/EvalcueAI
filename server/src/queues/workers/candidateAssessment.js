@@ -18,14 +18,29 @@ export default async function candidateAssessmentProcessor(job) {
         const items = attempt.rounds.flatMap((round) => round.questions);
         let completed = 0;
         const allScores = []; let weightedTotal = 0; let totalWeight = 0;
-        for (const round of attempt.rounds) {
+        for (const [roundIndex, round] of attempt.rounds.entries()) {
             const roundScores = [];
+            // Code-fix debugging rounds have an objective signal (hidden tests); score mostly from it and let the
+            // AI judge the actual code changes rather than a one-line "Tests: x/y" summary.
+            const debugResponse = round.deliveryMode === "debugging"
+                ? (attempt.debuggingResponses || []).find((response) => Number(response.roundIndex) === roundIndex)
+                : null;
+            const testTotal = Number(debugResponse?.finalEvaluation?.total) || 0;
+            const testPassed = Number(debugResponse?.finalEvaluation?.passed) || 0;
+            const codeChanges = [...(debugResponse?.changedFiles || []), ...(debugResponse?.createdFiles || [])]
+                .slice(0, 6).map((file) => `--- ${file.path}\n${String(file.content || "").slice(0, 3000)}`).join("\n\n");
             for (const item of round.questions) {
                 const diagramContext = item.diagramSummary || (item.diagramData ? summarizeSystemDesignDiagram(item.diagramData) : "");
                 if (diagramContext) item.diagramSummary = diagramContext;
                 const systemDesign = round.deliveryMode === "system-design";
-                const combined = buildCandidateEvaluationEvidence({ item, systemDesign, diagramContext });
+                let combined = buildCandidateEvaluationEvidence({ item, systemDesign, diagramContext });
+                if (testTotal > 0) combined = `${combined}\n\nHidden recruiter tests: ${testPassed}/${testTotal} passed.${codeChanges ? `\nCandidate's code changes:\n${codeChanges}` : ""}\nJudge correctness mainly from the test result; use the code to judge root-cause understanding and quality.`;
                 const feedback = await generateFeedbackForAnswer({ questionText: item.text, userAnswer: combined, evaluationContext: systemDesign ? { mode: "system-design", jobRole: assessment?.jobRole, jobDescription: assessment?.jobDescription, roundDescription: round.description, rubric: assessment?.rubric } : undefined });
+                if (testTotal > 0) {
+                    const aiScore = Number(feedback.score) || 0;
+                    feedback.score = Math.round(((testPassed / testTotal) * 10 * 0.7 + aiScore * 0.3) * 10) / 10;
+                    feedback.comment = `Hidden tests: ${testPassed}/${testTotal} passed. ${feedback.comment || ""}`.trim();
+                }
                 item.feedbackComment = feedback.comment; item.suggestions = feedback.suggestions; item.score = feedback.score;
                 roundScores.push(feedback.score); allScores.push(feedback.score);
                 const weight = Number(item.weight) || 1; weightedTotal += feedback.score * weight; totalWeight += weight;

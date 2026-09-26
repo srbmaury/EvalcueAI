@@ -56,6 +56,7 @@ export const publicAttempt = (attempt) => ({
     status: attempt.status,
     startedAt: attempt.startedAt,
     submittedAt: attempt.submittedAt,
+    candidateIntroAt: attempt.candidateIntroAt || null,
     rounds: attempt.rounds.map((round) => ({
         _id: round._id,
         name: round.name,
@@ -88,7 +89,7 @@ export const publicAttempt = (attempt) => ({
 
 export const createAdaptiveAssessment = async (req, res, next) => {
     try {
-        const { title, jobRole, jobDescription, followUpsEnabled = true, inviteOnly = false, candidateInstructions = "", contactEmail = "", durationMinutes = 30, opensAt, expiresAt, timezone = "UTC", rounds, integrity, rubric = [], templateName = "", status = "draft" } = req.body;
+        const { title, jobRole, jobDescription, followUpsEnabled = true, askCandidateIntro = true, inviteOnly = false, candidateInstructions = "", contactEmail = "", durationMinutes = 30, opensAt, expiresAt, timezone = "UTC", rounds, integrity, rubric = [], templateName = "", status = "draft" } = req.body;
         if (status === "scheduled" && (!opensAt || new Date(opensAt) <= new Date())) return res.status(400).json({ message: "Choose a future opening time before scheduling." });
         if (expiresAt && opensAt && new Date(expiresAt) <= new Date(opensAt)) return res.status(400).json({ message: "The submission deadline must be after the opening time." });
 
@@ -136,7 +137,7 @@ export const createAdaptiveAssessment = async (req, res, next) => {
         }
 
         const assessment = await Assessment.create({
-            organization: req.organizationId, createdBy: req.user._id, title, jobRole, jobDescription, followUpsEnabled, inviteOnly,
+            organization: req.organizationId, createdBy: req.user._id, title, jobRole, jobDescription, followUpsEnabled, askCandidateIntro, inviteOnly,
             candidateInstructions, contactEmail, durationMinutes, opensAt: opensAt || undefined, expiresAt: expiresAt || undefined, timezone,
             rounds: generatedRounds, integrity, rubric, templateName, status,
             publishedAt: status === "active" ? new Date() : undefined,
@@ -239,7 +240,7 @@ const nextRequiredQuestion = (assessmentRound, attemptRound) => {
     return (assessmentRound?.questions || []).find((question) => question.required && !asked.has(question.text.trim())) || null;
 };
 
-const decideNextAdaptiveFollowUp = async ({ assessment, round, item }) => {
+const decideNextAdaptiveFollowUp = async ({ assessment, round, item, attempt }) => {
     const history = ensureFollowUpHistory(item);
     const pending = pendingFollowUpFor(item);
     if (pending) { syncLegacyFollowUpFields(item); return pending; }
@@ -247,6 +248,7 @@ const decideNextAdaptiveFollowUp = async ({ assessment, round, item }) => {
     const decision = await generateFollowUp({
         questionText: item.text, userAnswer: baseAnswer(item), followUps: history, jobRole: assessment.jobRole,
         roundName: round.name, systemDesign: round.deliveryMode === "system-design", competencies: item.competencies || [], sourceClaim: item.sourceClaim || "",
+        candidateBackground: attempt?.candidateIntro || "",
     });
     if (!decision?.shouldAsk || !decision.followUp) { syncLegacyFollowUpFields(item); return null; }
     history.push({ question: decision.followUp, answer: "", reason: decision.reason || "", focus: decision.focus || "" });
@@ -282,12 +284,30 @@ const advanceAdaptiveRound = async ({ assessment, attempt, roundIndex, questionI
     const targetCompetency = evaluation.policy?.targetCompetency || chooseNextCompetency(round.adaptiveState);
     const claim = selectResumeClaimForTarget(round.adaptiveState, targetCompetency, evaluation.policy?.sourceClaim || "");
     const next = await generateNextAdaptiveQuestion({
-        interview: { jobRole: assessment.jobRole, jobDescription: assessment.jobDescription, company: "" },
+        interview: { jobRole: assessment.jobRole, jobDescription: assessment.jobDescription, company: "", candidateIntro: attempt.candidateIntro || "" },
         round: { name: round.name, description: `${round.description || ""}\nContinue the same interview conversation naturally. Ask a concise next question that connects to the evidence already collected, then go deeper on the most useful competency gap. Sound like a thoughtful human interviewer, not a rubric or questionnaire.` },
         state: round.adaptiveState, targetCompetency, difficulty: evaluation.policy?.difficulty || round.adaptiveState.currentDifficulty,
         sourceClaim: claim?.claim || "", excludeTexts: round.questions.map((question) => question.text),
     });
     round.questions.push({ text: next.text, weight: 1, competencies: next.competencies?.length ? next.competencies : [targetCompetency], knockout: false, required: false, difficulty: next.difficulty, sourceType: next.sourceType || "adaptive", sourceClaim: next.sourceClaim || "", followUps: [] });
+};
+
+// Optional, unscored self-introduction before round 1 (when the assessment asks for it). Stored on the
+// attempt and used only as background for follow-ups and next questions; shown to reviewers as context.
+export const saveCandidateIntro = async (req, res, next) => {
+    try {
+        const assessment = await findContinuableAssessment(req.params.shareToken);
+        if (!assessment) return res.status(404).json({ message: "Assessment unavailable" });
+        const attempt = await findAttempt(assessment._id, req.params.attemptId, req.get("x-attempt-token"));
+        if (!attempt || attempt.status !== "started") return res.status(401).json({ message: "Attempt unavailable" });
+        const skip = req.body?.skip === true;
+        const answer = skip ? "" : String(req.body?.answer || "").replace(/\s+/g, " ").trim().slice(0, 3000);
+        if (!skip && !answer) return res.status(400).json({ message: "Add a short introduction or skip it." });
+        attempt.candidateIntro = answer;
+        attempt.candidateIntroAt = new Date();
+        await attempt.save();
+        return res.json({ candidateIntroAt: attempt.candidateIntroAt });
+    } catch (error) { return next(error instanceof Error ? error : new Error(String(error))); }
 };
 
 export const saveAdaptiveCandidateAnswer = async (req, res, next) => {
@@ -318,10 +338,10 @@ export const saveAdaptiveCandidateAnswer = async (req, res, next) => {
                 if (!pending.answer) return res.status(400).json({ message: "Follow-up answer required" });
                 pending.answeredAt = new Date();
                 syncLegacyFollowUpFields(item);
-                const nextFollowUp = assessment.followUpsEnabled ? await decideNextAdaptiveFollowUp({ assessment, round, item }) : null;
+                const nextFollowUp = assessment.followUpsEnabled ? await decideNextAdaptiveFollowUp({ assessment, round, item, attempt }) : null;
                 if (!nextFollowUp && round.adaptiveState?.enabled) await advanceAdaptiveRound({ assessment, attempt, roundIndex, questionIndex });
             } else if (item.answer) {
-                const nextFollowUp = assessment.followUpsEnabled ? await decideNextAdaptiveFollowUp({ assessment, round, item }) : null;
+                const nextFollowUp = assessment.followUpsEnabled ? await decideNextAdaptiveFollowUp({ assessment, round, item, attempt }) : null;
                 if (!nextFollowUp && round.adaptiveState?.enabled) await advanceAdaptiveRound({ assessment, attempt, roundIndex, questionIndex });
             }
         } else {
@@ -337,7 +357,7 @@ export const saveAdaptiveCandidateAnswer = async (req, res, next) => {
             }
             if (assessment.followUpsEnabled && item.answer && !item.followUpQuestion) {
                 try {
-                    const decision = await generateFollowUp({ questionText: item.text, userAnswer: baseAnswer(item), jobRole: assessment.jobRole, roundName: round.name, systemDesign: round.deliveryMode === "system-design", competencies: item.competencies || [] });
+                    const decision = await generateFollowUp({ questionText: item.text, userAnswer: baseAnswer(item), jobRole: assessment.jobRole, roundName: round.name, systemDesign: round.deliveryMode === "system-design", competencies: item.competencies || [], candidateBackground: attempt.candidateIntro || "" });
                     if (decision?.shouldAsk && decision.followUp) {
                         ensureFollowUpHistory(item).push({ question: decision.followUp, answer: "", reason: decision.reason || "", focus: decision.focus || "" });
                         syncLegacyFollowUpFields(item);

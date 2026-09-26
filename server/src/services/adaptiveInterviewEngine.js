@@ -1,6 +1,7 @@
 import { generateJSON } from "../utils/generateQuestions/aiClient.js";
 import { generateQuestionsForRound } from "../utils/generateQuestions.js";
 import { sanitizeText } from "../utils/generateQuestions/textUtils.js";
+import { recordGuardEvent, repeatsEarlierQuestion, unsupportedSpecifics } from "../utils/generateQuestions/questionGuards.js";
 
 const clamp = (value, min, max, fallback = min) => {
     const parsed = Number(value);
@@ -588,7 +589,7 @@ Target competency: ${target}
 Difficulty ${level}: ${difficultyGuide}
 Current competency state: ${JSON.stringify(summaryForPrompt(state))}
 ${claim ? `Resume claim to validate: ${claim}\nProbe areas: ${uniqueStrings((state?.resumeClaims || []).find((item) => keyOf(item.claim) === keyOf(claim))?.probeAreas, 5, 120).join(", ")}` : "Resume claim to validate: <none>"}
-Already asked questions: ${exclusions.join(" | ") || "<none>"}
+${interview?.candidateIntro ? `Candidate's own introduction (background only; never assume anything beyond it): ${clean(interview.candidateIntro, 1200)}\n` : ""}Already asked questions: ${exclusions.join(" | ") || "<none>"}
 
 Rules:
 - Ask one high-signal question, not a multi-part checklist.
@@ -596,12 +597,28 @@ Rules:
 - Do not repeat or trivially paraphrase an already asked question.
 - Match the requested difficulty without trivia. Higher difficulty should come from reasoning, constraints, failure modes, scale, or trade-offs.
 - If a resume claim is supplied, ask a natural verification/depth question about that exact claim. Do not accuse the candidate and do not invent details.
+- Never presume projects, metrics, results, or technologies the candidate has not stated (for example "your 50% latency reduction" or "your caching strategy"). Without a resume claim, ask how they would approach the problem, or ask them to describe a relevant example of their own.
 - Do not coach, reveal the answer, or tell the candidate what dimensions are being scored.
 - competencies should contain the target competency and at most two closely related competencies.
 - sourceType must be resume-claim when a claim is supplied, otherwise adaptive.`;
-        const raw = (await generateJSON(prompt)) || "{}";
-        const parsed = JSON.parse(raw);
-        const text = clean(parsed?.text, 500);
+        const context = [interview?.jobDescription, interview?.candidateIntro, interview?.resume?.extractedText, claim].filter(Boolean).join("\n");
+        const problemsWith = (candidate) => {
+            const invented = unsupportedSpecifics(candidate, context);
+            if (invented.length) return `It cited ${invented.join(", ")}, which the candidate never stated.`;
+            if (repeatsEarlierQuestion(candidate, exclusions)) return "It repeats an already asked question.";
+            return "";
+        };
+        let parsed = JSON.parse((await generateJSON(prompt)) || "{}");
+        let text = clean(parsed?.text, 500);
+        const problem = text ? problemsWith(text) : "";
+        if (problem) {
+            const guard = problem.startsWith("It cited") ? "invented_specifics" : "repeat";
+            recordGuardEvent("next_question", guard, "retried");
+            // One corrective retry; if it is still ungrounded or repetitive, use the grounded fallback below.
+            parsed = JSON.parse((await generateJSON(`${prompt}\n\nYour previous draft was: "${text}". ${problem} Write a different question that follows the rules.`)) || "{}");
+            text = clean(parsed?.text, 500);
+            if (text && problemsWith(text)) { text = ""; recordGuardEvent("next_question", guard, "suppressed"); } else if (text) recordGuardEvent("next_question", guard, "recovered");
+        }
         if (text) {
             return {
                 text,

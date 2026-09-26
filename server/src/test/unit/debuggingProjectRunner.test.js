@@ -70,7 +70,17 @@ describe("debugging project runner", () => {
         expect(result).toEqual({
             status: "failed", passed: 1, total: 2,
             tests: [{ name: "adds two values", passed: true }, { name: "prevents duplicate charge", passed: false }],
+            setupErrorCount: 0,
         });
         expect(JSON.stringify(result)).not.toMatch(/duplicate\.test\.js|internal diagnostic/i);
+    });
+
+    it("counts hidden tests that failed because the project could not load", async () => {
+        executeJudge0Submission.mockResolvedValueOnce({
+            stdout: "__EVALCUE_SETUP_ERROR__\n__EVALCUE_TEST__0|adds two values\n__EVALCUE_TEST__0|prevents duplicate charge\n__EVALCUE_COUNTS__0,2\n",
+            stderr: "", compileOutput: "", status: { id: 4, description: "Wrong Answer" }, isError: false, errorType: "none",
+        });
+        const result = await runDebuggingProject({ files, runtime: "node-22", includeHiddenTests: true });
+        expect(result).toMatchObject({ status: "failed", passed: 0, total: 2, setupErrorCount: 1 });
     });
 });

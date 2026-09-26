@@ -1,5 +1,10 @@
 const STOP_WORDS = new Set([
     "about", "after", "also", "and", "are", "been", "being", "but", "can", "company", "could", "each", "from", "have", "into", "job", "more", "must", "our", "role", "should", "that", "the", "their", "them", "then", "they", "this", "through", "using", "very", "what", "when", "where", "which", "while", "will", "with", "work", "would", "years", "you", "your",
+    // Generic job-posting vocabulary that is not a skill, so it should neither count as a match nor show up as a gap.
+    "ability", "across", "build", "building", "candidate", "deliver", "develop", "developing", "domain", "engineer", "engineers",
+    "ensure", "excellent", "experience", "for", "good", "great", "help", "improve", "including", "join", "junior", "knowledge",
+    "looking", "operate", "own", "plus", "preferred", "required", "requirements", "responsibilities", "responsible", "senior",
+    "skills", "strong", "team", "teams", "understanding", "within", "working",
 ]);
 
 const normalize = (value = "") => value.toLowerCase()

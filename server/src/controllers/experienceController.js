@@ -5,6 +5,7 @@ const getFetch = async () => {
     return nodeFetch;
 };
 import SavedExperience from "../models/SavedExperience.js";
+import { cleanSourceSnippet } from "../utils/sourceSnippet.js";
 
 export const searchExperiences = async (req, res, next) => {
     try {
@@ -26,7 +27,7 @@ export const searchExperiences = async (req, res, next) => {
         const out = (Array.isArray(json?.results) ? json.results : []).map((r) => ({
             title: (r.title || "").toString().trim().slice(0, 200),
             url: (r.url || "").toString().trim(),
-            snippet: (r.content || "").toString().replace(/\s+/g, " ").slice(0, 400),
+            snippet: cleanSourceSnippet(r.content, r.title, 400),
         }));
         return res.json({ results: out });
     } catch (e) {

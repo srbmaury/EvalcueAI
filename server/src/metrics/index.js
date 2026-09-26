@@ -67,6 +67,9 @@ export const aiPurposeRequestsTotal = new client.Counter({ name: "ai_purpose_req
 export const adaptiveInterviewEventsTotal = new client.Counter({ name: "adaptive_interview_events_total", help: "Adaptive interviewer state transitions", labelNames: ["event", "action"] });
 export const adaptiveDifficultyTransitionsTotal = new client.Counter({ name: "adaptive_difficulty_transitions_total", help: "Adaptive interviewer difficulty changes", labelNames: ["from", "to"] });
 export const adaptiveFallbackQuestionsTotal = new client.Counter({ name: "adaptive_fallback_questions_total", help: "Adaptive questions served from deterministic or grounded fallback paths" });
+// How often deterministic guards had to correct AI-generated questions. A rising rate means a prompt or
+// model regression (invented candidate facts, repeated probes, wrong question format).
+export const aiQuestionGuardEventsTotal = new client.Counter({ name: "ai_question_guard_events_total", help: "AI question guard interventions", labelNames: ["stage", "guard", "outcome"] });
 export const adaptiveFollowUpsTotal = new client.Counter({ name: "adaptive_followups_total", help: "Follow-up probes asked inside adaptive Practice rounds" });
 export const adaptiveRoundQuestions = new client.Histogram({ name: "adaptive_round_questions", help: "Completed base-question count for adaptive Practice rounds", buckets: [1, 2, 3, 4, 5, 6, 8, 10] });
 export const adaptiveRoundCoverage = new client.Histogram({ name: "adaptive_round_coverage_percent", help: "Final weighted competency coverage for adaptive Practice rounds", buckets: [25, 40, 55, 70, 80, 90, 95, 100] });
@@ -128,6 +131,7 @@ export default {
     adaptiveDifficultyTransitionsTotal,
     adaptiveFallbackQuestionsTotal,
     adaptiveFollowUpsTotal,
+    aiQuestionGuardEventsTotal,
     adaptiveRoundQuestions,
     adaptiveRoundCoverage,
     reminderDeliveriesTotal,

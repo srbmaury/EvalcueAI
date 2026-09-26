@@ -39,9 +39,16 @@ router.get("/overview", protect, requireRole("admin"), async (_req, res, next) =
         const [users, verifiedUsers, activeSessions, interviews, completedInterviews, newFeedback, failedReminders, events] = await Promise.all([
             User.countDocuments(),
             User.countDocuments({ isVerified: true }),
-            RefreshToken.countDocuments({ expiresAt: { $gt: new Date() } }),
+            // Rotated refresh tokens stay until expiry but are dead after their short grace window.
+            RefreshToken.countDocuments({ expiresAt: { $gt: new Date() }, replacedByTokenHash: "" }),
             Interview.countDocuments(),
-            Interview.countDocuments({ overallScore: { $gt: 0 } }),
+            // overallScore is computed on read and never persisted; "completed" means every round is completed
+            // (the same definition the Practice progress page uses).
+            Interview.aggregate([
+                { $lookup: { from: "rounds", localField: "rounds.round", foreignField: "_id", as: "roundDocs", pipeline: [{ $project: { status: 1 } }] } },
+                { $match: { "roundDocs.0": { $exists: true }, roundDocs: { $not: { $elemMatch: { status: { $ne: "completed" } } } } } },
+                { $count: "count" },
+            ]).then((rows) => rows[0]?.count || 0),
             ProductFeedback.countDocuments({ status: "new" }),
             ReminderDelivery.countDocuments({ status: "failed" }),
             ProductEvent.aggregate([{ $match: { occurredAt: { $gte: since } } }, { $group: { _id: "$event", count: { $sum: 1 } } }]),
