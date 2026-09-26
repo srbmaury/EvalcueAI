@@ -1,4 +1,5 @@
 import { generateJSON } from "./generateQuestions/aiClient.js";
+import { recordAiQualityEvent } from "../services/aiQuality.js";
 
 export const FEEDBACK_PROMPT_VERSION = "feedback-2026-09-v1";
 export const FEEDBACK_ENGINE_VERSION = "hiring-evaluator-v1";
@@ -77,7 +78,13 @@ Rules:
     // retry the job instead of storing a fabricated 0 that would drag down a candidate's result.
     let obj = null;
     for (let attempt = 0; attempt < 2 && !obj; attempt += 1) {
-        const text = await generateJSON(prompt);
+        let text;
+        try {
+            text = await generateJSON(prompt);
+        } catch (error) {
+            recordAiQualityEvent("feedback_evaluation", "result", "failed");
+            throw error;
+        }
         if (!text) continue;
         try {
             const parsed = JSON.parse(text);
@@ -86,6 +93,7 @@ Rules:
             console.error("[Feedback:JSONParse] invalid provider response", parseErr?.message);
         }
     }
+    recordAiQualityEvent("feedback_evaluation", "result", obj ? "ok" : "failed");
     if (!obj) throw new Error("AI providers returned no evaluation");
 
     let comment = clean(obj?.comment, 2000);

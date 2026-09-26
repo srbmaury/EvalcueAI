@@ -1,4 +1,5 @@
 import { generateJSON } from "../utils/generateQuestions/aiClient.js";
+import { recordAiQualityEvent } from "./aiQuality.js";
 import { generateQuestionsForRound } from "../utils/generateQuestions.js";
 import { sanitizeText } from "../utils/generateQuestions/textUtils.js";
 import { recordGuardEvent, repeatsEarlierQuestion, unsupportedSpecifics } from "../utils/generateQuestions/questionGuards.js";
@@ -306,6 +307,7 @@ Evaluation rules:
     }
 
     const rawScore = Number(parsed?.overallScore);
+    recordAiQualityEvent("adaptive_evaluation", "result", Number.isFinite(rawScore) ? "scored" : "unscored");
     if (!Number.isFinite(rawScore)) return unscoredEvaluation(currentDifficulty);
     const overallScore = Math.max(0, Math.min(10, rawScore));
     const confidence = Math.max(0, Math.min(1, Number(parsed?.confidence) || (safeAnswer ? 0.25 : 0.1)));
@@ -641,7 +643,7 @@ Rules:
             if (text && problemsWith(text)) { text = ""; recordGuardEvent("next_question", guard, "suppressed"); } else if (text) recordGuardEvent("next_question", guard, "recovered");
         }
         if (text) {
-            return {
+            const spec = {
                 text,
                 tags: uniqueStrings(parsed?.tags, 6, 60),
                 competencies: uniqueStrings([target, ...(parsed?.competencies || [])], 3, 80),
@@ -649,6 +651,8 @@ Rules:
                 sourceType: claim ? "resume-claim" : "adaptive",
                 sourceClaim: claim,
             };
+            recordAiQualityEvent("next_question", "source", "ai");
+            return spec;
         }
     } catch {
         // Fall through to the existing grounded generator and then local fallback.
@@ -669,6 +673,7 @@ Rules:
         });
         const item = Array.isArray(fallback) ? fallback[0] : null;
         if (item) {
+            recordAiQualityEvent("next_question", "source", "fallback");
             return {
                 text: clean(typeof item === "string" ? item : item.text, 500),
                 tags: uniqueStrings(item?.tags, 6, 60),
@@ -682,6 +687,7 @@ Rules:
         // Provider outage or malformed generation must not make the interview unusable.
     }
 
+    recordAiQualityEvent("next_question", "source", "deterministic");
     return buildDeterministicAdaptiveQuestion({
         round,
         state,

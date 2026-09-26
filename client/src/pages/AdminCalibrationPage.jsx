@@ -16,6 +16,7 @@ import {
     Typography,
 } from "@mui/material";
 import api from "../api/axios";
+import AiQualitySection from "../components/AiQualitySection";
 import { calibrationHealth } from "../utils/calibrationHealth";
 import { describeError } from "../utils/errorFormatter";
 
@@ -86,6 +87,8 @@ export default function AdminCalibrationPage() {
                 <Alert severity={readiness[0]}><strong>{readiness[1]}.</strong> {readiness[2]}</Alert>
                 {health.status === "stable" && <Alert severity="success"><strong>Calibration guardrails are within the current thresholds.</strong> Continue monitoring as the reviewer and adaptive-round samples grow.</Alert>}
                 {health.signals.map((signal) => <Alert key={signal.key} severity={signal.severity}><strong>{signal.title}.</strong> {signal.detail}</Alert>)}
+
+                <AiQualitySection />
 
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2,1fr)", xl: "repeat(4,1fr)" } }}>
                     <Metric label="Adaptive rounds" value={adaptive.rounds || 0} helper={`${adaptive.completed || 0} completed`} />
