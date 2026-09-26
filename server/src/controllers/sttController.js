@@ -7,7 +7,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
 
 // gpt-4o-mini-transcribe is markedly more accurate than whisper-1 on technical vocabulary and
 // accented English. whisper-1 stays as an automatic fallback if the configured model is unavailable.
-const PRIMARY_MODEL = process.env.STT_MODEL_NAME || process.env.WHISPER_MODEL_NAME || "gpt-4o-mini-transcribe";
+const PRIMARY_MODEL = process.env.STT_MODEL_NAME || "gpt-4o-mini-transcribe";
 const FALLBACK_MODEL = "whisper-1";
 const MAX_PROMPT_CHARS = 800;
 
