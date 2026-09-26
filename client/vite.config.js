@@ -8,6 +8,7 @@ import {
     resourcePathFor,
     resourcePathsForSurface,
 } from "./src/utils/productResourcePages.js";
+import { applyStaticSeoHtml, escapeHtml, renderSeoHead } from "./src/utils/staticSeoHtml.js";
 import {
     SEARCH_LANDING_PAGES,
     searchLandingPaths,
@@ -82,14 +83,6 @@ const normalizePublicOrigin = (raw) => {
     }
     return url.origin;
 };
-
-const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "'": "&#39;",
-    '"': "&quot;",
-})[character]);
 
 const searchPageForRoute = (route) => SEARCH_LANDING_PAGES.find((page) => page.path === route) || null;
 const resourcePageForRoute = (route) => PRODUCT_RESOURCE_PAGES.find((page) => resourcePathFor(page) === route) || null;
@@ -330,27 +323,15 @@ const renderLlmsTxt = () => [
 
 const applyStaticRouteHtml = (baseHtml, route, origin, config, surfaceOrigins = {}, surface = "landing") => {
     const canonicalUrl = canonicalRouteUrl(route, surface, origin, surfaceOrigins);
-    const markup = renderStaticMarkup(route, config, surfaceOrigins);
-    const structuredData = JSON.stringify(structuredDataForStaticRoute(route, config, canonicalUrl)).replace(/</g, "\\u003c");
-
-    return baseHtml
-        .replace(/<title>.*?<\/title>/, `<title>${escapeHtml(config.title)}</title>`)
-        .replace(/(<meta name="description" content=")[^"]*(" \/>)/, `$1${escapeHtml(config.description)}$2`)
-        .replace(/(<meta property="og:title" content=")[^"]*(" \/>)/, `$1${escapeHtml(config.title)}$2`)
-        .replace(/(<meta property="og:description" content=")[^"]*(" \/>)/, `$1${escapeHtml(config.description)}$2`)
-        .replace(/(<meta name="twitter:title" content=")[^"]*(" \/>)/, `$1${escapeHtml(config.title)}$2`)
-        .replace(/(<meta name="twitter:description" content=")[^"]*(" \/>)/, `$1${escapeHtml(config.description)}$2`)
-        .replace(/<meta name="robots" content="[^"]*" \/>/, '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />')
-        .replace(/<meta property="og:type" content="[^"]*" \/>/, `<meta property="og:type" content="${config.schema === "TechArticle" ? "article" : "website"}" />`)
-        .replace(/<meta name="twitter:card" content="[^"]*" \/>/, '<meta name="twitter:card" content="summary_large_image" />')
-        .replace(
-            "</head>",
-            `    <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
-    <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
-    <script type="application/ld+json">${structuredData}</script>
-  </head>`,
-        )
-        .replace('<div id="root"></div>', `<div id="root">${markup}</div>`);
+    const head = renderSeoHead({
+        title: config.title,
+        description: config.description,
+        canonicalUrl,
+        ogType: config.schema === "TechArticle" ? "article" : "website",
+        siteName: BRAND_NAME,
+        structuredData: structuredDataForStaticRoute(route, config, canonicalUrl),
+    });
+    return applyStaticSeoHtml(baseHtml, { head, markup: renderStaticMarkup(route, config, surfaceOrigins) });
 };
 
 const writeStaticRoute = async (outDir, route, html) => {
