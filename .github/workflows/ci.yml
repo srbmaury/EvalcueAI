@@ -71,3 +71,26 @@ jobs:
         run: npm run test:e2e
       - name: Server dependency audit
         run: bash ../.github/scripts/npm-audit-retry.sh --omit=dev --audit-level=high
+
+  runner:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Runner unit tests
+        run: npm test
+      - name: Build and start the sandboxed runner
+        run: |
+          echo "RUNNER_TOKEN=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "RUNNER_URL=http://127.0.0.1:8080" >> "$GITHUB_ENV"
+      - run: docker compose up -d --build --wait runner
+      - name: Sandbox integration tests
+        run: npm test
+      - name: Runner logs
+        if: failure()
+        run: docker compose logs runner

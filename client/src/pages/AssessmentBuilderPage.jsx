@@ -490,7 +490,7 @@ export default function AssessmentBuilderPage() {
                                     const deliveryMode = event.target.value;
                                     setDebuggingValidation(index, null);
                                     if (deliveryMode === "debugging") {
-                                        replaceRound(index, createDebuggingRound(debuggingRuntimes[0]?.runtime));
+                                        replaceRound(index, createDebuggingRound((debuggingRuntimes.find((item) => item.executable) || debuggingRuntimes[0])?.runtime));
                                         return;
                                     }
                                     const rest = { ...round };

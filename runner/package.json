@@ -1,0 +1,14 @@
+{
+  "name": "evalcue-runner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sandboxed code execution service for EvalcueAI (nsjail).",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  }
+}

@@ -10,8 +10,9 @@ import {
     summarizeDebuggingDiff,
     validateDebuggingProject,
 } from "../services/debuggingProject.js";
-import { buildDebuggingArchive, runDebuggingProject } from "../services/debuggingProjectRunner.js";
-import { enabledDebuggingRuntimeIds, getDebuggingRuntimeProfile, supportedDebuggingRuntimes } from "../services/debuggingRuntimeProfiles.js";
+import { runDebuggingProject } from "../services/debuggingProjectRunner.js";
+import { availableRuntimeIds } from "../services/codeRunner.js";
+import { RUNTIME_IDS, RUNTIME_LABELS } from "../config/codeRuntimes.js";
 import { createAdaptiveAssessment, publicAttempt } from "./hiringAdaptiveAssessmentController.js";
 
 const tokenHash = (value) => crypto.createHash("sha256").update(value).digest("hex");
@@ -27,14 +28,21 @@ export const enforceDebuggingAssessmentFeature = (req, res, next) => {
     return res.status(503).json({ message: "Feature disabled" });
 };
 
-export const getDebuggingAssessmentCapabilities = (_req, res) => res.json({
-    debuggingAssessments: debuggingAssessmentsEnabled(),
-    debuggingRuntimes: debuggingAssessmentsEnabled() ? supportedDebuggingRuntimes() : [],
-});
+// Every runtime can be used for findings-only rounds; code-fix rounds need one the runner can execute.
+export const getDebuggingAssessmentCapabilities = async (_req, res, next) => {
+    try {
+        const enabled = debuggingAssessmentsEnabled();
+        const executable = enabled ? await availableRuntimeIds() : [];
+        return res.json({
+            debuggingAssessments: enabled,
+            debuggingRuntimes: enabled ? RUNTIME_IDS.map((runtime) => ({ runtime, label: RUNTIME_LABELS[runtime], executable: executable.includes(runtime) })) : [],
+        });
+    } catch (error) { return next(error); }
+};
 
 const normalizeDebuggingConfig = (debugging) => {
     if (!debugging) throw requestError("Debugging configuration is required");
-    getDebuggingRuntimeProfile(debugging.runtime);
+    if (!RUNTIME_IDS.includes(debugging.runtime)) throw requestError(`Unsupported debugging runtime: ${debugging.runtime || "unknown"}`);
     const { files } = validateDebuggingProject(debugging.files || []);
     const responseMode = debugging.responseMode;
     if (!["code_fix", "findings"].includes(responseMode)) throw requestError("Choose a supported debugging response mode");
@@ -153,16 +161,15 @@ const createRoundsIncludingDebugging = async ({ rounds, req, jobRole, jobDescrip
 
 const validateConfigForPublish = async (debugging) => {
     const config = normalizeDebuggingConfig(debugging);
-    if (!enabledDebuggingRuntimeIds().includes(config.runtime)) {
-        const available = supportedDebuggingRuntimes().map((item) => item.label).join(", ");
-        throw requestError(`The ${getDebuggingRuntimeProfile(config.runtime).label} runtime is not available on this deployment. Choose one of: ${available}.`, 422);
-    }
-    buildDebuggingArchive({ files: config.files, runtime: config.runtime, includeHiddenTests: config.responseMode === "code_fix" });
     if (config.responseMode === "findings") return { valid: true, message: "Findings assignment validated.", status: "validated" };
     if (process.env.ENABLE_CODE_EXEC !== "true") throw requestError("Code execution must be enabled to publish a code-fix debugging assignment", 503);
-    const result = await runDebuggingProject({ files: config.files, runtime: config.runtime, includeHiddenTests: true });
-    if (result.runtimeMessage) throw requestError(`Assignment validation failed: ${result.runtimeMessage} Choose another runtime, or point the app at a code runner with a newer toolchain and update DEBUGGING_RUNTIMES.`, 422);
-    if (["compile_error", "runtime_error", "timeout"].includes(result.status)) throw requestError(`Assignment validation failed: starter project returned ${result.status.replaceAll("_", " ")}`);
+    const executable = await availableRuntimeIds();
+    if (!executable.includes(config.runtime)) {
+        const available = executable.map((runtime) => RUNTIME_LABELS[runtime]).join(", ") || "none";
+        throw requestError(`${RUNTIME_LABELS[config.runtime]} is not available on the code runner right now. Available: ${available}.`, 422);
+    }
+    const result = await runDebuggingProject({ files: config.files, runtime: config.runtime });
+    if (["compile_error", "timeout"].includes(result.status)) throw requestError(`Assignment validation failed: starter project returned ${result.status.replaceAll("_", " ")}`);
     if (result.setupErrorCount > 0) throw requestError(`Assignment validation failed: ${result.setupErrorCount} hidden test${result.setupErrorCount === 1 ? "" : "s"} could not run because of a missing module, import, or syntax error. Check file paths and imports so tests fail only because of the intended bug.`);
     if (result.passed === result.total) throw requestError("The starter project already passes every test. Keep at least one reproducible bug for candidates to debug.");
     return { valid: true, message: "Assignment validated: the project executes and reproduces at least one failing test.", status: "validated", testTotal: result.total };
@@ -337,7 +344,7 @@ export const runCandidateDebuggingProjectTests = async (req, res, next) => {
         const { attempt, config, response } = context;
         if (config.responseMode !== "code_fix") return res.status(409).json({ message: "This assignment collects findings and does not execute candidate code" });
         if (response.submittedAt) return res.status(409).json({ message: "This debugging round has already been submitted" });
-        const summary = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime, includeHiddenTests: true });
+        const summary = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime });
         const ranAt = new Date();
         const record = (target) => {
             target.testRuns.push({ ...summary, ranAt });
@@ -379,10 +386,10 @@ export const submitCandidateDebuggingRound = async (req, res, next) => {
         }
 
         // Atomically claim the submission before doing any expensive/external work
-        // (Judge0 execution): two concurrent submit requests for the same round must
+        // (sandboxed code runner): two concurrent submit requests for the same round must
         // not both execute and both persist a result — the loser gets a clean 409
         // instead of racing attempt.save() into an unhandled VersionError after
-        // Judge0 already ran twice.
+        // the runner already ran twice.
         const claimedAt = new Date();
         const claim = await CandidateAttempt.updateOne(
             { _id: attempt._id, debuggingResponses: { $elemMatch: { roundIndex, submittedAt: { $exists: false } } } },
@@ -394,7 +401,7 @@ export const submitCandidateDebuggingRound = async (req, res, next) => {
 
         let summary;
         if (config.responseMode === "code_fix") {
-            const execution = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime, includeHiddenTests: true });
+            const execution = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime });
             summary = { ...execution, diff: summarizeDebuggingDiff(config.files, response) };
             response.finalEvaluation = summary;
             attemptRound.questions[0].answer = `Debugging solution submitted. Tests: ${execution.passed}/${execution.total}. Files changed: ${summary.diff.changed + summary.diff.created + summary.diff.deleted}.`;

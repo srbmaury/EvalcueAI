@@ -15,11 +15,12 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
         ...(round?.debugging || {}),
         files: Array.isArray(round?.debugging?.files) && round.debugging.files.length ? round.debugging.files : fallback.debugging.files,
     };
-    const availableRuntimes = runtimes.length ? runtimes.map((item) => ({ value: item.runtime, label: item.label })) : DEBUGGING_RUNTIMES;
-    // Keep a previously saved runtime selectable even if this deployment no longer offers it.
-    const runtimeOptions = availableRuntimes.some((item) => item.value === debugging.runtime)
-        ? availableRuntimes
-        : [...availableRuntimes, { value: debugging.runtime, label: `${DEBUGGING_RUNTIMES.find((item) => item.value === debugging.runtime)?.label || debugging.runtime} (unavailable here)` }];
+    // Findings rounds never execute code, so any runtime works; code-fix rounds need one the code runner can run.
+    const runtimeOptions = (runtimes.length ? runtimes : DEBUGGING_RUNTIMES.map((item) => ({ runtime: item.value, label: item.label, executable: false })))
+        .map((item) => {
+            const unavailable = debugging.responseMode === "code_fix" && !item.executable;
+            return { value: item.runtime, label: unavailable ? `${item.label} (code runner unavailable)` : item.label, disabled: unavailable && item.runtime !== debugging.runtime };
+        });
     const instruction = round?.questions?.[0]?.text || "";
     const [validating, setValidating] = useState(false);
     const [validationError, setValidationError] = useState("");
@@ -93,7 +94,7 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
                 <MenuItem value="findings">Submit findings</MenuItem>
             </TextField>
             <TextField select fullWidth label="Runtime" value={debugging.runtime} onChange={(event) => updateDebugging({ runtime: event.target.value })}>
-                {runtimeOptions.map((runtime) => <MenuItem key={runtime.value} value={runtime.value}>{runtime.label}</MenuItem>)}
+                {runtimeOptions.map((runtime) => <MenuItem key={runtime.value} value={runtime.value} disabled={runtime.disabled}>{runtime.label}</MenuItem>)}
             </TextField>
             <TextField fullWidth label="Entry file (optional)" value={debugging.entryFile || ""} onChange={(event) => updateDebugging({ entryFile: event.target.value })} placeholder="src/index.js" />
         </Stack>

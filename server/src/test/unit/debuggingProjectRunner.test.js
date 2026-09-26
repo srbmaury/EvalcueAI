@@ -1,86 +1,46 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { executeJudge0Submission } = vi.hoisted(() => ({ executeJudge0Submission: vi.fn() }));
-vi.mock("../../utils/runCode.js", () => ({ executeJudge0Submission }));
+const { runProject } = vi.hoisted(() => ({ runProject: vi.fn() }));
+vi.mock("../../services/codeRunner.js", () => ({ runProject }));
 
-import { buildDebuggingArchive, runDebuggingProject } from "../../services/debuggingProjectRunner.js";
-import { getDebuggingRuntimeProfile } from "../../services/debuggingRuntimeProfiles.js";
-
-const listZipEntries = (buffer) => {
-    const names = [];
-    for (let offset = 0; offset + 46 <= buffer.length;) {
-        if (buffer.readUInt32LE(offset) !== 0x02014b50) { offset += 1; continue; }
-        const nameLength = buffer.readUInt16LE(offset + 28);
-        const extraLength = buffer.readUInt16LE(offset + 30);
-        const commentLength = buffer.readUInt16LE(offset + 32);
-        names.push(buffer.subarray(offset + 46, offset + 46 + nameLength).toString("utf8"));
-        offset += 46 + nameLength + extraLength + commentLength;
-    }
-    return names;
-};
+import { runDebuggingProject } from "../../services/debuggingProjectRunner.js";
 
 const files = [
-    { path: "src/app.js", content: "export const add = (a, b) => a + b;", kind: "source" },
-    { path: "tests/basic.test.js", content: "// recruiter assertion", kind: "hidden_test", displayName: "adds two values" },
-    { path: "tests/duplicate.test.js", content: "// recruiter assertion", kind: "hidden_test", displayName: "prevents duplicate charge" },
+    { path: "src/sum.js", kind: "source", content: "export const sum = (a, b) => a - b;" },
+    { path: "test/sum.test.js", kind: "hidden_test", displayName: "adds numbers", content: "secret assertions" },
+    { path: "test/zero.test.js", kind: "hidden_test", displayName: "", content: "more secrets" },
 ];
 
 describe("debugging project runner", () => {
-    beforeEach(() => {
-        executeJudge0Submission.mockReset();
-        executeJudge0Submission.mockResolvedValue({
-            stdout: "__EVALCUE_TEST__1|adds two values\n__EVALCUE_TEST__1|prevents duplicate charge\n__EVALCUE_COUNTS__2,2\n",
-            stderr: "", compileOutput: "", status: { id: 3, description: "Accepted" }, isError: false, errorType: "none",
+    beforeEach(() => runProject.mockReset());
+
+    it("sends the project and names each hidden test", async () => {
+        runProject.mockResolvedValue({ status: "completed", tests: [{ passed: true, status: "passed" }, { passed: true, status: "passed" }] });
+        await runDebuggingProject({ files, runtime: "node-22" });
+        expect(runProject).toHaveBeenCalledWith({
+            runtime: "node-22",
+            files: files.map(({ path, content }) => ({ path, content })),
+            tests: [{ path: "test/sum.test.js", name: "adds numbers" }, { path: "test/zero.test.js", name: "Test 2" }],
         });
     });
 
-    it("provides only trusted runtime profiles", () => {
-        expect(getDebuggingRuntimeProfile("node-22")).toMatchObject({ runtime: "node-22" });
-        expect(() => getDebuggingRuntimeProfile("custom-shell")).toThrow(/runtime/i);
+    it("returns names and pass/fail only, never hidden test output", async () => {
+        runProject.mockResolvedValue({ status: "completed", tests: [{ passed: false, status: "failed", output: "expected 5, got -1 (secret assertions)" }, { passed: true, status: "passed", output: "" }] });
+        const result = await runDebuggingProject({ files, runtime: "node-22" });
+        expect(result).toEqual({ status: "failed", passed: 1, total: 2, tests: [{ name: "adds numbers", passed: false }, { name: "Test 2", passed: true }], setupErrorCount: 0 });
+        expect(JSON.stringify(result)).not.toMatch(/secret|expected 5/);
     });
 
-    it("keeps recruiter test files out when test execution is disabled", () => {
-        const archive = buildDebuggingArchive({ files, runtime: "node-22", includeHiddenTests: false });
-        const entries = listZipEntries(archive);
-        expect(entries).toContain("compile");
-        expect(entries).toContain("run");
-        expect(entries).toContain("src/app.js");
-        expect(entries).not.toContain("tests/basic.test.js");
-        expect(entries).not.toContain("tests/duplicate.test.js");
+    it("counts tests that failed because the project could not load", async () => {
+        runProject.mockResolvedValue({ status: "completed", tests: [{ passed: false, status: "failed", output: "Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/work/src/summ.js'" }, { passed: false, status: "failed", output: "AssertionError" }] });
+        const result = await runDebuggingProject({ files, runtime: "node-22" });
+        expect(result.setupErrorCount).toBe(1);
     });
 
-    it("includes recruiter tests for candidate test runs", () => {
-        const archive = buildDebuggingArchive({ files, runtime: "node-22", includeHiddenTests: true });
-        const entries = listZipEntries(archive);
-        expect(entries).toContain("tests/basic.test.js");
-        expect(entries).toContain("tests/duplicate.test.js");
-    });
-
-    it("submits Judge0 multi-file language 89", async () => {
-        await runDebuggingProject({ files, runtime: "node-22", includeHiddenTests: true });
-        expect(executeJudge0Submission).toHaveBeenCalledWith(expect.objectContaining({ language_id: 89, additional_files: expect.any(String) }), expect.any(Object));
-    });
-
-    it("returns only safe test names and pass fail status", async () => {
-        executeJudge0Submission.mockResolvedValueOnce({
-            stdout: "__EVALCUE_TEST__1|adds two values\n__EVALCUE_TEST__0|prevents duplicate charge\n__EVALCUE_COUNTS__1,2\n",
-            stderr: "tests/duplicate.test.js internal diagnostic", compileOutput: "", status: { id: 4, description: "Wrong Answer" }, isError: false, errorType: "none",
-        });
-        const result = await runDebuggingProject({ files, runtime: "node-22", includeHiddenTests: true });
-        expect(result).toEqual({
-            status: "failed", passed: 1, total: 2,
-            tests: [{ name: "adds two values", passed: true }, { name: "prevents duplicate charge", passed: false }],
-            setupErrorCount: 0,
-        });
-        expect(JSON.stringify(result)).not.toMatch(/duplicate\.test\.js|internal diagnostic/i);
-    });
-
-    it("counts hidden tests that failed because the project could not load", async () => {
-        executeJudge0Submission.mockResolvedValueOnce({
-            stdout: "__EVALCUE_SETUP_ERROR__\n__EVALCUE_TEST__0|adds two values\n__EVALCUE_TEST__0|prevents duplicate charge\n__EVALCUE_COUNTS__0,2\n",
-            stderr: "", compileOutput: "", status: { id: 4, description: "Wrong Answer" }, isError: false, errorType: "none",
-        });
-        const result = await runDebuggingProject({ files, runtime: "node-22", includeHiddenTests: true });
-        expect(result).toMatchObject({ status: "failed", passed: 0, total: 2, setupErrorCount: 1 });
+    it("maps compile errors and timeouts", async () => {
+        runProject.mockResolvedValueOnce({ status: "compile_error", compileOutput: "error", tests: [] });
+        expect(await runDebuggingProject({ files, runtime: "java-21" })).toMatchObject({ status: "compile_error", passed: 0, total: 2 });
+        runProject.mockResolvedValueOnce({ status: "completed", tests: [{ passed: false, status: "timeout" }, { passed: true, status: "passed" }] });
+        expect((await runDebuggingProject({ files, runtime: "node-22" })).status).toBe("timeout");
     });
 });

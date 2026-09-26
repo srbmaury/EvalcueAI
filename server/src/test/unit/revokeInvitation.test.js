@@ -17,7 +17,7 @@ vi.mock("../../services/organizationUsage.js", () => ({ reserveCandidateIntervie
 vi.mock("../../utils/generateQuestions.js", () => ({ generateQuestionsForRound: vi.fn(), improveAssessmentQuestion: vi.fn() }));
 vi.mock("../../utils/generateQuestions/followUp.js", () => ({ generateFollowUp: vi.fn() }));
 vi.mock("../../metrics/index.js", () => ({ default: new Proxy({}, { get: () => ({ labels: () => ({ inc: vi.fn() }) }) }) }));
-vi.mock("../../utils/runCode.js", () => ({ default: vi.fn() }));
+vi.mock("../../controllers/runCodeController.js", () => ({ default: vi.fn() }));
 vi.mock("./sttController.js", () => ({ transcribe: vi.fn() }));
 
 import { revokeInvitation } from "../../controllers/assessmentController.js";

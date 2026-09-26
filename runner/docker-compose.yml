@@ -1,0 +1,35 @@
+# Local:      RUNNER_TOKEN=$(openssl rand -hex 32) docker compose up -d runner      -> http://127.0.0.1:8080
+# Production: put RUNNER_TOKEN and RUNNER_DOMAIN in .env, then docker compose --profile tls up -d --build
+services:
+  runner:
+    build: .
+    image: evalcue-runner
+    restart: unless-stopped
+    # nsjail needs to create namespaces and manage its own cgroup subtree. The container is privileged but
+    # candidate code never is: it runs as nobody inside nsjail with no network. Keep this host dedicated.
+    privileged: true
+    cgroup: private
+    environment:
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?set RUNNER_TOKEN}
+      RUNNER_CONCURRENCY: ${RUNNER_CONCURRENCY:-3}
+    ports:
+      - "127.0.0.1:8080:8080"
+    tmpfs:
+      - /var/runner/work:size=1g,mode=0755,exec
+
+  caddy:
+    image: caddy:2
+    profiles: ["tls"]
+    restart: unless-stopped
+    depends_on: [runner]
+    environment:
+      RUNNER_DOMAIN: ${RUNNER_DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./sandbox/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  caddy-data:

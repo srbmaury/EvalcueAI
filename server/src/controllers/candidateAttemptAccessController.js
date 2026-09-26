@@ -4,7 +4,7 @@ import CandidateAttempt from "../models/CandidateAttempt.js";
 import Organization from "../models/Organization.js";
 import { finalizeCandidateInterview } from "../services/organizationUsage.js";
 import metrics from "../metrics/index.js";
-import runCode from "../utils/runCode.js";
+import runCode from "./runCodeController.js";
 import { transcribe } from "./sttController.js";
 import { getQueue } from "../queues/index.js";
 import { createJobId } from "../queues/jobIds.js";
