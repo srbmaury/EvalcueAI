@@ -24,6 +24,7 @@ import ReminderDelivery from "../models/ReminderDelivery.js";
 import ProductEvent from "../models/ProductEvent.js";
 import Assessment from "../models/Assessment.js";
 import CandidateAttempt from "../models/CandidateAttempt.js";
+import CandidateSelfIdentification from "../models/CandidateSelfIdentification.js";
 import Organization from "../models/Organization.js";
 import OrganizationMembership from "../models/OrganizationMembership.js";
 import cloudinary from "../config/cloudinaryConfig.js";
@@ -379,6 +380,7 @@ export const deleteAccount = async (req, res, next) => {
                 await ReminderDelivery.deleteMany({ user: user._id }, { session });
                 await ProductEvent.deleteMany({ user: user._id }, { session });
                 await CandidateAttempt.deleteMany({ assessment: { $in: assessmentIds } }, { session });
+                await CandidateSelfIdentification.deleteMany({ organization: { $in: ownedOrganizationIds } }, { session });
                 await Assessment.deleteMany({ organization: { $in: ownedOrganizationIds } }, { session });
                 await OrganizationUsageCounter.deleteMany({ organization: { $in: ownedOrganizationIds } }, { session });
                 await SsoDomainClaim.deleteMany({ organization: { $in: ownedOrganizationIds } }, { session });

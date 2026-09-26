@@ -39,6 +39,7 @@ Canonical public route in the shared client: `/practice`
 - Invite-only candidate links, invitation lifecycle tracking, and local answer recovery
 - Weighted competency scorecards, AI evaluation, human overrides, and calibration views
 - Optional consented integrity signals such as fullscreen/focus/clipboard/connectivity events and on-device face-presence checks
+- Fairness report: scoring and selection rates, impact ratios and four-fifths flags by sex, race/ethnicity and intersectional group, built from voluntary post-submission self-identification (groups under 5 suppressed; an input to, not a substitute for, an independent bias audit)
 - OIDC SSO support for eligible hiring organizations
 
 Production host: `hiring.evalcueai.com`
@@ -87,7 +88,7 @@ observability/           dashboards, PromQL, and alert guidance
 
 ### Prerequisites
 
-For local development: Node.js 20+, MongoDB, and credentials for whichever integrations you want to exercise. AI features require OpenAI or Gemini. Resume storage requires Cloudinary.
+For local development: Node.js 22 (see `.nvmrc`; `nvm use`), MongoDB, and credentials for whichever integrations you want to exercise. AI features require OpenAI or Gemini. Resume storage requires Cloudinary.
 
 Production additionally requires Redis, HTTPS, Brevo transactional email, CAPTCHA, Stripe, MongoDB transactions, and any dependencies for enabled STT/code-execution features.
 
@@ -222,6 +223,7 @@ Authenticated Hire:
 - `/hire/team`
 - `/hire/pilot`
 - `/hire/sso`
+- `/hire/fairness`
 - `/hire/billing/success`
 
 Older routes such as `/assessments`, `/create-interview`, `/dashboard`, `/interview-practice`, and `/technical-hiring` are compatibility redirects and should not be used as canonical links.
@@ -306,6 +308,8 @@ See [RUNBOOK.md](RUNBOOK.md) for production operations and recovery.
 - Organization-scoped hiring authorization
 - Explicit consent for optional integrity signals
 - Human review requirements for AI-assisted hiring evidence
+- Candidate self-identification is voluntary, collected only after submission, stored separately from attempts, never shown to reviewers or used in scoring, and reported only in aggregate to owners/admins
+- AI evaluations that fail are retried and otherwise recorded as unscored or retried as jobs, never replaced with a default score
 
 See [SECURITY.md](SECURITY.md) for reporting and policy notes.
 
