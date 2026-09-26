@@ -73,19 +73,24 @@ Rules:
 - Do not reward verbosity by itself.${audience === "candidate" ? `
 - The person who answered will read this feedback. Write comment, strengths, gaps, suggestions, and evidence in second person ("You explained…", "Add…"); never refer to "the candidate".` : ""}`;
 
-    const text = await generateJSON(prompt);
-    if (!text) throw new Error("AI providers returned no evaluation");
-    let obj = {};
-    try {
-        obj = JSON.parse(text);
-    } catch (parseErr) {
-        console.error("[Feedback:JSONParse] invalid provider response", parseErr?.message);
+    // An unparseable or scoreless response is retried once and then treated as a failure, so callers
+    // retry the job instead of storing a fabricated 0 that would drag down a candidate's result.
+    let obj = null;
+    for (let attempt = 0; attempt < 2 && !obj; attempt += 1) {
+        const text = await generateJSON(prompt);
+        if (!text) continue;
+        try {
+            const parsed = JSON.parse(text);
+            if (Number.isFinite(Number(parsed?.score))) obj = parsed;
+        } catch (parseErr) {
+            console.error("[Feedback:JSONParse] invalid provider response", parseErr?.message);
+        }
     }
+    if (!obj) throw new Error("AI providers returned no evaluation");
 
     let comment = clean(obj?.comment, 2000);
     if (!comment) comment = "Feedback unavailable.";
-    const rawScore = Number(obj?.score);
-    const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(10, Math.round(rawScore * 10) / 10)) : 0;
+    const score = Math.max(0, Math.min(10, Math.round(Number(obj.score) * 10) / 10));
     const confidence = Math.max(0, Math.min(1, Number(obj?.confidence) || 0));
     return {
         comment,

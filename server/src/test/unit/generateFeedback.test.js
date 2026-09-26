@@ -40,6 +40,20 @@ describe("generateFeedbackForAnswer", () => {
             .rejects.toThrow("AI providers returned no evaluation");
     });
 
+    it("retries once when the response is not valid JSON", async () => {
+        generateJSON.mockResolvedValueOnce("not json").mockResolvedValueOnce(JSON.stringify({ comment: "ok", score: 6 }));
+        const result = await generateFeedbackForAnswer({ questionText: "Q", userAnswer: "A" });
+        expect(result.score).toBe(6);
+        expect(generateJSON).toHaveBeenCalledTimes(2);
+    });
+
+    it("fails instead of storing a zero when no response carries a score", async () => {
+        generateJSON.mockResolvedValue(JSON.stringify({ comment: "Looks fine" }));
+        await expect(generateFeedbackForAnswer({ questionText: "Q", userAnswer: "A" }))
+            .rejects.toThrow("AI providers returned no evaluation");
+        expect(generateJSON).toHaveBeenCalledTimes(2);
+    });
+
     it("propagates provider failures so the evaluation job can retry", async () => {
         generateJSON.mockRejectedValue(new Error("timeout"));
         await expect(generateFeedbackForAnswer({ questionText: "Q", userAnswer: "A" }))

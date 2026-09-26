@@ -17,7 +17,7 @@ describe("analytics", () => {
         vi.stubEnv("VITE_GA_MEASUREMENT_ID", "");
         const { trackEvent } = await import("../utils/analytics.js");
         trackEvent("dashboard_viewed", "/practice/dashboard");
-        expect(post).toHaveBeenCalledWith("/events", { event: "dashboard_viewed", path: "/practice/dashboard" });
+        expect(post).toHaveBeenCalledWith("/events", { event: "dashboard_viewed", path: "/practice/dashboard" }, { skipAuthRedirect: true });
     });
 
     it("initGoogleAnalytics does nothing without a measurement id", async () => {

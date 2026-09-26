@@ -142,6 +142,7 @@ export default function ProductHeader({ surface = "practice" }) {
         if (permissions.canViewOverview) items.push({ label: "Overview", path: "/hire/assessments" });
         if (permissions.canViewCandidatePipeline) items.push({ label: "Candidates", path: "/hire/assessments", hash: "#candidate-pipeline" });
         if (permissions.canViewAssessments) items.push({ label: "Assessments", path: "/hire/assessments", hash: "#assessment-list", matchPrefix: "/hire/assessments/" });
+        if (permissions.canManageOrganization) items.push({ label: "Fairness", path: "/hire/fairness" });
         if (permissions.canManageOrganization) items.push({ label: "Team & billing", path: "/hire/team" });
         return items;
     }, [hasHiringOrganization, permissions.canManageOrganization, permissions.canViewAssessments, permissions.canViewCandidatePipeline, permissions.canViewOverview, surface, user]);

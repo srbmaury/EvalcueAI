@@ -96,6 +96,7 @@ const competencyEvidenceSchema = new mongoose.Schema({
 
 const quickEvaluationSchema = new mongoose.Schema({
     overallScore: { type: Number, min: 0, max: 10 },
+    unscored: { type: Boolean, default: false },
     confidence: { type: Number, min: 0, max: 1, default: 0 },
     dimensions: { type: [evaluationDimensionSchema], default: [] },
     competencyEvidence: { type: [competencyEvidenceSchema], default: [] },

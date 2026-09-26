@@ -29,6 +29,7 @@ export const trackPageView = (path = window.location.pathname) => {
 };
 
 export const trackEvent = (event, path = window.location.pathname) => {
-    Promise.resolve(api.post("/events", { event, path })).catch(() => {});
+    // Best-effort: a signed-out visitor gets 401 here, which must not trigger the login redirect.
+    Promise.resolve(api.post("/events", { event, path }, { skipAuthRedirect: true })).catch(() => {});
     if (typeof window.gtag === "function") window.gtag("event", event, { page_path: path });
 };

@@ -54,6 +54,7 @@ const CandidateAssessmentPage = lazy(() => import("./pages/CandidateAssessmentPa
 const AssessmentPreviewPage = lazy(() => import("./pages/AssessmentPreviewPage.jsx"));
 const HiringTeamPage = lazy(() => import("./pages/HiringTeamPage.jsx"));
 const HiringPilotPage = lazy(() => import("./pages/HiringPilotPage.jsx"));
+const FairnessReportPage = lazy(() => import("./pages/FairnessReportPage.jsx"));
 const SsoCallbackPage = lazy(() => import("./pages/SsoCallbackPage.jsx"));
 const SsoSettingsPage = lazy(() => import("./pages/SsoSettingsPage.jsx"));
 const PublicDocsPage = lazy(() => import("./pages/PublicDocsPage.jsx"));
@@ -162,6 +163,7 @@ function App() {
                 <Route path="/hire/assessments/:assessmentId/preview" element={<HiringRoute><AssessmentPreviewPage /></HiringRoute>} />
                 <Route path="/hire/team" element={<HiringRoute><HiringTeamPage /></HiringRoute>} />
                 <Route path="/hire/pilot" element={<HiringRoute><HiringPilotPage /></HiringRoute>} />
+                <Route path="/hire/fairness" element={<HiringRoute><FairnessReportPage /></HiringRoute>} />
                 <Route path="/hire/billing/success" element={<ProtectedRoute><BillingSuccessPage /></ProtectedRoute>} />
                 <Route path="/hire/sso" element={<HiringRoute><SsoSettingsPage /></HiringRoute>} />
                 <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />

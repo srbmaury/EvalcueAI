@@ -11,6 +11,7 @@ import Captcha from "../components/Captcha";
 import CodeEditorField from "../components/CodeEditorField";
 import ConversationalPanel from "../components/ConversationalPanel";
 import CandidateIntroCard from "../components/CandidateIntroCard";
+import SelfIdentificationCard from "../components/SelfIdentificationCard";
 import SystemDesignDiscussionPanel from "../components/SystemDesignDiscussionPanel";
 import VoiceControls from "../components/VoiceControls";
 import WebcamPreview from "../components/WebcamPreview";
@@ -539,7 +540,14 @@ export default function CandidateAssessmentPage() {
 
     if (loading) return <Stack minHeight="70vh" justifyContent="center" alignItems="center"><CircularProgress /></Stack>;
     if (!assessment) return <Container maxWidth="sm" sx={{ py: 8 }}><Alert severity="error">{error}</Alert></Container>;
-    if (submitted) return <Container maxWidth="sm" sx={{ py: 8 }}><Paper variant="outlined" sx={{ p: 5, textAlign: "center" }}><Typography component="h1" variant="h4" fontWeight={850}>Assessment submitted</Typography><Typography color="text.secondary" mt={2}>Your responses were sent to the recruiting team. You can safely close this page.</Typography></Paper></Container>;
+    if (submitted) return (
+        <Container maxWidth="sm" sx={{ py: 8 }}>
+            <Stack spacing={3}>
+                <Paper variant="outlined" sx={{ p: 5, textAlign: "center" }}><Typography component="h1" variant="h4" fontWeight={850}>Assessment submitted</Typography><Typography color="text.secondary" mt={2}>Your responses were sent to the recruiting team. You can safely close this page.</Typography></Paper>
+                {attemptToken && <SelfIdentificationCard endpoint={`${candidateToolBase}/self-identification`} headers={candidateToolHeaders} />}
+            </Stack>
+        </Container>
+    );
 
     const plannedUnits = assessment.rounds.reduce((sum, round) => sum + (["system-design", "debugging"].includes(round.deliveryMode) ? 1 : round.questionCount), 0);
 
