@@ -8,6 +8,7 @@ import captcha from "../middleware/captcha.js";
 import { uploadAudioMulter } from "../middleware/multerMemory.js";
 import { requireCandidateRoundSequence } from "../middleware/candidateRoundSequence.js";
 import { ObjectIdString } from "../validation/commonSchemas.js";
+import { RUNTIME_IDS, SNIPPET_RUNTIMES } from "../config/codeRuntimes.js";
 import audit from "../middleware/audit.js";
 import { organizationContext, requireOrganizationRole } from "../middleware/organizationContext.js";
 import {
@@ -52,7 +53,7 @@ const debuggingProjectFileInput = z.object({
 });
 const debuggingInput = z.object({
     responseMode: z.enum(["code_fix", "findings"]),
-    runtime: z.enum(["java-21", "node-22", "python-3", "cpp-20"]),
+    runtime: z.enum(RUNTIME_IDS),
     entryFile: z.string().trim().max(500).optional().default(""),
     files: z.array(debuggingProjectFileInput).min(1).max(100),
 }).superRefine((value, ctx) => {
@@ -117,7 +118,7 @@ router.post("/public/:shareToken/attempts/:attemptId/system-design/checkpoint", 
 router.put("/public/:shareToken/attempts/:attemptId/system-design/complete", quotas({ key: (req) => `assessment-system-design-complete:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_system_design_complete", windowSeconds: 3600, maxPerWindow: 20 }), validate(attemptParams, "params"), validate(systemDesignCandidateBody.extend({ transcript: z.string().trim().min(1).max(20000) })), requireCandidateRoundSequence, saveCandidateSystemDesign);
 router.post("/public/:shareToken/attempts/:attemptId/submit", quotas({ key: (req) => `assessment-submit:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_submit", windowSeconds: 3600, maxPerWindow: 5 }), validate(attemptParams, "params"), submitCandidateAttempt);
 router.post("/public/:shareToken/attempts/:attemptId/integrity-events", quotas({ key: (req) => `assessment-integrity:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_integrity", windowSeconds: 3600, maxPerWindow: 500 }), validate(attemptParams, "params"), validate(z.object({ type: z.enum(["tab_hidden", "window_blur", "fullscreen_exit", "copy", "paste", "offline", "online", "face_missing", "face_restored", "multiple_faces", "camera_interrupted", "face_detection_unavailable"]), metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().default({}) })), recordIntegrityEvent);
-router.post("/public/:shareToken/attempts/:attemptId/run-code", requireFeature("ENABLE_CODE_EXEC"), validate(attemptParams, "params"), protectCandidateTool, quotas({ key: (req) => `assessment-code:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_run_code", windowSeconds: 3600, maxPerWindow: 120 }), validate(z.object({ language: z.enum(["javascript", "python", "cpp", "java"]), code: z.string().min(1).max(20000), stdin: z.string().max(20000).optional() })), runCandidateCode);
+router.post("/public/:shareToken/attempts/:attemptId/run-code", requireFeature("ENABLE_CODE_EXEC"), validate(attemptParams, "params"), protectCandidateTool, quotas({ key: (req) => `assessment-code:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_run_code", windowSeconds: 3600, maxPerWindow: 120 }), validate(z.object({ language: z.enum(Object.keys(SNIPPET_RUNTIMES)), code: z.string().min(1).max(20000), stdin: z.string().max(20000).optional() })), runCandidateCode);
 router.post("/public/:shareToken/attempts/:attemptId/transcribe", requireFeature("ENABLE_STT"), validate(attemptParams, "params"), protectCandidateTool, quotas({ key: (req) => `assessment-stt:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_stt", windowSeconds: 3600, maxPerWindow: 120 }), uploadAudioMulter.single("audio"), transcribeCandidateAudio);
 router.put("/public/:shareToken/attempts/:attemptId/self-identification", quotas({ key: (req) => `assessment-self-id:${req.params.attemptId}:${req.ip}`, metricKey: "assessment_self_id", windowSeconds: 3600, maxPerWindow: 10 }), validate(attemptParams, "params"), validate(z.object({ sex: z.enum(["", ...SEX_CATEGORIES]).optional().default(""), raceEthnicity: z.enum(["", ...RACE_ETHNICITY_CATEGORIES]).optional().default("") }).strict()), saveCandidateSelfIdentification);
 

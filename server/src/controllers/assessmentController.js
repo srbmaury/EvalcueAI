@@ -6,7 +6,7 @@ import { reserveCandidateInterview, releaseOrganizationUsage, releaseAttemptRese
 import { generateQuestionsForRound, improveAssessmentQuestion } from "../utils/generateQuestions.js";
 import { generateFollowUp } from "../utils/generateQuestions/followUp.js";
 import metrics from "../metrics/index.js";
-import runCode from "../utils/runCode.js";
+import runCode from "./runCodeController.js";
 import { transcribe } from "./sttController.js";
 import { getQueue } from "../queues/index.js";
 import { createJobId } from "../queues/jobIds.js";

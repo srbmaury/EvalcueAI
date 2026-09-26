@@ -2,7 +2,7 @@
 
 ## Deployment topology
 
-Run the React build behind a CDN and the API as a Node 20+ service. Production requires a transaction-capable MongoDB replica set or sharded cluster, Redis, HTTPS, Brevo transactional email, Cloudinary for resume storage, CAPTCHA, Stripe, and at least one AI provider. Judge0 and server STT are required only when their feature flags are enabled.
+Run the React build behind a CDN and the API as a Node 22 service. Production requires a transaction-capable MongoDB replica set or sharded cluster, Redis, HTTPS, Brevo transactional email, Cloudinary for resume storage, CAPTCHA, Stripe, and at least one AI provider. The code runner (`runner/`) and server STT are required only when their feature flags are enabled; see [runner/README.md](runner/README.md) for the runner.
 
 The API process currently starts BullMQ workers and scheduled reminder/assessment tasks. Run one worker-enabled API replica until workers and schedulers are split into dedicated process types.
 

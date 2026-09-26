@@ -14,8 +14,11 @@ vi.mock("../../services/debuggingProjectRunner.js", async (importOriginal) => {
 // single shared organization starts several candidates across its test cases, more than
 // the default trial cap of 5.
 process.env.HIRING_TRIAL_CANDIDATE_INTERVIEWS = "50";
-// Keep the suite independent of a developer's local runtime allowlist in .env (empty = all runtimes).
-process.env.DEBUGGING_RUNTIMES = "";
+// The code runner is an external service; report every runtime as executable.
+vi.mock("../../services/codeRunner.js", async (importOriginal) => {
+    const actual = await importOriginal();
+    return { ...actual, availableRuntimeIds: async () => ["node-22", "python-3", "java-21", "cpp-20"] };
+});
 
 const { default: app } = await import("../../app.js");
 const { default: connectDB } = await import("../../config/db.js");
@@ -117,7 +120,7 @@ describe("debugging assessment API", () => {
         runDebuggingProject.mockResolvedValueOnce({ status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] });
         const run = await write(agent.post(`${base}/run-tests`)).set("x-attempt-token", started.body.attemptToken).send({}).expect(200);
         expect(run.body).toEqual({ status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] });
-        expect(runDebuggingProject).toHaveBeenLastCalledWith(expect.objectContaining({ includeHiddenTests: true, files: expect.arrayContaining([expect.objectContaining({ path: "tests/boundary.test.js", content: "INTERNAL_ASSERTION" })]) }));
+        expect(runDebuggingProject).toHaveBeenLastCalledWith(expect.objectContaining({ files: expect.arrayContaining([expect.objectContaining({ path: "tests/boundary.test.js", content: "INTERNAL_ASSERTION" })]) }));
         expect(JSON.stringify(run.body)).not.toMatch(/boundary\.test\.js|INTERNAL_ASSERTION/i);
     });
 
@@ -178,14 +181,14 @@ describe("debugging assessment API", () => {
         await write(agent.put(`${base}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ changedFiles: [{ path: "src/index.js", content: "fixed" }] }).expect(200);
         runDebuggingProject.mockResolvedValueOnce({ status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] });
         const submitted = await write(agent.post(`${base}/submit`)).set("x-attempt-token", started.body.attemptToken).send({}).expect(200);
-        expect(runDebuggingProject).toHaveBeenLastCalledWith(expect.objectContaining({ includeHiddenTests: true }));
+        expect(runDebuggingProject).toHaveBeenLastCalledWith(expect.objectContaining({ runtime: "node-22" }));
         expect(submitted.body.summary).toMatchObject({ passed: 1, total: 1, diff: { changed: 1, created: 0, deleted: 0 } });
         expect(submitted.body.summary.tests).toEqual([{ name: "handles boundary values", passed: true }]);
         expect(JSON.stringify(submitted.body)).not.toMatch(/boundary\.test\.js|INTERNAL_ASSERTION/i);
         expect(submitted.body.attempt.rounds[0].questions[0].answer).toMatch(/Tests: 1\/1/);
     });
 
-    it("lets only one of two concurrent submits execute Judge0, rejecting the other with 409", async () => {
+    it("lets only one of two concurrent submits run the hidden tests, rejecting the other with 409", async () => {
         process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
         const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound(), { title: "Concurrent submit" })).expect(201);
         const callsAfterCreate = runDebuggingProject.mock.calls.length; // publish validation dry-runs once
@@ -213,7 +216,7 @@ describe("debugging assessment API", () => {
             .expect(201);
         const started = await startCandidate(created.body.shareToken, "leak-check@example.com");
 
-        // Rounds must be completed in order — finish round 0 (findings mode, no Judge0)
+        // Rounds must be completed in order — finish round 0 (findings mode, no code execution)
         // before round 1 is reachable.
         const round0 = `/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/debugging/0`;
         await write(agent.put(`${round0}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ findings: [{
@@ -250,7 +253,7 @@ describe("debugging assessment API", () => {
         expect(JSON.stringify(submitted.body)).not.toMatch(/competencyCoverage|Be more specific|Solid answer overall/i);
     });
 
-    it("saves file-specific findings without invoking Judge0", async () => {
+    it("saves file-specific findings without running code", async () => {
         process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
         const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound({ responseMode: "findings", title: "Explain the race condition." }), { title: "Findings screen" })).expect(201);
         const callsAfterCreate = runDebuggingProject.mock.calls.length;

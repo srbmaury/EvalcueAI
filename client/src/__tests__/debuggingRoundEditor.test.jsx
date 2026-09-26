@@ -36,6 +36,20 @@ const baseRound = (responseMode = "code_fix") => ({
 });
 
 describe("DebuggingRoundEditor", () => {
+    it("disables runtimes the code runner cannot execute for code-fix rounds only", async () => {
+        const runtimes = [
+            { runtime: "node-22", label: "Node.js 22", executable: true },
+            { runtime: "java-21", label: "Java 21", executable: false },
+        ];
+        render(<DebuggingRoundEditor round={baseRound()} runtimes={runtimes} onChange={() => {}} />);
+        fireEvent.mouseDown(screen.getByRole("combobox", { name: "Runtime" }));
+        expect(screen.getByRole("option", { name: "Java 21 (code runner unavailable)" }).getAttribute("aria-disabled")).toBe("true");
+        cleanup();
+        render(<DebuggingRoundEditor round={baseRound("findings")} runtimes={runtimes} onChange={() => {}} />);
+        fireEvent.mouseDown(screen.getByRole("combobox", { name: "Runtime" }));
+        expect(screen.getByRole("option", { name: "Java 21" }).getAttribute("aria-disabled")).toBeNull();
+    });
+
     it("renders a recruiter-authored project with hidden tests only", () => {
         render(<DebuggingRoundEditor round={baseRound()} onChange={() => {}} />);
         expect(screen.getByRole("heading", { name: "Debugging assignment" })).toBeTruthy();

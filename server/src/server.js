@@ -56,20 +56,11 @@ try {
             console.error("OPENAI_API_KEY is required when STT is enabled in production.");
             process.exit(1);
         }
-        if ((process.env.ENABLE_CODE_EXEC || "true").toLowerCase() === "true" && !process.env.JUDGE0_URL) {
-            console.error("JUDGE0_URL is required when code execution is enabled in production.");
-            process.exit(1);
-        }
-        if (process.env.JUDGE0_URL) {
-            try {
-                const u = new URL(process.env.JUDGE0_URL);
-                const allowedHosts = (process.env.ALLOWED_JUDGE0_HOSTS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-                if (allowedHosts.length > 0 && !allowedHosts.includes(u.hostname.toLowerCase())) {
-                    console.error("JUDGE0_URL host not in ALLOWED_JUDGE0_HOSTS allowlist:", u.hostname);
-                    process.exit(1);
-                }
-            } catch (e) {
-                console.error("Invalid JUDGE0_URL:", e?.message || e);
+        if ((process.env.ENABLE_CODE_EXEC || "true").toLowerCase() === "true") {
+            let runnerUrl = null;
+            try { runnerUrl = new URL(process.env.CODE_RUNNER_URL || ""); } catch { /* reported below */ }
+            if (runnerUrl?.protocol !== "https:" || (process.env.CODE_RUNNER_TOKEN || "").length < 32) {
+                console.error("Code execution in production needs an https CODE_RUNNER_URL and a CODE_RUNNER_TOKEN of at least 32 characters.");
                 process.exit(1);
             }
         }

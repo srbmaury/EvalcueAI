@@ -20,7 +20,7 @@ Canonical public route in the shared client: `/`
 
 - Role- and job-description-specific interview plans
 - Conversational interviews with hands-free voice support
-- Coding / online-assessment rounds with code execution when Judge0 is enabled
+- Coding / online-assessment rounds with sandboxed code execution (Node.js 22, Python 3.12, Java 21, C++20)
 - Live system-design discussions with an Excalidraw architecture canvas
 - Adaptive questioning based on answer evidence, competency coverage, and resume context
 - Resume upload, review, JD matching, JD-tailored one-page resume generation, saved interview experiences, progress tracking, and reminders
@@ -56,7 +56,7 @@ Express 5 API
   |       |        |          |
 MongoDB  Redis    AI APIs    External services
          BullMQ   OpenAI /   Stripe, Brevo,
-                  Gemini     Cloudinary, Judge0
+                  Gemini     Cloudinary, code runner
 ```
 
 - **Client:** React, React Router, Material UI, Axios, Excalidraw, Monaco
@@ -64,7 +64,7 @@ MongoDB  Redis    AI APIs    External services
 - **Data:** MongoDB; production transaction support is required
 - **Async work:** Redis + BullMQ for question preparation, bulk feedback, and candidate evaluation
 - **AI:** OpenAI and/or Gemini, with optional Tavily grounding
-- **Code execution:** Judge0, including server-controlled multi-file project execution for debugging assignments when explicitly enabled
+- **Code execution:** a self-hosted runner service (`runner/`: Node.js HTTP API + nsjail sandbox) for single-file runs and multi-file debugging projects
 - **Operations:** Prometheus metrics, optional Grafana OTLP push, Sentry, structured logs
 
 ## Repository layout
@@ -118,7 +118,7 @@ For production set `NODE_ENV=production` and configure, at minimum:
 - CAPTCHA secret plus login/register gates
 - Cloudinary credentials for resume storage
 - at least one AI provider; OpenAI is required when server STT is enabled
-- Judge0 and an allowed host when code execution is enabled
+- The code runner (`runner/`) with `CODE_RUNNER_URL` and `CODE_RUNNER_TOKEN` when code execution is enabled
 - `ENABLE_DEBUGGING_ASSESSMENTS=true` only when the debugging-assignment feature is intentionally enabled; code-fix debugging additionally requires `ENABLE_CODE_EXEC=true`
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the Practice Pro + Hiring Pilot/Starter/Growth price IDs
 - a transaction-capable MongoDB replica set or sharded cluster
@@ -264,7 +264,7 @@ Debugging is an opt-in Hire round type for production-style code comprehension r
 Recruiters author an **immutable multi-file project baseline** in a hierarchical browser workspace and choose one of two response modes:
 
 - **Code fix:** the project contains ordinary `source` files plus recruiter-only `hidden_test` files. Candidates can edit, create, or delete source files while test files remain inaccessible. Recruiters give each hidden test a candidate-safe display name. When candidates choose **Run tests**, the server executes the hidden tests but returns only safe names and pass/fail results; test paths, source, assertions, expected values, stderr, stack traces, and other diagnostics are never exposed. Final submission reruns the hidden suite and persists deterministic evidence for the recruiter report.
-- **Findings:** there are no executable test files. The project is read-only and the findings panel is shown beside it. Candidates can add multiple findings, each tied to an actual project file and containing a root cause, code evidence, and proposed fix. This mode does not require Judge0 execution.
+- **Findings:** there are no executable test files. The project is read-only and the findings panel is shown beside it. Candidates can add multiple findings, each tied to an actual project file and containing a root cause, code evidence, and proposed fix. This mode does not execute code.
 
 The assignment baseline remains immutable from the candidate’s perspective. Code-fix work is stored as an overlay of changed, created, and deleted source files instead of duplicating the full project, which supports reload recovery while keeping recruiter-authored hidden tests server-side. Candidate payload sanitization removes hidden-test files before any workspace reaches the browser.
 
@@ -272,18 +272,20 @@ Recruiter reports keep deterministic debugging evidence separate from AI scoring
 
 ### Debugging execution boundary
 
-Code-fix execution uses Judge0 multi-file mode (`language_id=89`) with server-owned runtime profiles. Recruiters cannot provide arbitrary shell commands. Supported debugging runtimes are:
+Code-fix execution runs on the sandboxed code runner (`runner/`) with fixed, server-owned build and test commands per runtime. Recruiters cannot provide shell commands. Each hidden test file runs as its own program; it passes when it exits with status 0. Supported runtimes:
 
-- Node.js 22 (`node-22`)
-- Python 3 (`python-3`)
-- Java 21 (`java-21`)
-- C++20 (`cpp-20`)
+- Node.js 22 (`node-22`): `node --test <test file>`
+- Python 3.12 (`python-3`): `python3 <test file>`
+- Java 21 (`java-21`): all `.java` files compiled together, then `java <package.TestClass>`
+- C++20 (`cpp-20`): sources syntax-checked, then each test linked with them via `g++ -std=c++20` and run
+
+The builder only offers a runtime for code-fix rounds when the runner reports it passed its startup probe.
 
 Project paths are normalized and traversal/absolute paths are rejected. Current project limits are **100 files**, **256 KiB per file**, and **2 MiB total project source**. Assignments must be self-contained: do not depend on package installation, outbound network access, databases, or other external services inside the candidate runner.
 
 Before publication, a code-fix assignment is dry-run validated server-side. Its starter project must execute successfully while reproducing at least one failing hidden test; a project that already passes the complete hidden suite is rejected. Findings assignments validate project structure without executing candidate code.
 
-The capability is dark by default. Set `ENABLE_DEBUGGING_ASSESSMENTS=true` only in environments where the feature is intentionally enabled. Code-fix mode also requires `ENABLE_CODE_EXEC=true` and a working, allowlisted Judge0 configuration.
+The capability is dark by default. Set `ENABLE_DEBUGGING_ASSESSMENTS=true` only in environments where the feature is intentionally enabled. Code-fix mode also requires `ENABLE_CODE_EXEC=true` and a reachable code runner.
 
 ## Reliability and background processing
 
@@ -301,7 +303,7 @@ See [RUNBOOK.md](RUNBOOK.md) for production operations and recovery.
 - Redis-backed rate limits and quotas in production
 - CAPTCHA protection for production authentication flows
 - File magic-byte/size validation and optional antivirus scanning
-- Opt-in Judge0 execution with host allowlisting
+- Code execution in nsjail: no network, fresh namespaces, uid nobody, cgroup memory/CPU/process limits, and a token-protected runner on a dedicated host
 - Debugging assignments use validated relative paths, immutable baselines, server-owned runtimes, candidate source-only overlays, and hidden-test isolation
 - Hashed candidate attempt credentials and non-indexable assessment URLs
 - Signed/idempotent Stripe webhooks

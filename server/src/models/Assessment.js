@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { RUNTIME_IDS } from "../config/codeRuntimes.js";
 
 const assessmentQuestionSchema = new mongoose.Schema({
     text: { type: String, required: true, maxlength: 1000 },
@@ -17,7 +18,7 @@ const debuggingProjectFileSchema = new mongoose.Schema({
 
 const debuggingRoundSchema = new mongoose.Schema({
     responseMode: { type: String, enum: ["code_fix", "findings"], required: true },
-    runtime: { type: String, enum: ["java-21", "node-22", "python-3", "cpp-20"], required: true },
+    runtime: { type: String, enum: RUNTIME_IDS, required: true },
     entryFile: { type: String, maxlength: 500, default: "" },
     files: {
         type: [debuggingProjectFileSchema],
