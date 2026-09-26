@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { loadConfig, LIMITS } from "./config.js";
 import { createApp } from "./app.js";
 import { createJobs } from "./jobs.js";
+import { createMetrics } from "./metrics.js";
 import { createQueue } from "./queue.js";
 import { RUNTIMES } from "./runtimes.js";
 import { createNsjailSandbox } from "./sandbox.js";
@@ -34,6 +35,7 @@ const app = createApp({
     jobs: createJobs({ sandbox, workRoot: config.workRoot }),
     queue: createQueue({ concurrency: config.concurrency, limit: config.queueLimit }),
     runtimes: () => available,
+    metrics: createMetrics(),
 });
 app.listen(config.port, () => console.log(`[runner] listening on :${config.port} with ${config.concurrency} workers`));
 

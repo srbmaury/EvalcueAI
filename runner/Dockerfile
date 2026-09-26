@@ -22,7 +22,7 @@ COPY --from=java /opt/java/openjdk /opt/java
 WORKDIR /app
 COPY package.json ./
 COPY src ./src
-COPY sandbox/nsjail.cfg /etc/runner/nsjail.cfg
+COPY sandbox/nsjail.cfg sandbox/seccomp.kafel /etc/runner/
 COPY sandbox/entrypoint.sh /usr/local/bin/runner-entrypoint
 
 ENV NODE_ENV=production PORT=8080 RUNNER_WORK_DIR=/var/runner/work

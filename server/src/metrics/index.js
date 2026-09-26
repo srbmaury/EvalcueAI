@@ -43,6 +43,7 @@ export const securityPasswordChangeTotal = new client.Counter({ name: "security_
 export const uploadResumeTotal = new client.Counter({ name: "upload_resume_total", help: "Resume uploads", labelNames: ["outcome"] });
 export const sttTranscribeTotal = new client.Counter({ name: "stt_transcribe_total", help: "STT transcriptions", labelNames: ["outcome"] });
 export const runCodeTotal = new client.Counter({ name: "run_code_total", help: "Code executions", labelNames: ["language", "outcome", "errorType"] });
+export const codeRunnerRuntimeAvailable = new client.Gauge({ name: "code_runner_runtime_available", help: "Whether the code runner reports a runtime as executable", labelNames: ["runtime"] });
 export const quotasDeniedTotal = new client.Counter({ name: "quotas_denied_total", help: "Per-user quota denials", labelNames: ["actionKey"] });
 
 // Tokens / sessions
@@ -111,6 +112,7 @@ export default {
     uploadResumeTotal,
     sttTranscribeTotal,
     runCodeTotal,
+    codeRunnerRuntimeAvailable,
     quotasDeniedTotal,
     tokensRotatedTotal,
     sessionsRevokedTotal,

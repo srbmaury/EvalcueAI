@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import client from "prom-client";
 import { availableRuntimeIds, resetRuntimeCache, runSnippet } from "../../services/codeRunner.js";
 
 const reply = (body, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
@@ -45,11 +46,25 @@ describe("code runner client", () => {
         expect(await availableRuntimeIds()).toEqual([]);
     });
 
+    it("caches an outage briefly and reports it through metrics", async () => {
+        const fetchMock = vi.fn(() => Promise.reject(new TypeError("fetch failed")));
+        vi.stubGlobal("fetch", fetchMock);
+        expect(await availableRuntimeIds()).toEqual([]);
+        expect(await availableRuntimeIds()).toEqual([]);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const text = await client.register.metrics();
+        expect(text).toMatch(/component_ready\{component="code_runner"\} 0/);
+        expect(text).toMatch(/code_runner_runtime_available\{runtime="java-21"\} 0/);
+    });
+
     it("caches the runner's probed runtimes and ignores unknown ids", async () => {
         const fetchMock = vi.fn(() => reply({ runtimes: [{ id: "python-3" }, { id: "cpp-20" }, { id: "ruby-3" }] }));
         vi.stubGlobal("fetch", fetchMock);
         expect(await availableRuntimeIds()).toEqual(["python-3", "cpp-20"]);
         expect(await availableRuntimeIds()).toEqual(["python-3", "cpp-20"]);
         expect(fetchMock).toHaveBeenCalledTimes(1);
+        const text = await client.register.metrics();
+        expect(text).toMatch(/code_runner_runtime_available\{runtime="cpp-20"\} 1/);
+        expect(text).toMatch(/code_runner_runtime_available\{runtime="node-22"\} 0/);
     });
 });

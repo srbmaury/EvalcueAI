@@ -26,6 +26,7 @@ import questionRoutes from "./routes/questionRoutes.js";
 import resumeRoutes from "./routes/resumeRoutes.js";
 import roundRoutes from "./routes/roundRoutes.js";
 import runCodeRoutes from "./routes/runCodeRoutes.js";
+import { availableRuntimeIds } from "./services/codeRunner.js";
 import sttRoutes from "./routes/sttRoutes.js";
 import experienceRoutes from "./routes/experienceRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -338,6 +339,8 @@ app.get("/health/readiness", async (req, res) => {
     metrics.componentReady.labels("redis").set(redisStatus === "up" || redisStatus === "disabled" ? 1 : 0);
     metrics.componentReady.labels("email").set(process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL || process.env.NODE_ENV === "test" ? 1 : 0);
     metrics.componentReady.labels("stripe").set(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET && process.env.STRIPE_PRO_PRICE_ID ? 1 : 0);
+    // The code runner is reported but does not fail readiness: an outage disables code execution, not the API.
+    const codeRunner = process.env.ENABLE_CODE_EXEC === "true" ? ((await availableRuntimeIds()).length ? "up" : "down") : "disabled";
     const allOk = mongoReady && (redisStatus === "up" || redisStatus === "disabled");
     const statusCode = allOk ? 200 : 503;
     return res.status(statusCode).json({
@@ -345,6 +348,7 @@ app.get("/health/readiness", async (req, res) => {
         components: {
             mongo: mongoReady ? "up" : "down",
             redis: redisStatus,
+            codeRunner,
         },
         timestamp: Date.now(),
     });
