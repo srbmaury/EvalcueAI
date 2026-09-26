@@ -39,8 +39,8 @@ const Brand = ({ to = "/" }) => (
         variant="h6"
         sx={{ display: "flex", alignItems: "center", gap: 1.15, textDecoration: "none", color: "inherit", fontWeight: 850, letterSpacing: "-.025em" }}
     >
-        <Box component="span" sx={{ width: 34, height: 34, borderRadius: 2.5, display: "grid", placeItems: "center", color: "white", background: "linear-gradient(135deg,#5b50d6,#8f85ff)", boxShadow: "0 8px 20px rgba(91,80,214,.28)", fontSize: 16 }}>E</Box>
-        <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>Evalcue AI</Box>
+        <Box component="span" sx={{ width: 34, height: 34, borderRadius: 2.5, display: "grid", placeItems: "center", color: "white", background: "linear-gradient(135deg,#1b3e9c,#2f6be0)", boxShadow: "0 8px 20px rgba(36,81,199,.28)", fontSize: 16 }}>E</Box>
+        <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>EvalcueAI</Box>
     </Typography>
 );
 
@@ -152,26 +152,27 @@ export default function Header() {
 
                                     <IconButton onClick={(event) => setMobileAnchor(event.currentTarget)} aria-label="Open navigation" sx={{ display: { xs: "inline-flex", md: isAdminSurface ? "inline-flex" : "none", lg: "none" } }}><MenuIcon /></IconButton>
                                     <Menu anchorEl={mobileAnchor} open={Boolean(mobileAnchor?.isConnected)} onClose={closeMobile} PaperProps={{ sx: { minWidth: 250 } }}>
-                                        {isAdminSurface ? <>
-                                            <MenuItem component={RouterLink} to="/admin/overview" selected={location.pathname === "/admin/overview"} onClick={closeMobile}>Overview</MenuItem>
-                                            <MenuItem component={RouterLink} to="/admin/commercial" selected={location.pathname === "/admin/commercial"} onClick={closeMobile}>Commercial</MenuItem>
-                                            <MenuItem component={RouterLink} to="/admin/jobs" selected={location.pathname === "/admin/jobs"} onClick={closeMobile}>Jobs</MenuItem>
-                                            <MenuItem component={RouterLink} to="/admin/feedback" selected={location.pathname === "/admin/feedback"} onClick={closeMobile}>Feedback</MenuItem>
-                                            <MenuItem component={RouterLink} to="/admin/audit" selected={location.pathname === "/admin/audit"} onClick={closeMobile}>Audit</MenuItem>
-                                            <MenuItem component={RouterLink} to="/admin/calibration" selected={location.pathname === "/admin/calibration"} onClick={closeMobile}>AI calibration</MenuItem>
-                                        </> : <>
-                                            <MenuItem component={RouterLink} to="/practice" onClick={closeMobile}>Practice</MenuItem>
-                                            <MenuItem component={RouterLink} to="/hire" onClick={closeMobile}>Hire</MenuItem>
-                                        </>}
-                                        {user ? <>
-                                            <Divider />
-                                            <MenuItem component={RouterLink} to="/practice/profile" onClick={closeMobile}>Profile & settings</MenuItem>
-                                            <MenuItem onClick={() => { closeMobile(); setFeedbackOpen(true); }}><RateReviewOutlined fontSize="small" sx={{ mr: 1.25 }} />Send feedback</MenuItem>
-                                            <MenuItem onClick={handleLogout}><LogoutRounded fontSize="small" sx={{ mr: 1.25 }} />Sign out</MenuItem>
-                                        </> : !loading ? <>
-                                            <Divider />
-                                            <MenuItem component={RouterLink} to="/login" onClick={closeMobile}>Sign in</MenuItem>
-                                        </> : null}
+                                        {/* MUI Menu needs direct children (arrays), not Fragments, for focus and keyboard navigation. */}
+                                        {isAdminSurface ? [
+                                            <MenuItem key="overview" component={RouterLink} to="/admin/overview" selected={location.pathname === "/admin/overview"} onClick={closeMobile}>Overview</MenuItem>,
+                                            <MenuItem key="commercial" component={RouterLink} to="/admin/commercial" selected={location.pathname === "/admin/commercial"} onClick={closeMobile}>Commercial</MenuItem>,
+                                            <MenuItem key="jobs" component={RouterLink} to="/admin/jobs" selected={location.pathname === "/admin/jobs"} onClick={closeMobile}>Jobs</MenuItem>,
+                                            <MenuItem key="feedback-admin" component={RouterLink} to="/admin/feedback" selected={location.pathname === "/admin/feedback"} onClick={closeMobile}>Feedback</MenuItem>,
+                                            <MenuItem key="audit" component={RouterLink} to="/admin/audit" selected={location.pathname === "/admin/audit"} onClick={closeMobile}>Audit</MenuItem>,
+                                            <MenuItem key="calibration" component={RouterLink} to="/admin/calibration" selected={location.pathname === "/admin/calibration"} onClick={closeMobile}>AI calibration</MenuItem>,
+                                        ] : [
+                                            <MenuItem key="practice" component={RouterLink} to="/practice" onClick={closeMobile}>Practice</MenuItem>,
+                                            <MenuItem key="hire" component={RouterLink} to="/hire" onClick={closeMobile}>Hire</MenuItem>,
+                                        ]}
+                                        {user ? [
+                                            <Divider key="account-divider" />,
+                                            <MenuItem key="profile" component={RouterLink} to="/practice/profile" onClick={closeMobile}>Profile & settings</MenuItem>,
+                                            <MenuItem key="send-feedback" onClick={() => { closeMobile(); setFeedbackOpen(true); }}><RateReviewOutlined fontSize="small" sx={{ mr: 1.25 }} />Send feedback</MenuItem>,
+                                            <MenuItem key="sign-out" onClick={handleLogout}><LogoutRounded fontSize="small" sx={{ mr: 1.25 }} />Sign out</MenuItem>,
+                                        ] : !loading ? [
+                                            <Divider key="guest-divider" />,
+                                            <MenuItem key="sign-in" component={RouterLink} to="/login" onClick={closeMobile}>Sign in</MenuItem>,
+                                        ] : null}
                                     </Menu>
                                 </Stack>
                             </>

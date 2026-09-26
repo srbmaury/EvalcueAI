@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationContext";
@@ -7,6 +7,7 @@ import AuthShell from "../components/AuthShell";
 import usePublicConfig from "../hooks/usePublicConfig";
 import { getWorkspaceHome, getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
 import { productLoginPath, surfaceForPath, workspaceForSurface } from "../utils/productRoutes";
+import { isEmbeddedBrowser } from "../utils/embeddedBrowser";
 import { describeError } from "../utils/errorFormatter";
 
 import {
@@ -14,6 +15,11 @@ import {
     Box,
     Button,
     Checkbox,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Divider,
     FormControl,
     FormControlLabel,
     FormHelperText,
@@ -39,7 +45,7 @@ const RegisterPage = () => {
     const routeWorkspace = workspaceForSurface(surfaceForPath(location.pathname));
     const requestedWorkspace = routeWorkspace || (["practice", "hiring"].includes(workspaceParam) ? workspaceParam : null);
     const authSurface = requestedWorkspace || "combined";
-    const productName = requestedWorkspace === "hiring" ? "Evalcue AI Hire" : requestedWorkspace === "practice" ? "Evalcue AI Practice" : "Evalcue AI";
+    const productName = requestedWorkspace === "hiring" ? "EvalcueAI Hire" : requestedWorkspace === "practice" ? "EvalcueAI Practice" : "EvalcueAI";
     const requestedDestination = requested?.pathname
         ? `${requested.pathname}${requested.search || ""}${requested.hash || ""}`
         : null;
@@ -60,6 +66,11 @@ const RegisterPage = () => {
     const captchaRef = useRef(null);
     const [captchaToken, setCaptchaToken] = useState("");
     const [acceptedTerms, setAcceptedTerms] = useState(false);
+    // Google renders its button in an iframe, so consent cannot be requested before the click.
+    // Instead, hold the returned credential until the user agrees to the terms.
+    const acceptedTermsRef = useRef(acceptedTerms);
+    const [pendingGoogleCredential, setPendingGoogleCredential] = useState("");
+    const [completingGoogle, setCompletingGoogle] = useState(false);
     const [errors, setErrors] = useState({ name: "", email: "", password: "" });
 
     const passwordPolicyError = (pwd) => {
@@ -134,18 +145,32 @@ const RegisterPage = () => {
     }, [googleClientId]);
 
     useEffect(() => {
-        if (!acceptedTerms || !googleClientId || !gsiReady || !googleDivRef.current || !window.google?.accounts?.id) return;
+        acceptedTermsRef.current = acceptedTerms;
+    }, [acceptedTerms]);
+
+    const completeGoogleSignup = useCallback(async (credential) => {
+        setCompletingGoogle(true);
+        try {
+            const authenticatedUser = await googleLogin(credential, { termsAccepted: true });
+            setPendingGoogleCredential("");
+            const workspace = requestedWorkspace || getWorkspacePreference(authenticatedUser?._id) || "practice";
+            navigate(requestedDestination || getWorkspaceHome(workspace), { replace: true });
+        } catch (error) {
+            setPendingGoogleCredential("");
+            notify(describeError(error, "Google sign-up failed"), "error");
+        } finally {
+            setCompletingGoogle(false);
+        }
+    }, [googleLogin, navigate, notify, requestedDestination, requestedWorkspace]);
+
+    useEffect(() => {
+        if (!googleClientId || !gsiReady || !googleDivRef.current || !window.google?.accounts?.id) return;
         try {
             window.google.accounts.id.initialize({
                 client_id: googleClientId,
-                callback: async (response) => {
-                    try {
-                        const authenticatedUser = await googleLogin(response.credential, { termsAccepted: true });
-                        const workspace = requestedWorkspace || getWorkspacePreference(authenticatedUser?._id) || "practice";
-                        navigate(requestedDestination || getWorkspaceHome(workspace), { replace: true });
-                    } catch (error) {
-                        notify(describeError(error, "Google sign-up failed"), "error");
-                    }
+                callback: (response) => {
+                    if (acceptedTermsRef.current) completeGoogleSignup(response.credential);
+                    else setPendingGoogleCredential(response.credential);
                 },
                 auto_select: false,
                 ux_mode: "popup",
@@ -157,25 +182,27 @@ const RegisterPage = () => {
         } catch (error) {
             console.warn("Google button init failed", error);
         }
-    }, [acceptedTerms, googleClientId, gsiReady, googleLogin, navigate, notify, requestedDestination, requestedWorkspace]);
+    }, [completeGoogleSignup, googleClientId, gsiReady]);
 
     const authState = requested ? { from: requested } : undefined;
 
     return (
         <AuthShell
             surface={authSurface}
-            eyebrow="Get started"
-            title={`Create your ${productName} account`}
+            eyebrow={`Get started with ${productName}`}
+            title="Create your account"
             subtitle={requestedWorkspace === "hiring" ? "Start an organization-owned hiring workspace for assessments, candidates, reports, and team access." : requestedWorkspace === "practice" ? "Create your private interview-preparation workspace and start practicing against your target role." : "Create one account, then use the Practice or Hire product you need."}
         >
             <Box component="form" noValidate onSubmit={handleSubmit}>
                 <Stack spacing={{ xs: 2.25, md: 1.35 }}>
+                    {googleClientId && <Stack spacing={1} alignItems="center"><div ref={googleDivRef} />{isEmbeddedBrowser() && <Typography variant="caption" color="text.secondary" align="center">Google sign-up may not display in in-app browsers. If the Google window is blank, open EvalcueAI in Chrome or Safari, or create your account with email.</Typography>}</Stack>}
+                    {googleClientId && <Divider><Typography variant="caption" color="text.secondary">or sign up with email</Typography></Divider>}
                     <FormControl fullWidth><TextField id="name" label="Name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Jane Doe" autoComplete="name" error={!!errors.name} helperText={errors.name || undefined} size="medium" /></FormControl>
                     <FormControl fullWidth><TextField id="email" label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="name@example.com" autoComplete="email" error={!!errors.email} helperText={errors.email || undefined} size="medium" /></FormControl>
                     <FormControl fullWidth>
                         <TextField id="password" label="Password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" autoComplete="new-password" error={!!errors.password} size="medium" InputProps={{ endAdornment: <InputAdornment position="end"><IconButton aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((s) => !s)} edge="end">{showPassword ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment> }} />
                         {errors.password && <FormHelperText error>{errors.password}</FormHelperText>}
-                        {password && <Stack spacing={0.25} mt={0.5}>{[
+                        {password && <Stack direction="row" flexWrap="wrap" columnGap={1.5} rowGap={0.25} mt={0.5}>{[
                             { label: "8+ characters", ok: password.length >= 8 },
                             { label: "Lowercase letter", ok: /[a-z]/.test(password) },
                             { label: "Uppercase letter", ok: /[A-Z]/.test(password) },
@@ -186,11 +213,20 @@ const RegisterPage = () => {
                     <Captcha ref={captchaRef} enabled={Boolean(publicConfig?.captcha?.registerEnabled)} onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
                     <FormControlLabel control={<Checkbox checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />} label={<Typography variant="body2">I agree to the <Link component={RouterLink} to="/terms">Terms</Link> and acknowledge the <Link component={RouterLink} to="/privacy">Privacy Notice</Link>.</Typography>} />
                     <Button type="submit" variant="contained" size="large" startIcon={<PersonAddIcon />} disabled={submitting || !acceptedTerms} sx={{ py: 1.25, borderRadius: 2, textTransform: "none", fontWeight: 700 }}>{submitting ? "Creating account..." : requestedWorkspace === "hiring" ? "Create hiring account" : requestedWorkspace === "practice" ? "Create practice account" : "Create account"}</Button>
-                    {acceptedTerms && googleClientId && <Stack spacing={2} alignItems="center"><div ref={googleDivRef} /><Typography variant="caption" color="text.secondary" align="center">Google sign-up may not display in embedded browsers. If the Google window is blank, open Evalcue AI in Chrome or Safari, or create your account with email.</Typography></Stack>}
                     {submittedEmail && <Stack spacing={1} alignItems="center"><Typography variant="body2" color="text.secondary">Didn’t get the email? Check spam or resend.</Typography><Button variant="text" onClick={async () => { try { const r = await resendVerification(submittedEmail); notify(r?.message || "Verification email re-sent", "success"); } catch (e) { notify(describeError(e, "Could not resend verification email."), "error"); } }}>Resend verification</Button><Button component={RouterLink} to={loginPath} state={authState} size="small">Continue to sign in</Button></Stack>}
                 </Stack>
             </Box>
-            <Typography align="center" color="text.secondary" sx={{ mt: { xs: 4, md: 2 } }}>Already have an account? <Link component={RouterLink} to={loginPath} state={authState} underline="hover">Login</Link></Typography>
+            <Dialog open={Boolean(pendingGoogleCredential)} onClose={() => { if (!completingGoogle) setPendingGoogleCredential(""); }} maxWidth="xs" fullWidth>
+                <DialogTitle>One more step</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" color="text.secondary">To finish creating your {productName} account with Google, please agree to the <Link href="/terms" target="_blank" rel="noopener">Terms</Link> and acknowledge the <Link href="/privacy" target="_blank" rel="noopener">Privacy Notice</Link>.</Typography>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setPendingGoogleCredential("")} disabled={completingGoogle}>Cancel</Button>
+                    <Button variant="contained" disabled={completingGoogle} onClick={() => { setAcceptedTerms(true); completeGoogleSignup(pendingGoogleCredential); }}>{completingGoogle ? "Creating account..." : "Agree and continue"}</Button>
+                </DialogActions>
+            </Dialog>
+            <Typography align="center" color="text.secondary" sx={{ mt: { xs: 4, md: 2 } }}>Already have an account? <Link component={RouterLink} to={loginPath} state={authState} underline="always">Login</Link></Typography>
         </AuthShell>
     );
 };

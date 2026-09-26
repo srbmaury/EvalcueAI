@@ -71,6 +71,9 @@ const CreateInterviewPage = () => {
     }, [user?.targetRole]);
 
     const [resumes, setResumes] = useState([]);
+    // Only flag required fields after the user has visited them, not on a fresh form.
+    const [touched, setTouched] = useState({ jobRole: false, jobDescription: false });
+    const markTouched = (event) => setTouched((current) => ({ ...current, [event.target.name]: true }));
     const [uploading, setUploading] = useState(false);
     const [uploadConsent, setUploadConsent] = useState(false);
 
@@ -282,8 +285,9 @@ const CreateInterviewPage = () => {
                         value={formData.jobRole}
                         onChange={handleChange}
                         required
+                        onBlur={markTouched}
                         helperText={formData.jobRole ? "✓ Role specified" : "Required — describe the target role"}
-                        error={!formData.jobRole}
+                        error={touched.jobRole && !formData.jobRole}
                     />
                     <TextField
                         label="Job description"
@@ -294,7 +298,8 @@ const CreateInterviewPage = () => {
                         onChange={handleChange}
                         required
                         helperText={formData.jobDescription ? `✓ ${formData.jobDescription.length} characters — Include responsibilities, seniority, required skills, and success criteria.` : "Required — describe the role, responsibilities, and requirements"}
-                        error={!formData.jobDescription}
+                        onBlur={markTouched}
+                        error={touched.jobDescription && !formData.jobDescription}
                     />
 
                     <Divider sx={{ my: 2.5 }} />

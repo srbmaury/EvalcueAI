@@ -96,11 +96,25 @@ export const revokeAllRefreshTokens = async (userId) => {
 // Single source of truth for the refresh-token cookie: password, Google, and SSO
 // login previously each defined their own copy of these options and drifted apart
 // (SSO defaulted to SameSite=None in production while the others used Strict).
+// A malformed COOKIE_DOMAIN (e.g. "4") makes browsers silently drop the refresh cookie, which logs
+// everyone out on every page load. Ignore anything that is not a hostname and say so once.
+let warnedInvalidCookieDomain = false;
+const cookieDomain = () => {
+    const value = String(process.env.COOKIE_DOMAIN || "").trim();
+    if (!value) return undefined;
+    if (/^\.?[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(value) && !/^\.?[\d.]+$/.test(value)) return value;
+    if (!warnedInvalidCookieDomain) {
+        warnedInvalidCookieDomain = true;
+        console.warn(`[auth] Ignoring invalid COOKIE_DOMAIN "${value}"; refresh cookies will use the request host.`);
+    }
+    return undefined;
+};
+
 export const refreshCookieOptions = () => ({
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.COOKIE_SAMESITE || (process.env.NODE_ENV === "production" ? "strict" : "lax"),
-    domain: process.env.COOKIE_DOMAIN || undefined,
+    domain: cookieDomain(),
     path: "/api/auth",
 });
 

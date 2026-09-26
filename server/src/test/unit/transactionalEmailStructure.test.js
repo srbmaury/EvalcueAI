@@ -13,12 +13,12 @@ describe("transactional email structure", () => {
             details: [{ label: "Role", value: "Backend Engineer" }],
             note: "Need help? Reply to this email.",
         });
-        expect(mail.html).toContain("Evalcue AI");
+        expect(mail.html).toContain("EvalcueAI");
         expect(mail.html).toContain("Open assessment");
         expect(mail.html).toContain("Backend Engineer");
         expect(mail.text).toContain("Action required");
         expect(mail.text).toContain("Open assessment: https://example.com");
         expect(mail.text).toContain("Backend Engineer");
-        expect(mail.text).toContain("Evalcue AI");
+        expect(mail.text).toContain("EvalcueAI");
     });
 });

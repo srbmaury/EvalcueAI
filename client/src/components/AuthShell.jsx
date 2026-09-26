@@ -4,21 +4,21 @@ import { Box, Chip, Container, Paper, Stack, Typography } from "@mui/material";
 const SURFACE_COPY = {
     practice: {
         icon: <SchoolOutlined />,
-        label: "Evalcue AI Practice",
+        label: "EvalcueAI Practice",
         headline: "Prepare against the role you actually want.",
         body: "Keep personal practice focused on your target role, resume, technical gaps, and improvement over time.",
         bullets: ["Adaptive technical interviews", "Resume and job-description context", "Evidence-backed feedback and progress"],
     },
     hiring: {
         icon: <WorkOutlineRounded />,
-        label: "Evalcue AI Hire",
+        label: "EvalcueAI Hire",
         headline: "Collect stronger technical signal before the live panel.",
         body: "Keep organization-owned assessments, candidate evidence, team access, and calibration inside a dedicated hiring product.",
         bullets: ["Structured adaptive assessments", "Candidate pipeline and reports", "Human review and scoring calibration"],
     },
     combined: {
         icon: <AutoAwesome />,
-        label: "Evalcue AI",
+        label: "EvalcueAI",
         headline: "One account. Two purpose-built products.",
         body: "Use Practice for your own interview preparation and Hire for organization-owned candidate assessment workflows.",
         bullets: ["Private candidate practice", "Organization-owned hiring workflows", "Shared interview intelligence underneath"],
@@ -32,14 +32,14 @@ export default function AuthShell({ eyebrow, title, subtitle, children, surface 
             minHeight: { xs: "calc(100dvh - 65px)", md: "calc(100dvh - 73px)" },
             display: "grid",
             alignItems: "center",
-            py: { xs: 3, md: 2 },
+            py: { xs: 2, md: 2 },
             background: surface === "hiring"
                 ? theme.palette.mode === "dark"
                     ? "radial-gradient(circle at 12% 15%, rgba(31,156,142,.18), transparent 28%), #081412"
                     : "radial-gradient(circle at 12% 15%, rgba(31,156,142,.10), transparent 30%), #f4fbf9"
                 : theme.palette.mode === "dark"
-                    ? "radial-gradient(circle at 12% 15%, rgba(124,92,255,.16), transparent 28%), #0b1020"
-                    : "radial-gradient(circle at 12% 15%, rgba(91,80,214,.10), transparent 30%), #f7f8fc",
+                    ? "#0e0f11"
+                    : "radial-gradient(circle at 12% 15%, rgba(36,81,199,.08), transparent 30%), #f7f8fa",
         })}>
             <Container maxWidth="lg">
                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "minmax(0,.88fr) minmax(440px,1fr)" }, gap: { xs: 4, md: 7 }, alignItems: "center" }}>
@@ -54,11 +54,11 @@ export default function AuthShell({ eyebrow, title, subtitle, children, surface 
                         </Stack>
                     </Stack>
                     <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 3, overflow: "hidden", boxShadow: "0 20px 60px rgba(24,29,60,.10)" }}>
-                        <Box sx={{ p: { xs: 3, sm: 4 } }}>
+                        <Box sx={{ px: { xs: 2.5, sm: 4 }, py: { xs: 2.5, sm: 3 } }}>
                             <Typography variant="overline" color="primary.main" fontWeight={850}>{eyebrow}</Typography>
-                            <Typography component="h1" variant="h4" fontWeight={800} letterSpacing="-.025em" mt={.5}>{title}</Typography>
-                            <Typography color="text.secondary" mt={0.75}>{subtitle}</Typography>
-                            <Box mt={{ xs: 3, md: 2.25 }}>{children}</Box>
+                            <Typography component="h1" variant="h4" fontWeight={800} letterSpacing="-.025em" lineHeight={1.15} mt={.5} sx={{ fontSize: { xs: "1.6rem", md: "1.85rem" } }}>{title}</Typography>
+                            <Typography variant="body2" color="text.secondary" mt={0.75} lineHeight={1.55}>{subtitle}</Typography>
+                            <Box mt={{ xs: 2.5, md: 2.25 }}>{children}</Box>
                         </Box>
                     </Paper>
                 </Box>

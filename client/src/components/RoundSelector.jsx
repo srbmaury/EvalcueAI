@@ -38,7 +38,7 @@ const RoundsSelector = ({ suggestedRounds, selectedRounds, onToggleRound, onChan
                     border: "1px solid",
                     borderColor: isSelected ? "primary.main" : "divider",
                     bgcolor: isSelected ? "action.selected" : "background.paper",
-                    boxShadow: isSelected ? "0 10px 30px rgba(91,80,214,.10)" : "none",
+                    boxShadow: isSelected ? "0 10px 30px rgba(36,81,199,.10)" : "none",
                     transition: "border-color .18s ease, transform .18s ease, box-shadow .18s ease",
                     "&:hover": { borderColor: "primary.light", transform: "translateY(-1px)" },
                 }}>
