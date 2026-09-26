@@ -3,7 +3,8 @@ import AiQualityCounter from "../models/AiQualityCounter.js";
 
 const startOfUtcDay = (date = new Date()) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 
-// Best effort: quality accounting must never slow down or fail an interview.
+// Best effort: quality accounting must never slow down or fail an interview. Summaries sum all rows,
+// so a duplicate created before the unique index exists never changes the totals.
 export const recordAiQualityEvent = (stage, signal, outcome) => {
     if (mongoose.connection.readyState !== 1) return;
     AiQualityCounter.updateOne(
