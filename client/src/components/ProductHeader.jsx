@@ -215,9 +215,9 @@ export default function ProductHeader({ surface = "practice" }) {
                 <Container maxWidth="xl">
                     <Toolbar disableGutters sx={{ minHeight: { xs: 64, md: 72 }, gap: 1.25 }}>
                         <Stack direction="row" spacing={1.15} alignItems="center" minWidth={0} component={RouterLink} to={home} sx={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
-                            <Box sx={{ width: 34, height: 34, borderRadius: 2.5, display: "grid", placeItems: "center", color: "white", background: surface === "hiring" ? "linear-gradient(135deg,#12685f,#36aa9d)" : "linear-gradient(135deg,#5b50d6,#8f85ff)", boxShadow: surface === "hiring" ? "0 8px 20px rgba(18,104,95,.24)" : "0 8px 20px rgba(91,80,214,.28)" }}><ProductIcon fontSize="small" /></Box>
+                            <Box sx={{ width: 34, height: 34, borderRadius: 2.5, display: "grid", placeItems: "center", color: "white", background: surface === "hiring" ? "linear-gradient(135deg,#12685f,#36aa9d)" : "linear-gradient(135deg,#1b3e9c,#2f6be0)", boxShadow: surface === "hiring" ? "0 8px 20px rgba(18,104,95,.24)" : "0 8px 20px rgba(36,81,199,.28)" }}><ProductIcon fontSize="small" /></Box>
                             <Box sx={{ minWidth: 0 }}>
-                                <Typography fontWeight={900} letterSpacing="-.025em" lineHeight={1.05} sx={{ display: { xs: "none", sm: "block" } }}>Evalcue AI</Typography>
+                                <Typography fontWeight={900} letterSpacing="-.025em" lineHeight={1.05} sx={{ display: { xs: "none", sm: "block" } }}>EvalcueAI</Typography>
                                 <Typography variant="caption" color="text.secondary" fontWeight={800} lineHeight={1} sx={{ display: { xs: "none", sm: "block" } }}>{config.label}</Typography>
                             </Box>
                         </Stack>
@@ -262,18 +262,19 @@ export default function ProductHeader({ surface = "practice" }) {
                             </>}
                             <IconButton onClick={(event) => setMobileAnchor(event.currentTarget)} aria-label="Open navigation" sx={{ display: { xs: "inline-flex", md: "none" } }}><MenuIcon /></IconButton>
                             <Menu anchorEl={mobileAnchor} open={Boolean(mobileAnchor?.isConnected)} onClose={() => setMobileAnchor(null)} PaperProps={{ sx: { minWidth: 250 } }}>
-                                {user ? <>
-                                    {navigation.map((item) => renderNavItem(item, true))}
-                                    {(surface === "practice" || permissions.canManageAssessments) && <MenuItem onClick={openPrimaryAction}><AddRounded sx={{ mr: 1.25 }} />{surface === "hiring" ? "New assessment" : "New practice"}</MenuItem>}
-                                    <Divider />
-                                    {surface === "practice" && <MenuItem component={RouterLink} to="/practice/profile" onClick={() => setMobileAnchor(null)}><PersonOutlineRounded sx={{ mr: 1.25 }} />Profile</MenuItem>}
-                                    <MenuItem onClick={() => { setMobileAnchor(null); setFeedbackOpen(true); }}><RateReviewOutlined sx={{ mr: 1.25 }} />Send feedback</MenuItem>
-                                    {user?.role === "admin" && <MenuItem component={RouterLink} to="/admin/overview" onClick={() => setMobileAnchor(null)}><SettingsOutlined sx={{ mr: 1.25 }} />Admin</MenuItem>}
-                                    <MenuItem onClick={handleLogout}><LogoutRounded sx={{ mr: 1.25 }} />Sign out</MenuItem>
-                                </> : <>
-                                    <MenuItem component={RouterLink} to={productLoginPath(config.workspace)}>Sign in</MenuItem>
-                                    <MenuItem component={RouterLink} to={productRegisterPath(config.workspace)}>{surface === "hiring" ? "Start hiring" : "Start practicing"}</MenuItem>
-                                </>}
+                                {/* MUI Menu needs direct children (an array), not a Fragment, for focus and keyboard navigation. */}
+                                {user ? [
+                                    ...navigation.map((item) => renderNavItem(item, true)),
+                                    (surface === "practice" || permissions.canManageAssessments) && <MenuItem key="primary-action" onClick={openPrimaryAction}><AddRounded sx={{ mr: 1.25 }} />{surface === "hiring" ? "New assessment" : "New practice"}</MenuItem>,
+                                    <Divider key="account-divider" />,
+                                    surface === "practice" && <MenuItem key="profile" component={RouterLink} to="/practice/profile" onClick={() => setMobileAnchor(null)}><PersonOutlineRounded sx={{ mr: 1.25 }} />Profile</MenuItem>,
+                                    <MenuItem key="feedback" onClick={() => { setMobileAnchor(null); setFeedbackOpen(true); }}><RateReviewOutlined sx={{ mr: 1.25 }} />Send feedback</MenuItem>,
+                                    user?.role === "admin" && <MenuItem key="admin" component={RouterLink} to="/admin/overview" onClick={() => setMobileAnchor(null)}><SettingsOutlined sx={{ mr: 1.25 }} />Admin</MenuItem>,
+                                    <MenuItem key="sign-out" onClick={handleLogout}><LogoutRounded sx={{ mr: 1.25 }} />Sign out</MenuItem>,
+                                ].filter(Boolean) : [
+                                    <MenuItem key="sign-in" component={RouterLink} to={productLoginPath(config.workspace)}>Sign in</MenuItem>,
+                                    <MenuItem key="register" component={RouterLink} to={productRegisterPath(config.workspace)}>{surface === "hiring" ? "Start hiring" : "Start practicing"}</MenuItem>,
+                                ]}
                             </Menu>
                         </Stack>
                     </Toolbar>

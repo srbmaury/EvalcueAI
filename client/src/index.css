@@ -3,8 +3,8 @@
 html { scroll-behavior: smooth; }
 html, body, #root { min-height: 100vh; }
 html[data-theme="light"], html[data-theme="light"] body, html[data-theme="light"] #root { background: #fafbff; }
-html[data-theme="dark"], html[data-theme="dark"] body, html[data-theme="dark"] #root { background: #0b1020; }
+html[data-theme="dark"], html[data-theme="dark"] body, html[data-theme="dark"] #root { background: #0e0f11; }
 body { margin: 0; }
-::selection { background: rgba(91, 80, 214, .22); }
+::selection { background: rgba(36, 81, 199, .22); }
 * { box-sizing: border-box; }
 a { text-underline-offset: 3px; }

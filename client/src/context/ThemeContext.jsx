@@ -54,7 +54,7 @@ const applyDocumentTheme = (mode) => {
         root.dataset.theme = mode;
         root.style.colorScheme = mode;
         const themeColor = document.querySelector('meta[name="theme-color"]');
-        if (themeColor) themeColor.setAttribute("content", mode === "dark" ? "#0b1020" : "#ffffff");
+        if (themeColor) themeColor.setAttribute("content", mode === "dark" ? "#0e0f11" : "#ffffff");
     } catch { /* DOM access can be unavailable during non-browser rendering. */ }
 };
 
@@ -95,9 +95,11 @@ export const ThemeModeProvider = ({ children }) => {
     const muiTheme = useMemo(() => createTheme({
         palette: {
             mode,
-            primary: { main: mode === "dark" ? "#958cff" : "#5b50d6", light: "#8f85ff", dark: "#4438b8" },
-            secondary: { main: mode === "dark" ? "#45d5bd" : "#0e9f8a" },
-            background: mode === "dark" ? { default: "#0b1020", paper: "#12182a" } : { default: "#fafbff", paper: "#ffffff" },
+            primary: { main: mode === "dark" ? "#7aaeff" : "#2451c7", light: "#4f7ff0", dark: "#1b3e9c" },
+            secondary: { main: mode === "dark" ? "#45d5bd" : "#0b7a6a" },
+            // Light-mode status colours darkened so white chip text meets WCAG AA (4.5:1); MUI's defaults don't.
+            ...(mode === "light" ? { warning: { main: "#b45309" }, info: { main: "#0369a1" } } : {}),
+            background: mode === "dark" ? { default: "#0e0f11", paper: "#17191c" } : { default: "#fafbff", paper: "#ffffff" },
         },
         shape: { borderRadius: 14 },
         typography: {
@@ -105,11 +107,13 @@ export const ThemeModeProvider = ({ children }) => {
             button: { textTransform: "none", fontWeight: 700 },
         },
         components: {
-            MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: { borderRadius: 11, minHeight: 40, whiteSpace: "normal", overflowWrap: "normal", wordBreak: "normal", textAlign: "center" }, containedPrimary: { boxShadow: "0 8px 22px rgba(91,80,214,.22)" } } },
+            MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: { borderRadius: 11, minHeight: 40, whiteSpace: "normal", overflowWrap: "normal", wordBreak: "normal", textAlign: "center" }, containedPrimary: { boxShadow: "0 8px 22px rgba(36,81,199,.22)" } } },
             MuiCard: { styleOverrides: { root: { borderRadius: 18, backgroundImage: "none" } } },
             MuiPaper: { styleOverrides: { root: { backgroundImage: "none" } } },
             MuiTextField: { defaultProps: { variant: "outlined" } },
             MuiOutlinedInput: { styleOverrides: { root: { borderRadius: 12 } } },
+            // Progress bars need an accessible name; callers pass a specific aria-label where one exists.
+            MuiLinearProgress: { defaultProps: { "aria-label": "Progress" } },
             MuiChip: { styleOverrides: { root: { fontWeight: 700, maxWidth: "100%", height: "auto", minHeight: 32 }, label: { whiteSpace: "normal", overflowWrap: "break-word", paddingTop: 4, paddingBottom: 4 } } },
             MuiTypography: { styleOverrides: { root: { overflowWrap: "break-word" } } },
             MuiAlert: { styleOverrides: { message: { minWidth: 0, overflowWrap: "break-word" } } },

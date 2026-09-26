@@ -6,6 +6,7 @@ import AuthShell from "../components/AuthShell";
 import usePublicConfig from "../hooks/usePublicConfig";
 import { getWorkspaceHome, getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
 import { productRegisterPath, surfaceForPath, workspaceForSurface } from "../utils/productRoutes";
+import { isEmbeddedBrowser } from "../utils/embeddedBrowser";
 import { describeError } from "../utils/errorFormatter";
 
 import {
@@ -49,7 +50,7 @@ const LoginPage = () => {
     const routeWorkspace = workspaceForSurface(surfaceForPath(location.pathname));
     const requestedWorkspace = routeWorkspace || (["practice", "hiring"].includes(workspaceParam) ? workspaceParam : null);
     const authSurface = requestedWorkspace || "combined";
-    const productName = requestedWorkspace === "hiring" ? "Evalcue AI Hire" : requestedWorkspace === "practice" ? "Evalcue AI Practice" : "Evalcue AI";
+    const productName = requestedWorkspace === "hiring" ? "EvalcueAI Hire" : requestedWorkspace === "practice" ? "EvalcueAI Practice" : "EvalcueAI";
     const showWorkSso = requestedWorkspace !== "practice";
 
     useEffect(() => {
@@ -177,6 +178,14 @@ const LoginPage = () => {
             title={`Sign in to ${productName}`}
             subtitle={requestedWorkspace === "hiring" ? "Continue to your organization’s assessments, candidate evidence, and hiring reports." : requestedWorkspace === "practice" ? "Continue your private interview preparation and progress." : "Choose the product you were using and continue where you left off."}
         >
+            {(googleClientId || showWorkSso) && <>
+                <Stack spacing={1.5} alignItems="center">
+                    {googleClientId && <div ref={googleDivRef} />}
+                    {showWorkSso && <Button fullWidth variant="outlined" size="large" startIcon={<BusinessRounded />} disabled={ssoSubmitting || submitting} onClick={handleSso}>{ssoSubmitting ? "Opening your identity provider…" : "Continue with work SSO"}</Button>}
+                    {(showWorkSso || (googleClientId && isEmbeddedBrowser())) && <Typography variant="caption" color="text.secondary" align="center">{showWorkSso ? "Work SSO is available for EvalcueAI Hire organizations. " : ""}{googleClientId && isEmbeddedBrowser() ? "Google sign-in may not display in in-app browsers; use Chrome or Safari if needed." : ""}</Typography>}
+                </Stack>
+                <Divider sx={{ my: { xs: 2.5, md: 1.75 } }}><Typography variant="caption" color="text.secondary">or sign in with email</Typography></Divider>
+            </>}
             <Box component="form" noValidate onSubmit={handleSubmit}>
                 <Stack spacing={{ xs: 2.25, md: 1.5 }}>
                     {apiError && <Alert severity="error" onClose={() => setApiError("")}>{apiError}</Alert>}
@@ -193,13 +202,7 @@ const LoginPage = () => {
                     <Button type="submit" variant="contained" size="large" startIcon={<LoginIcon />} disabled={submitting || ssoSubmitting} sx={{ py: 1.25, borderRadius: 2, textTransform: "none", fontWeight: 700 }}>{submitting ? "Signing in..." : "Sign in"}</Button>
                 </Stack>
             </Box>
-            <Divider sx={{ my: { xs: 3, md: 2 } }}><Typography variant="caption" color="text.secondary">OR CONTINUE WITH</Typography></Divider>
-            <Stack spacing={2} alignItems="center">
-                {googleClientId && <div ref={googleDivRef} />}
-                {showWorkSso && <Button fullWidth variant="outlined" size="large" startIcon={<BusinessRounded />} disabled={ssoSubmitting || submitting} onClick={handleSso}>{ssoSubmitting ? "Opening your identity provider…" : "Continue with work SSO"}</Button>}
-                <Typography variant="caption" color="text.secondary" align="center">{showWorkSso ? "Work SSO is available for Evalcue AI Hire organizations. " : ""}Google sign-in may not display in embedded browsers; use Chrome or Safari if needed.</Typography>
-            </Stack>
-            <Typography align="center" color="text.secondary">Don’t have an account? <Link component={RouterLink} to={registerPath} state={requested ? { from: requested } : undefined} underline="hover">Register</Link></Typography>
+            <Typography align="center" color="text.secondary" sx={{ mt: { xs: 3, md: 2 } }}>Don’t have an account? <Link component={RouterLink} to={registerPath} state={requested ? { from: requested } : undefined} underline="always">Register</Link></Typography>
         </AuthShell>
     );
 };

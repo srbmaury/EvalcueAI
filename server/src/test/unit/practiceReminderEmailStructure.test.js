@@ -14,9 +14,12 @@ describe("practice reminder email", () => {
             ],
         });
         expect(mail.to).toBe("asha@example.com");
-        expect(mail.html).toContain("Evalcue AI");
+        expect(mail.html).toContain("EvalcueAI");
         expect(mail.text).toContain("Caching interview");
         expect(mail.text).toContain("https://practice.evalcueai.com/session/1");
         expect(mail.text).toContain("https://practice.evalcueai.com/practice/dashboard");
+        expect(mail.html).toContain('href="https://practice.evalcueai.com/session/1"');
+        expect(mail.html).toContain("Start session 1");
+        expect(mail.html).not.toMatch(/>https?:\/\//);
     });
 });

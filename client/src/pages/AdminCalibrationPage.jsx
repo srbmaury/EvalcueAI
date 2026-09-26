@@ -38,7 +38,7 @@ const readinessCopy = {
 const SegmentTable = ({ title, rows, labelKey }) => (
     <Paper variant="outlined" sx={{ p: 2.5 }}>
         <Typography variant="h6" fontWeight={850} mb={1.5}>{title}</Typography>
-        <TableContainer>
+        <TableContainer tabIndex={0}>
             <Table size="small">
                 <TableHead><TableRow><TableCell>{labelKey === "jobRole" ? "Job role" : "Round"}</TableCell><TableCell align="right">Rounds</TableCell><TableCell align="right">Avg questions</TableCell><TableCell align="right">Coverage</TableCell><TableCell align="right">Early stop</TableCell><TableCell align="right">Fallback</TableCell></TableRow></TableHead>
                 <TableBody>
@@ -77,7 +77,7 @@ export default function AdminCalibrationPage() {
         <Container maxWidth="xl" sx={{ py: 4 }}>
             <Stack spacing={3}>
                 <Box>
-                    <Typography variant="h4" fontWeight={900}>AI interview calibration</Typography>
+                    <Typography component="h1" variant="h4" fontWeight={900}>AI interview calibration</Typography>
                     <Typography color="text.secondary" mt={0.75} maxWidth={900}>
                         Internal quality signals for adaptive Practice interviews and human-reviewed Hiring attempts. This view intentionally excludes candidate answers, names, emails, and resume text.
                     </Typography>
@@ -109,7 +109,7 @@ export default function AdminCalibrationPage() {
                     <Box>
                         <Typography variant="h5" fontWeight={850} mb={0.5}>Largest AI ↔ human disagreements</Typography>
                         <Typography variant="body2" color="text.secondary" mb={1.5}>Prioritize these cases for rubric/prompt review. Candidate identity and answer text are intentionally omitted.</Typography>
-                        <TableContainer component={Paper} variant="outlined">
+                        <TableContainer component={Paper} variant="outlined" tabIndex={0}>
                             <Table size="small">
                                 <TableHead><TableRow><TableCell>Role</TableCell><TableCell>Assessment</TableCell><TableCell align="right">AI</TableCell><TableCell align="right">Human</TableCell><TableCell align="right">Δ</TableCell><TableCell>Decision</TableCell><TableCell>Reviewed</TableCell></TableRow></TableHead>
                                 <TableBody>{data.disagreements.map((item) => <TableRow key={item.attemptId} hover><TableCell>{item.jobRole || "—"}</TableCell><TableCell>{item.assessmentTitle || "—"}</TableCell><TableCell align="right">{score(item.aiScore)}</TableCell><TableCell align="right">{score(item.humanScore)}</TableCell><TableCell align="right"><Chip size="small" color={item.absoluteDelta > 2 ? "warning" : "default"} label={`${item.delta > 0 ? "+" : ""}${score(item.delta)}`} /></TableCell><TableCell>{item.reviewerDecision}</TableCell><TableCell sx={{ whiteSpace: "nowrap" }}>{item.reviewedAt ? new Date(item.reviewedAt).toLocaleDateString() : "—"}</TableCell></TableRow>)}</TableBody>
@@ -121,13 +121,13 @@ export default function AdminCalibrationPage() {
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" } }}>
                     <Paper variant="outlined" sx={{ p: 2.5 }}>
                         <Typography variant="h6" fontWeight={850} mb={1.5}>Agreement by job role</Typography>
-                        <TableContainer><Table size="small"><TableHead><TableRow><TableCell>Role</TableCell><TableCell align="right">Pairs</TableCell><TableCell align="right">MAE</TableCell><TableCell align="right">Within 1</TableCell><TableCell align="right">Bias</TableCell></TableRow></TableHead><TableBody>{(agreement.byJobRole || []).map((row) => <TableRow key={row.jobRole} hover><TableCell>{row.jobRole}</TableCell><TableCell align="right">{row.reviewedPairs}</TableCell><TableCell align="right">{score(row.meanAbsoluteError)}</TableCell><TableCell align="right">{pct(row.withinOnePoint)}</TableCell><TableCell align="right">{score(row.meanBias)}</TableCell></TableRow>)}{!agreement.byJobRole?.length && <TableRow><TableCell colSpan={5}><Typography color="text.secondary">No role-level reviewer pairs yet.</Typography></TableCell></TableRow>}</TableBody></Table></TableContainer>
+                        <TableContainer tabIndex={0}><Table size="small"><TableHead><TableRow><TableCell>Role</TableCell><TableCell align="right">Pairs</TableCell><TableCell align="right">MAE</TableCell><TableCell align="right">Within 1</TableCell><TableCell align="right">Bias</TableCell></TableRow></TableHead><TableBody>{(agreement.byJobRole || []).map((row) => <TableRow key={row.jobRole} hover><TableCell>{row.jobRole}</TableCell><TableCell align="right">{row.reviewedPairs}</TableCell><TableCell align="right">{score(row.meanAbsoluteError)}</TableCell><TableCell align="right">{pct(row.withinOnePoint)}</TableCell><TableCell align="right">{score(row.meanBias)}</TableCell></TableRow>)}{!agreement.byJobRole?.length && <TableRow><TableCell colSpan={5}><Typography color="text.secondary">No role-level reviewer pairs yet.</Typography></TableCell></TableRow>}</TableBody></Table></TableContainer>
                     </Paper>
 
                     <Paper variant="outlined" sx={{ p: 2.5 }}>
                         <Typography variant="h6" fontWeight={850} mb={1.5}>Rubric criterion agreement</Typography>
                         <Typography variant="body2" color="text.secondary" mb={1.5}>{agreement.criteria?.matchedRatings || 0} human rubric ratings matched to AI-scored competencies by normalized criterion name.</Typography>
-                        <TableContainer><Table size="small"><TableHead><TableRow><TableCell>Criterion</TableCell><TableCell align="right">Pairs</TableCell><TableCell align="right">AI</TableCell><TableCell align="right">Human</TableCell><TableCell align="right">MAE</TableCell></TableRow></TableHead><TableBody>{(agreement.criteria?.byCriterion || []).map((row) => <TableRow key={row.criterion} hover><TableCell>{row.criterion}</TableCell><TableCell align="right">{row.count}</TableCell><TableCell align="right">{score(row.averageAiScore)}</TableCell><TableCell align="right">{score(row.averageHumanScore)}</TableCell><TableCell align="right">{score(row.meanAbsoluteError)}</TableCell></TableRow>)}{!agreement.criteria?.byCriterion?.length && <TableRow><TableCell colSpan={5}><Typography color="text.secondary">No rubric criteria can be matched yet.</Typography></TableCell></TableRow>}</TableBody></Table></TableContainer>
+                        <TableContainer tabIndex={0}><Table size="small"><TableHead><TableRow><TableCell>Criterion</TableCell><TableCell align="right">Pairs</TableCell><TableCell align="right">AI</TableCell><TableCell align="right">Human</TableCell><TableCell align="right">MAE</TableCell></TableRow></TableHead><TableBody>{(agreement.criteria?.byCriterion || []).map((row) => <TableRow key={row.criterion} hover><TableCell>{row.criterion}</TableCell><TableCell align="right">{row.count}</TableCell><TableCell align="right">{score(row.averageAiScore)}</TableCell><TableCell align="right">{score(row.averageHumanScore)}</TableCell><TableCell align="right">{score(row.meanAbsoluteError)}</TableCell></TableRow>)}{!agreement.criteria?.byCriterion?.length && <TableRow><TableCell colSpan={5}><Typography color="text.secondary">No rubric criteria can be matched yet.</Typography></TableCell></TableRow>}</TableBody></Table></TableContainer>
                     </Paper>
                 </Box>
 
@@ -154,7 +154,7 @@ export default function AdminCalibrationPage() {
 
                 <Box>
                     <Typography variant="h5" fontWeight={850} mb={1.5}>Recent adaptive decision trace</Typography>
-                    <TableContainer component={Paper} variant="outlined">
+                    <TableContainer component={Paper} variant="outlined" tabIndex={0}>
                         <Table size="small">
                             <TableHead><TableRow><TableCell>Time</TableCell><TableCell>Role / round</TableCell><TableCell>Event</TableCell><TableCell>Target</TableCell><TableCell>Difficulty</TableCell><TableCell>Coverage</TableCell><TableCell>Questions</TableCell><TableCell>Source</TableCell><TableCell>Version</TableCell><TableCell>Reason</TableCell></TableRow></TableHead>
                             <TableBody>
