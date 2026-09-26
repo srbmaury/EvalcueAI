@@ -2,11 +2,13 @@
 // repeat itself, or use the wrong question format; these guards catch the cases where it still does.
 
 import metrics from "../../metrics/index.js";
+import { recordAiQualityEvent } from "../../services/aiQuality.js";
 
 // stage: followup | next_question | question_generation; guard: invented_specifics | repeat | format;
 // outcome: retried | recovered | suppressed | filtered.
 export const recordGuardEvent = (stage, guard, outcome) => {
     try { metrics.aiQuestionGuardEventsTotal.labels(stage, guard, outcome).inc(); } catch { /* metrics are best effort */ }
+    recordAiQualityEvent(stage, guard, outcome);
 };
 
 const WORD = /[a-z0-9]+/g;

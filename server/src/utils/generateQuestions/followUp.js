@@ -1,4 +1,5 @@
 import { generateJSON } from "./aiClient.js";
+import { recordAiQualityEvent } from "../../services/aiQuality.js";
 import { sanitizeText } from "./textUtils.js";
 import { questionSimilarity, recordGuardEvent, repeatsEarlierQuestion, unsupportedSpecifics } from "./questionGuards.js";
 
@@ -98,6 +99,7 @@ ${systemDesign ? "- For system design, probe an actual design choice: requiremen
             decision = normalizeFollowUpDecision(JSON.parse((await generateJSON(retryPrompt)) || "{}"), remaining);
             if (decision.shouldAsk && unsupportedSpecifics(decision.followUp, context).length) {
                 recordGuardEvent("followup", "invented_specifics", "suppressed");
+                recordAiQualityEvent("followup", "decision", "skipped");
                 return normalizeFollowUpDecision({ shouldAsk: false, reason: "ungrounded_followup_suppressed" }, remaining);
             }
             recordGuardEvent("followup", "invented_specifics", "recovered");
@@ -107,10 +109,13 @@ ${systemDesign ? "- For system design, probe an actual design choice: requiremen
         if (decision.shouldAsk && (repeatsEarlierQuestion(decision.followUp, earlier) || questionSimilarity(decision.followUp, q) >= 0.75)) {
             // Re-asking the same probe in new words frustrates candidates and adds no evidence; move on instead.
             recordGuardEvent("followup", "repeat", "suppressed");
+            recordAiQualityEvent("followup", "decision", "skipped");
             return normalizeFollowUpDecision({ shouldAsk: false, reason: "repeated_followup_suppressed" }, remaining);
         }
+        recordAiQualityEvent("followup", "decision", decision.shouldAsk ? "asked" : "skipped");
         return decision;
     } catch {
+        recordAiQualityEvent("followup", "decision", "provider_unavailable");
         // A provider outage must not block the interview. Moving on is safer than
         // inventing an ungrounded follow-up locally.
         return normalizeFollowUpDecision({

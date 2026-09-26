@@ -8,6 +8,7 @@ import ProductFeedback from "../models/ProductFeedback.js";
 import User from "../models/User.js";
 import Interview from "../models/Interview.js";
 import ProductEvent from "../models/ProductEvent.js";
+import { getAiQualitySummary } from "../services/aiQuality.js";
 import ReminderDelivery from "../models/ReminderDelivery.js";
 import RefreshToken from "../models/RefreshToken.js";
 import Organization from "../models/Organization.js";
@@ -65,6 +66,18 @@ router.get(
     async (req, res, next) => {
         try {
             return res.json(await getCalibrationSnapshot({ limit: req.query.limit }));
+        } catch (error) { return next(error); }
+    }
+);
+
+router.get(
+    "/ai-quality",
+    protect,
+    requireRole("admin"),
+    validate(z.object({ days: z.coerce.number().int().min(1).max(180).optional() }), "query"),
+    async (req, res, next) => {
+        try {
+            return res.json(await getAiQualitySummary({ days: req.query.days || 30 }));
         } catch (error) { return next(error); }
     }
 );
