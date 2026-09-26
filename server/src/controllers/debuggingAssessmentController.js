@@ -11,7 +11,7 @@ import {
     validateDebuggingProject,
 } from "../services/debuggingProject.js";
 import { buildDebuggingArchive, runDebuggingProject } from "../services/debuggingProjectRunner.js";
-import { getDebuggingRuntimeProfile, supportedDebuggingRuntimes } from "../services/debuggingRuntimeProfiles.js";
+import { enabledDebuggingRuntimeIds, getDebuggingRuntimeProfile, supportedDebuggingRuntimes } from "../services/debuggingRuntimeProfiles.js";
 import { createAdaptiveAssessment, publicAttempt } from "./hiringAdaptiveAssessmentController.js";
 
 const tokenHash = (value) => crypto.createHash("sha256").update(value).digest("hex");
@@ -153,11 +153,17 @@ const createRoundsIncludingDebugging = async ({ rounds, req, jobRole, jobDescrip
 
 const validateConfigForPublish = async (debugging) => {
     const config = normalizeDebuggingConfig(debugging);
+    if (!enabledDebuggingRuntimeIds().includes(config.runtime)) {
+        const available = supportedDebuggingRuntimes().map((item) => item.label).join(", ");
+        throw requestError(`The ${getDebuggingRuntimeProfile(config.runtime).label} runtime is not available on this deployment. Choose one of: ${available}.`, 422);
+    }
     buildDebuggingArchive({ files: config.files, runtime: config.runtime, includeHiddenTests: config.responseMode === "code_fix" });
     if (config.responseMode === "findings") return { valid: true, message: "Findings assignment validated.", status: "validated" };
     if (process.env.ENABLE_CODE_EXEC !== "true") throw requestError("Code execution must be enabled to publish a code-fix debugging assignment", 503);
     const result = await runDebuggingProject({ files: config.files, runtime: config.runtime, includeHiddenTests: true });
+    if (result.runtimeMessage) throw requestError(`Assignment validation failed: ${result.runtimeMessage} Choose another runtime, or point the app at a code runner with a newer toolchain and update DEBUGGING_RUNTIMES.`, 422);
     if (["compile_error", "runtime_error", "timeout"].includes(result.status)) throw requestError(`Assignment validation failed: starter project returned ${result.status.replaceAll("_", " ")}`);
+    if (result.setupErrorCount > 0) throw requestError(`Assignment validation failed: ${result.setupErrorCount} hidden test${result.setupErrorCount === 1 ? "" : "s"} could not run because of a missing module, import, or syntax error. Check file paths and imports so tests fail only because of the intended bug.`);
     if (result.passed === result.total) throw requestError("The starter project already passes every test. Keep at least one reproducible bug for candidates to debug.");
     return { valid: true, message: "Assignment validated: the project executes and reproduces at least one failing test.", status: "validated", testTotal: result.total };
 };
@@ -275,22 +281,51 @@ const normalizeCandidateFindings = (input, config) => {
     });
 };
 
+// Autosave and test runs can write the same attempt concurrently. On a Mongoose version conflict,
+// reload the attempt and re-apply the change instead of failing the request.
+const saveDebuggingChange = async (req, res, apply) => {
+    for (let tries = 0; ; tries += 1) {
+        const context = await loadDebuggingContext(req, res);
+        if (!context) return null;
+        if (apply(context) === false) return null;
+        try {
+            await context.attempt.save();
+            return context;
+        } catch (error) {
+            if (error?.name !== "VersionError" || tries >= 2) throw error;
+        }
+    }
+};
+
 export const saveCandidateDebuggingWorkspace = async (req, res, next) => {
     try {
         const context = await loadDebuggingContext(req, res);
         if (!context) return;
-        const { attempt, config, response } = context;
+        const { attempt, config, response, roundIndex } = context;
         if (response.submittedAt) return res.status(409).json({ message: "This debugging round has already been submitted" });
+        const changes = {};
         if (config.responseMode === "code_fix") {
             const overlay = { changedFiles: req.body.changedFiles || [], createdFiles: req.body.createdFiles || [], deletedFiles: req.body.deletedFiles || [] };
             applyDebuggingOverlay(config.files, overlay);
-            response.changedFiles = overlay.changedFiles;
-            response.createdFiles = overlay.createdFiles;
-            response.deletedFiles = overlay.deletedFiles;
+            Object.assign(changes, overlay);
         } else {
-            response.findings = normalizeCandidateFindings(req.body.findings || [], config);
+            changes.findings = normalizeCandidateFindings(req.body.findings || [], config);
         }
-        await attempt.save();
+        Object.assign(response, changes);
+        const created = attempt.debuggingResponses.some((item) => item.isNew);
+        if (created) {
+            await attempt.save();
+        } else {
+            // Autosave runs often and can overlap test runs or submission; an atomic update of just this
+            // round's response avoids document-version conflicts (VersionError) between those writes.
+            const $set = Object.fromEntries(Object.entries(changes).map(([key, value]) => [`debuggingResponses.$[response].${key}`, value]));
+            const result = await CandidateAttempt.updateOne(
+                { _id: attempt._id, status: "started" },
+                { $set },
+                { arrayFilters: [{ "response.roundIndex": roundIndex, "response.submittedAt": null }] },
+            );
+            if (!result.matchedCount) return res.status(409).json({ message: "This debugging round has already been submitted" });
+        }
         return res.json(workspacePayload(context));
     } catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }
 };
@@ -303,9 +338,20 @@ export const runCandidateDebuggingProjectTests = async (req, res, next) => {
         if (config.responseMode !== "code_fix") return res.status(409).json({ message: "This assignment collects findings and does not execute candidate code" });
         if (response.submittedAt) return res.status(409).json({ message: "This debugging round has already been submitted" });
         const summary = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime, includeHiddenTests: true });
-        response.testRuns.push({ ...summary, ranAt: new Date() });
-        if (response.testRuns.length > 20) response.testRuns.splice(0, response.testRuns.length - 20);
-        await attempt.save();
+        const ranAt = new Date();
+        const record = (target) => {
+            target.testRuns.push({ ...summary, ranAt });
+            if (target.testRuns.length > 20) target.testRuns.splice(0, target.testRuns.length - 20);
+        };
+        record(response);
+        try {
+            await attempt.save();
+        } catch (error) {
+            if (error?.name !== "VersionError") throw error;
+            // An autosave landed while the tests ran; persist the run on the fresh attempt without re-executing.
+            const saved = await saveDebuggingChange(req, res, ({ response: fresh }) => { record(fresh); return true; });
+            if (!saved) return;
+        }
         return res.json(summary);
     } catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }
 };

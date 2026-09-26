@@ -114,7 +114,8 @@ export const generateJSON = async (prompt) => {
                     { role: "system", content: "Return ONLY raw JSON. No code fences." },
                     { role: "user", content: trimmed },
                 ],
-                temperature: 0.2,
+                // Scoring should be repeatable: the same answer should get the same score on a re-run.
+                temperature: ["feedback_evaluation", "adaptive_evaluation"].includes(purpose) ? 0 : 0.2,
             }),
             aiTimeoutMs,
             "OpenAI request"

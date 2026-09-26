@@ -1,5 +1,6 @@
 import { generateJSON } from "./aiClient.js";
 import { sanitizeText } from "./textUtils.js";
+import { questionSimilarity, recordGuardEvent, repeatsEarlierQuestion, unsupportedSpecifics } from "./questionGuards.js";
 
 export const MAX_FOLLOW_UPS = 3;
 
@@ -21,10 +22,11 @@ export const normalizeFollowUpDecision = (raw, remaining = MAX_FOLLOW_UPS) => {
     };
 };
 
+// Skipped probes stay in the history so the model does not re-ask a topic the candidate chose to move past.
 const formatHistory = (followUps = []) => followUps
-    .filter((item) => item?.question && item?.answer && !item?.skipped)
+    .filter((item) => item?.question && (item?.answer || item?.skipped))
     .slice(0, MAX_FOLLOW_UPS)
-    .map((item, index) => `Follow-up ${index + 1}: ${sanitizeText(item.question, 500)}\nCandidate: ${sanitizeText(item.answer, 1000)}`)
+    .map((item, index) => `Follow-up ${index + 1}: ${sanitizeText(item.question, 500)}\nCandidate: ${item.skipped ? "(chose to move on without answering)" : sanitizeText(item.answer, 1000)}`)
     .join("\n\n");
 
 export const generateFollowUp = async ({
@@ -36,24 +38,28 @@ export const generateFollowUp = async ({
     systemDesign = false,
     competencies = [],
     sourceClaim = "",
+    candidateBackground = "",
 }) => {
     const q = sanitizeText(questionText, 500);
     const a = sanitizeText(userAnswer, 1800);
     const role = sanitizeText(jobRole, 120);
     const rnd = sanitizeText(roundName, 80);
-    const answeredFollowUps = (followUps || []).filter((item) => item?.answer && !item?.skipped).slice(0, MAX_FOLLOW_UPS);
+    const answeredFollowUps = (followUps || []).filter((item) => item?.answer || item?.skipped).slice(0, MAX_FOLLOW_UPS);
     const remaining = Math.max(0, MAX_FOLLOW_UPS - (followUps || []).length);
     if (remaining <= 0) return normalizeFollowUpDecision(null, 0);
 
     const history = formatHistory(answeredFollowUps);
     const competencyText = (Array.isArray(competencies) ? competencies : []).map((item) => sanitizeText(item, 80)).filter(Boolean).slice(0, 4).join(", ");
     const claim = sanitizeText(sourceClaim, 500);
+    const background = sanitizeText(candidateBackground, 1200);
     const prompt = `You are conducting a realistic, conversational ${rnd || "technical"} interview for a ${role || "software engineering"} role.
 
 Original question: "${q}"
 Candidate's original answer: "${a}"
 Target competencies: ${competencyText || "infer from the question"}
 ${claim ? `Resume claim being validated: ${claim}` : ""}
+${background ? `Candidate's own introduction (background only; do not assume anything beyond it): ${background}
+When that introduced experience is relevant to the gap you are probing, ground the follow-up in it (e.g. "In your shipment-tracking service, how would…"); otherwise ignore it.` : ""}
 ${history ? `\nConversation so far:\n${history}\n` : ""}
 You may ask at most ${MAX_FOLLOW_UPS} follow-up questions for the original question. ${remaining} follow-up slot(s) remain.
 
@@ -67,7 +73,10 @@ Decision policy:
 - High-confidence complete evidence => stop, even if follow-up budget remains.
 - Low confidence caused by one important ambiguity/unsupported claim/trade-off/failure case => probe that exact gap.
 - Low confidence caused by a very thin or irrelevant answer may justify one rescue probe, but do not repeatedly re-ask the same concept.
-- Base the next probe on the full conversation. Never repeat something already answered clearly.
+- Base the next probe on the full conversation. Never repeat something already answered clearly, and never re-ask a follow-up the candidate chose to move on from.
+- Each follow-up must target a different gap than earlier follow-ups; rephrasing the same probe (for example the same metric or number) counts as repeating it.
+- Match the candidate's framing. If they answer hypothetically ("I would…"), ask how they would approach the gap; do not presume past projects, ownership, or measurements they have not described.
+- Never introduce facts, numbers, tools, or outcomes the candidate did not state (for example "your increased code coverage" when coverage was never mentioned). Probe only what is in the conversation.
 - Sound like a thoughtful human interviewer continuing the same conversation. Use concise transitions such as “Got it — …”, “Makes sense. How did you…”, or “Let’s go one level deeper…” only when they fit naturally; do not prepend filler mechanically.
 - Keep the tone warm, neutral, and professional. Avoid robotic rubric language, interrogation-style wording, praise, judgment, or canned acknowledgements.
 - Prefer depth over trivia. Ask one thing at a time, in natural interviewer language, usually one sentence.
@@ -78,8 +87,29 @@ ${systemDesign ? "- For system design, probe an actual design choice: requiremen
 - If no additional probe is warranted, return shouldAsk=false and followUp=null.`;
 
     try {
-        const text = (await generateJSON(prompt)) || "{}";
-        return normalizeFollowUpDecision(JSON.parse(text), remaining);
+        const context = [q, a, history, background, claim].join("\n");
+        const earlier = (followUps || []).map((item) => item?.question).filter(Boolean);
+        let decision = normalizeFollowUpDecision(JSON.parse((await generateJSON(prompt)) || "{}"), remaining);
+        const invented = decision.shouldAsk ? unsupportedSpecifics(decision.followUp, context) : [];
+        if (invented.length) {
+            recordGuardEvent("followup", "invented_specifics", "retried");
+            // One corrective retry; if the model still cites facts the candidate never gave, skip the probe.
+            const retryPrompt = `${prompt}\n\nYour previous draft was: "${decision.followUp}". It cited ${invented.join(", ")}, which the candidate never said. Rewrite it without any number, metric, or result that is not in the conversation.`;
+            decision = normalizeFollowUpDecision(JSON.parse((await generateJSON(retryPrompt)) || "{}"), remaining);
+            if (decision.shouldAsk && unsupportedSpecifics(decision.followUp, context).length) {
+                recordGuardEvent("followup", "invented_specifics", "suppressed");
+                return normalizeFollowUpDecision({ shouldAsk: false, reason: "ungrounded_followup_suppressed" }, remaining);
+            }
+            recordGuardEvent("followup", "invented_specifics", "recovered");
+        }
+        // Follow-ups naturally reuse the original question's terms, so only a near-duplicate of it counts;
+        // earlier follow-ups are checked strictly (paraphrase or "same probe + extra clause").
+        if (decision.shouldAsk && (repeatsEarlierQuestion(decision.followUp, earlier) || questionSimilarity(decision.followUp, q) >= 0.75)) {
+            // Re-asking the same probe in new words frustrates candidates and adds no evidence; move on instead.
+            recordGuardEvent("followup", "repeat", "suppressed");
+            return normalizeFollowUpDecision({ shouldAsk: false, reason: "repeated_followup_suppressed" }, remaining);
+        }
+        return decision;
     } catch {
         // A provider outage must not block the interview. Moving on is safer than
         // inventing an ungrounded follow-up locally.

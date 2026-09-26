@@ -62,6 +62,7 @@ const editableFields = [
     "jobRole",
     "jobDescription",
     "followUpsEnabled",
+    "askCandidateIntro",
     "inviteOnly",
     "candidateInstructions",
     "contactEmail",

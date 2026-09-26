@@ -142,13 +142,35 @@ export const getProgressSummary = async (req, res, next) => {
                     }
                 }
             }
-            if (scores.length) scored.push({ date: interview.createdAt, score: Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 });
+            // Match the interview's "Overall score": the mean of per-round averages, so long rounds don't dominate.
+            const roundAverages = rounds
+                .map((round) => (round.questions || []).map((item) => Number(item.feedback?.score)).filter(Number.isFinite))
+                .filter((values) => values.length)
+                .map((values) => values.reduce((a, b) => a + b, 0) / values.length);
+            if (scores.length && roundAverages.length) scored.push({ date: interview.createdAt, score: Math.round((roundAverages.reduce((a, b) => a + b, 0) / roundAverages.length) * 10) / 10 });
         }
         const averageScore = scored.length ? Math.round((scored.reduce((sum, item) => sum + item.score, 0) / scored.length) * 10) / 10 : 0;
         const recent = scored.slice(-5);
         const improvement = recent.length > 1 ? Math.round((recent.at(-1).score - recent[0].score) * 10) / 10 : 0;
         const skills = [...skillScores.entries()].map(([name, values]) => ({ name, score: Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10, answers: values.length })).sort((a, b) => a.score - b.score);
         return res.json({ total: interviews.length, completed, averageScore, improvement, recent, skills, focusArea: skills[0] || null });
+    } catch (error) {
+        return next(error instanceof Error ? error : new Error(String(error)));
+    }
+};
+
+export const saveCandidateIntro = async (req, res, next) => {
+    try {
+        const skip = req.body?.skip === true;
+        const answer = skip ? "" : String(req.body?.answer || "").replace(/\s+/g, " ").trim().slice(0, 3000);
+        if (!skip && !answer) return res.status(400).json({ message: "Add a short introduction or skip it." });
+        const interview = await Interview.findOneAndUpdate(
+            { _id: req.params.id, user: req.user._id },
+            { $set: { candidateIntro: answer, candidateIntroAt: new Date() } },
+            { new: true },
+        ).select("candidateIntro candidateIntroAt");
+        if (!interview) return res.status(404).json({ message: "Interview not found" });
+        return res.json({ candidateIntro: interview.candidateIntro, candidateIntroAt: interview.candidateIntroAt });
     } catch (error) {
         return next(error instanceof Error ? error : new Error(String(error)));
     }

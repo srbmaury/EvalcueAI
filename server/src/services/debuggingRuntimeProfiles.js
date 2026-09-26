@@ -2,7 +2,8 @@ const profiles = Object.freeze({
     "node-22": Object.freeze({
         runtime: "node-22",
         label: "Node.js 22",
-        compileScript: "#!/bin/sh\nset -eu\nnode --version >/dev/null\n",
+        // The runner's toolchain must match the label; print only on failure (any compile output is treated as an error).
+        compileScript: "#!/bin/sh\nset -eu\nnode -e 'process.exit(Number(process.versions.node.split(\".\")[0]) >= 18 ? 0 : 1)' || { echo \"EVALCUE_RUNTIME: Node.js 18 or newer is required, but the code runner provides Node $(node --version).\" >&2; exit 2; }\n",
         testCommand(path) { return `node --test ${shellQuote(path)}`; },
     }),
     "python-3": Object.freeze({
@@ -14,7 +15,7 @@ const profiles = Object.freeze({
     "java-21": Object.freeze({
         runtime: "java-21",
         label: "Java 21",
-        compileScript: "#!/bin/sh\nset -eu\nrm -rf .evalcue-build\nmkdir -p .evalcue-build\nfiles=$(find . -name '*.java' -type f -not -path './.evalcue/*')\n[ -n \"$files\" ] || { echo 'No Java files found' >&2; exit 2; }\njavac -d .evalcue-build $files\n",
+        compileScript: "#!/bin/sh\nset -eu\nv=$(java -version 2>&1 | head -n 1 | sed -E 's/[^\"]*\"([0-9]+).*/\\1/')\n[ \"$v\" -ge 21 ] 2>/dev/null || { echo \"EVALCUE_RUNTIME: Java 21 is required, but the code runner provides Java $v.\" >&2; exit 2; }\nrm -rf .evalcue-build\nmkdir -p .evalcue-build\nfiles=$(find . -name '*.java' -type f -not -path './.evalcue/*')\n[ -n \"$files\" ] || { echo 'No Java files found' >&2; exit 2; }\njavac -d .evalcue-build $files\n",
         testCommand(path) {
             const quoted = shellQuote(path);
             return `f=${quoted}; pkg=$(sed -n 's/^[[:space:]]*package[[:space:]]\\+\\([^;]*\\);.*/\\1/p' \"$f\" | head -n 1); cls=$(basename \"$f\" .java); [ -z \"$pkg\" ] || cls=\"$pkg.$cls\"; java -cp .evalcue-build \"$cls\"`;
@@ -23,7 +24,7 @@ const profiles = Object.freeze({
     "cpp-20": Object.freeze({
         runtime: "cpp-20",
         label: "C++20",
-        compileScript: "#!/bin/sh\nset -eu\ng++ --version >/dev/null\n",
+        compileScript: "#!/bin/sh\nset -eu\nv=$(g++ -dumpversion | cut -d. -f1)\n[ \"$v\" -ge 10 ] 2>/dev/null || { echo \"EVALCUE_RUNTIME: C++20 needs g++ 10 or newer, but the code runner provides g++ $v.\" >&2; exit 2; }\n",
         testCommand(path, sourceFiles = [], index = 0) {
             const cppSources = sourceFiles.filter((file) => /\.(cc|cpp|cxx)$/i.test(file.path)).map((file) => shellQuote(file.path));
             const output = `/tmp/evalcue-cpp-test-${index}`;
@@ -46,7 +47,20 @@ export const getDebuggingRuntimeProfile = (runtime) => {
     return profile;
 };
 
-export const supportedDebuggingRuntimes = () => Object.values(profiles).map(({ runtime, label }) => ({ runtime, label }));
+// Deployments whose code runner lacks a toolchain (e.g. public Judge0 CE ships Node 12, Java 13, g++ 8)
+// can restrict new debugging assignments with DEBUGGING_RUNTIMES, e.g. "python-3". Unset means all.
+export const enabledDebuggingRuntimeIds = () => {
+    const configured = String(process.env.DEBUGGING_RUNTIMES || "").split(",").map((value) => value.trim()).filter(Boolean);
+    const known = Object.keys(profiles);
+    const enabled = configured.filter((runtime) => known.includes(runtime));
+    return enabled.length ? enabled : known;
+};
+
+export const supportedDebuggingRuntimes = () => enabledDebuggingRuntimeIds().map((runtime) => ({ runtime, label: profiles[runtime].label }));
+
+// Failures caused by a broken project (missing module, syntax/compile error) rather than a failing
+// assertion. Publishing validation must not treat these as a reproduced bug.
+const SETUP_FAILURE_PATTERN = "ERR_MODULE_NOT_FOUND|Cannot find module|SyntaxError|ModuleNotFoundError|ImportError|IndentationError|error: cannot find symbol|fatal error:|undefined reference";
 
 export const buildDebuggingRunScript = ({ runtime, files, includeHiddenTests }) => {
     const profile = getDebuggingRuntimeProfile(runtime);
@@ -63,7 +77,7 @@ export const buildDebuggingRunScript = ({ runtime, files, includeHiddenTests }) 
     tests.forEach((file, index) => {
         const command = profile.testCommand(file.path, sourceFiles, index);
         const name = String(file.displayName || `Test ${index + 1}`).trim().slice(0, 120) || `Test ${index + 1}`;
-        lines.push(`if ( ${command} ) >/tmp/evalcue-test-${index}.log 2>&1; then test_passed=$((test_passed + 1)); printf '__EVALCUE_TEST__1|%s\\n' ${shellQuote(name)}; else printf '__EVALCUE_TEST__0|%s\\n' ${shellQuote(name)}; fi`);
+        lines.push(`if ( ${command} ) >/tmp/evalcue-test-${index}.log 2>&1; then test_passed=$((test_passed + 1)); printf '__EVALCUE_TEST__1|%s\\n' ${shellQuote(name)}; else if grep -Eq ${shellQuote(SETUP_FAILURE_PATTERN)} /tmp/evalcue-test-${index}.log; then printf '__EVALCUE_SETUP_ERROR__\\n'; fi; printf '__EVALCUE_TEST__0|%s\\n' ${shellQuote(name)}; fi`);
     });
 
     lines.push("printf '__EVALCUE_COUNTS__%s,%s\\n' \"$test_passed\" \"$test_total\"");

@@ -1,5 +1,5 @@
 import express from "express";
-import { createInterview, getInterviews, getInterview, getProgressSummary } from "../controllers/interviewController.js";
+import { createInterview, getInterviews, getInterview, getProgressSummary, saveCandidateIntro } from "../controllers/interviewController.js";
 import protect from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
 import { z } from "zod";
@@ -112,5 +112,11 @@ router.post(
 router.get("/", protect, getInterviews);
 router.get("/analytics/progress", protect, getProgressSummary);
 router.get("/:id", protect, getInterview);
+router.put(
+    "/:id/intro",
+    protect,
+    validate(z.object({ answer: z.string().max(3000).optional(), skip: z.boolean().optional() }).strict()),
+    saveCandidateIntro
+);
 
 export default router;

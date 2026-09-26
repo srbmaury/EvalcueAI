@@ -35,6 +35,7 @@ const publicAssessment = (assessment, organizationName = "") => ({
     contactEmail: assessment.contactEmail,
     durationMinutes: assessment.durationMinutes,
     followUpsEnabled: assessment.followUpsEnabled,
+    askCandidateIntro: assessment.askCandidateIntro !== false,
     inviteOnly: assessment.inviteOnly,
     acceptingNewCandidates: assessment.status === "active",
     expiresAt: assessment.expiresAt,

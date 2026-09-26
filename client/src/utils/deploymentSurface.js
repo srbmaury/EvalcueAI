@@ -29,6 +29,12 @@ export const externalSurfaceUrl = (surface, pathname, env = import.meta?.env || 
     return origin ? `${origin}${pathname || surfaceHomePath(surface)}` : (pathname || surfaceHomePath(surface));
 };
 
+// Links that leave the app (clipboard, email) must be absolute even when no surface origin is configured.
+export const absoluteSurfaceUrl = (surface, pathname, env = import.meta?.env || {}) => {
+    const url = externalSurfaceUrl(surface, pathname, env);
+    try { return new URL(url, window.location.origin).href; } catch { return url; }
+};
+
 export const deploymentRedirectUrl = (deployedSurface, requestedSurface, pathname, env = import.meta?.env || {}) => {
     if (!deployedSurface || !requestedSurface || deployedSurface === requestedSurface) return null;
     return externalSurfaceUrl(requestedSurface, pathname, env);

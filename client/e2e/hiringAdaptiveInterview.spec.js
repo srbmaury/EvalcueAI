@@ -1,12 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 
 const json = (route, body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 
 const mockSignedOut = async (page) => {
     await page.route("**/api/auth/refresh", (route) => json(route, { message: "Unauthenticated" }, 401));
-    // Resuming a saved candidate attempt shows a native confirm() ("is this your
-    // attempt?") before restoring it from storage; Playwright auto-dismisses
-    // confirm() by default, which would otherwise silently clear the saved attempt.
+    // Accept any unexpected native dialog so it cannot silently change test behaviour
+    // (Playwright dismisses dialogs by default).
     page.on("dialog", (dialog) => dialog.accept());
 };
 

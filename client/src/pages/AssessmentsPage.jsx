@@ -6,7 +6,7 @@ import api from "../api/axios";
 import { useNotify } from "../context/NotificationContext";
 import { OrganizationContext } from "../context/OrganizationContext";
 import { hiringPermissionsFor } from "../utils/hiringPermissions";
-import { externalSurfaceUrl } from "../utils/deploymentSurface";
+import { absoluteSurfaceUrl } from "../utils/deploymentSurface";
 
 const createAssessmentPath = "/hire/assessments?create=1";
 
@@ -119,7 +119,7 @@ export default function AssessmentsPage() {
 
     const copyLink = async (token) => {
         try {
-            await navigator.clipboard.writeText(externalSurfaceUrl("practice", `/assessment/${token}`));
+            await navigator.clipboard.writeText(absoluteSurfaceUrl("practice", `/assessment/${token}`));
             notify("Candidate link copied.", "success");
         } catch {
             notify("Candidate link could not be copied.", "error");

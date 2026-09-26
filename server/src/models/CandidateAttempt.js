@@ -117,6 +117,8 @@ const candidateAttemptSchema = new mongoose.Schema({
     debuggingResponses: { type: [debuggingResponseSchema], default: [] },
     overallScore: { type: Number, min: 0, max: 10 },
     reviewerScore: { type: Number, min: 0, max: 10 },
+    candidateIntro: { type: String, maxlength: 3000, default: "" },
+    candidateIntroAt: { type: Date },
     reviewerDecision: { type: String, enum: ["", "advance", "hold", "reject"], default: "" },
     reviewerNotes: { type: String, maxlength: 5000, default: "" },
     reviewerRatings: [{ criterion: { type: String, maxlength: 80 }, score: { type: Number, min: 0, max: 10 }, note: { type: String, maxlength: 1000, default: "" } }],

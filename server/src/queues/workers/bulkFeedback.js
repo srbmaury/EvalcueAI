@@ -44,6 +44,7 @@ export default async function bulkFeedbackProcessor(job) {
         const gen = await generateFeedbackForAnswer({
             questionText: q.text,
             userAnswer: (it.answer || "").toString(),
+            audience: "candidate",
             evaluationContext: {
                 mode: /system\s*design|architecture/i.test(round.name || "") ? "system-design" : "technical",
                 jobRole: interview.jobRole,

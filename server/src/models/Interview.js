@@ -43,6 +43,11 @@ const interviewSchema = new mongoose.Schema(
             required: true,
         },
         overallScore: { type: Number, default: 0 },
+        // Optional, unscored self-introduction given before the first conversational round. Used only as
+        // background so follow-ups build on what the candidate actually said. candidateIntroAt is set on
+        // answer or skip so the prompt is shown once.
+        candidateIntro: { type: String, maxlength: 3000, default: "" },
+        candidateIntroAt: { type: Date },
     },
     { timestamps: true }
 );

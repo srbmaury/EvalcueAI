@@ -208,7 +208,7 @@ const OAForm = ({
                         <Typography variant="caption" color="text.secondary" fontWeight={800}>WORKSPACE</Typography>
                         <Box sx={{ mt: 1 }}>
                             <Suspense fallback={<Skeleton variant="rectangular" height={430} sx={{ borderRadius: 2 }} />}>
-                                <CodeEditorField value={effectiveAnswers[safeIndex] || ""} onChange={(value) => handleDraftChange(safeIndex, value)} onModeChange={(enabled) => onCodingModeChange(safeIndex, enabled)} draftKey={`${codeDraftPrefix}:${safeIndex}`} suggestCode={/\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(activeQuestionText)} minRows={16} outlinedInputSx={outlinedInputSx} />
+                                <CodeEditorField questionText={activeQuestionText} value={effectiveAnswers[safeIndex] || ""} onChange={(value) => handleDraftChange(safeIndex, value)} onModeChange={(enabled) => onCodingModeChange(safeIndex, enabled)} draftKey={`${codeDraftPrefix}:${safeIndex}`} suggestCode={/\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(activeQuestionText)} minRows={16} outlinedInputSx={outlinedInputSx} />
                             </Suspense>
                         </Box>
                         {codingEnabled?.[safeIndex] && <TextField label="Explain your approach" value={spokenAnswers?.[safeIndex] || ""} onChange={(event) => onSpokenChange(safeIndex, event.target.value)} multiline minRows={3} fullWidth sx={{ mt: 2 }} helperText="Optional: reasoning, complexity, assumptions, or trade-offs." />}
@@ -229,7 +229,7 @@ const OAForm = ({
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
                             <Button variant="contained" onClick={onSubmit} disabled={submitting} sx={{ minWidth: 170 }}>{submitting ? "Finishing…" : "Finish coding round"}</Button>
-                            <SkipRoundButton onSkip={onSkip} />
+                            <SkipRoundButton onSkip={onSkip} disabled={submitting} />
                         </Stack>
                     </Stack>
                 </Box>

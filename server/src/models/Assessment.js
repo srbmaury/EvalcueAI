@@ -79,6 +79,8 @@ const assessmentSchema = new mongoose.Schema({
     opensAt: Date,
     timezone: { type: String, maxlength: 100, default: "UTC" },
     followUpsEnabled: { type: Boolean, default: true },
+    // Ask for a short, unscored self-introduction before round 1; used only as background for AI questions.
+    askCandidateIntro: { type: Boolean, default: true },
     inviteOnly: { type: Boolean, default: false },
     candidateInstructions: { type: String, maxlength: 1200, default: "" },
     contactEmail: { type: String, maxlength: 254, default: "" },

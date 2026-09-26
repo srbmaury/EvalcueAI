@@ -27,14 +27,29 @@ const languages = [
     { label: "Python", value: "python" },
     { label: "C++", value: "cpp" },
     { label: "Java", value: "java" },
+    // Syntax highlighting only: the code runner has no database, so SQL answers are reviewed, not executed.
+    { label: "SQL", value: "sql", runnable: false },
 ];
+const isRunnable = (value) => languages.find((item) => item.value === value)?.runnable !== false;
 
-const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputSx, onModeChange, draftKey, suggestCode = false, executionEndpoint = "/run-code", executionHeaders = {}, skipAuthRedirect = false, canRun = true }) => {
+// A problem that names its language ("Implement … in Python") should open in that language.
+const languageMentionedIn = (text = "") => {
+    if (/\bsql\b|\bquery\b.*\b(table|column)s?\b/i.test(text)) return "sql";
+    if (/\bpython\b/i.test(text)) return "python";
+    if (/\bjava\b(?!\s*script)/i.test(text)) return "java";
+    if (/\b(java\s*script|typescript|node(\.js)?|react)\b/i.test(text)) return "javascript";
+    if (/c\+\+|\bcpp\b/i.test(text)) return "cpp";
+    return null;
+};
+
+const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputSx, onModeChange, draftKey, suggestCode = false, questionText = "", executionEndpoint = "/run-code", executionHeaders = {}, skipAuthRedirect = false, canRun = true }) => {
     const muiTheme = useTheme();
     const authContext = useContext(AuthContext);
     const preferredProgrammingLanguage = authContext?.user?.preferredProgrammingLanguage;
     const [useEditor, setUseEditor] = useState(() => Boolean(suggestCode));
     const [language, setLanguage] = useState("cpp");
+    const languageChosenRef = useRef(false);
+    const chooseLanguage = (value) => { languageChosenRef.current = true; setLanguage(value); };
     const [stdin, setStdin] = useState("");
     const [isRunning, setIsRunning] = useState(false);
     const [output, setOutput] = useState("");
@@ -58,25 +73,30 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
         const saved = storage.get(storageKeys.codeEditor(draftKey));
         const enabled = typeof saved?.enabled === "boolean" ? saved.enabled : Boolean(suggestCode);
         setUseEditor(enabled);
-        if (saved?.language && languages.some((item) => item.value === saved.language)) setLanguage(saved.language);
+        // Only a language the user explicitly picked is restored; otherwise auto-detection below applies.
+        languageChosenRef.current = Boolean(saved?.languageChosen);
+        if (saved?.languageChosen && languages.some((item) => item.value === saved.language)) setLanguage(saved.language);
         setStdin(saved?.stdin || "");
         onModeChange?.(enabled);
     }, [draftKey, suggestCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!draftKey) return;
-        storage.set(storageKeys.codeEditor(draftKey), { enabled: useEditor, language, stdin });
+        storage.set(storageKeys.codeEditor(draftKey), { enabled: useEditor, language, languageChosen: languageChosenRef.current, stdin });
     }, [draftKey, useEditor, language, stdin]);
 
     useEffect(() => {
         if (draftKey) {
             const saved = storage.get(storageKeys.codeEditor(draftKey));
-            if (saved?.language && languages.some((item) => item.value === saved.language)) return;
+            if (saved?.languageChosen && languages.some((item) => item.value === saved.language)) return;
         }
-        if (preferredProgrammingLanguage && languages.some((item) => item.value === preferredProgrammingLanguage)) {
+        const mentioned = languageMentionedIn(questionText);
+        if (mentioned) {
+            setLanguage(mentioned);
+        } else if (preferredProgrammingLanguage && languages.some((item) => item.value === preferredProgrammingLanguage)) {
             setLanguage(preferredProgrammingLanguage);
         }
-    }, [draftKey, preferredProgrammingLanguage]);
+    }, [draftKey, preferredProgrammingLanguage, questionText]);
 
     // Theme-derived colors for fullscreen mode
     const isLightTheme = editorTheme === "vs-light";
@@ -95,7 +115,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
     }, [editorTheme]);
 
     const handleRunCode = useCallback(async () => {
-        if (!useEditor) return;
+        if (!useEditor || !isRunnable(language)) return;
         setRunError("");
         setOutput("");
         setExecMeta(null);
@@ -195,7 +215,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                     <Select
                         size="small"
                         value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
+                        onChange={(e) => chooseLanguage(e.target.value)}
                     >
                         {languages.map((lang) => (
                             <MenuItem key={lang.value} value={lang.value}>
@@ -209,7 +229,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                         size="small"
                         variant="contained"
                         onClick={handleRunCode}
-                        disabled={isRunning}
+                        disabled={isRunning || !isRunnable(language)}
                         startIcon={<PlayArrowIcon />}
                     >
                         {isRunning ? "Running..." : "Run"}
@@ -292,7 +312,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                                 <Select
                                     size="small"
                                     value={language}
-                                    onChange={(e) => setLanguage(e.target.value)}
+                                    onChange={(e) => chooseLanguage(e.target.value)}
                                     MenuProps={isLightTheme ? {} : {
                                         disablePortal: true,
                                         PaperProps: { sx: { bgcolor: "#0f1418", color: "#e0e0e0" } },
@@ -310,7 +330,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                                     variant="contained"
                                     color="primary"
                                     onClick={handleRunCode}
-                                    disabled={isRunning}
+                                    disabled={isRunning || !isRunnable(language)}
                                     startIcon={<PlayArrowIcon />}
                                 >
                                     {isRunning ? "Running..." : "Run"}
@@ -484,7 +504,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                         sx={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
                     />
                     <Typography variant="caption" color="text.secondary">
-                        Shortcuts: Run (Cmd/Ctrl+Enter or F9). Default language: C++.
+                        {isRunnable(language) ? "Shortcuts: Run (Cmd/Ctrl+Enter or F9)." : "SQL answers are reviewed, not executed. Explain any assumptions about the schema."}
                     </Typography>
                 </Stack>
             )}

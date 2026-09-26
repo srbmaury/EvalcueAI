@@ -53,7 +53,11 @@ export default function ResumeReviewPage() {
     useEffect(() => {
         const fetchResumes = async () => {
             const res = await getResumes();
-            if (Array.isArray(res)) setResumes(res);
+            if (Array.isArray(res)) {
+                setResumes(res);
+                // Match the generator: with a single saved resume there is nothing to choose.
+                if (res.length === 1) setResumeId((current) => current || res[0]._id);
+            }
         };
         fetchResumes();
     }, [getResumes]);

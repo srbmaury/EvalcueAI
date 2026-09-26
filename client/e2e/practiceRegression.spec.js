@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 
 const json = (route, body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 
@@ -9,6 +9,8 @@ const followUpText = "What did you change so the incident would not repeat?";
 const makeInterview = ({ answer = "", followUps = [] } = {}) => ({
     _id: "interview-regression",
     jobRole: "Backend Engineer",
+    // Interviews in these scenarios already passed the one-time intro, so round 1 opens directly.
+    candidateIntroAt: "2026-09-01T00:00:00.000Z",
     company: "Acme",
     rounds: [{ round: {
         _id: "round-regression",

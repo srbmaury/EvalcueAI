@@ -22,7 +22,8 @@ const competencies = (value) => Array.isArray(value) ? value.map((item) => ({
     evidence: strings(item?.evidence, 4, 300),
 })).filter((item) => item.name).slice(0, 6) : [];
 
-export const generateFeedbackForAnswer = async ({ questionText, userAnswer, evaluationContext }) => {
+// audience "candidate" is Practice feedback read by the person who answered; "reviewer" is Hire feedback read by recruiters.
+export const generateFeedbackForAnswer = async ({ questionText, userAnswer, evaluationContext, audience = "reviewer" }) => {
     const q = clean(questionText, 800);
     const a = (userAnswer || "").toString().trim().slice(0, 7000);
     if (!q) return { comment: "No question provided to evaluate.", score: 0, confidence: 0, suggestions: [], strengths: [], gaps: [], dimensions: [], competencies: [], evidence: [] };
@@ -69,7 +70,8 @@ Rules:
 - Evidence must be concrete observations tied to what the candidate said or omitted, not generic praise or criticism.
 - suggestions should be actionable and specific to the gaps; max 5.
 - A polished answer with incorrect technical claims should not score highly. A terse but correct answer may score well on correctness but lower on depth/evidence confidence.
-- Do not reward verbosity by itself.`;
+- Do not reward verbosity by itself.${audience === "candidate" ? `
+- The person who answered will read this feedback. Write comment, strengths, gaps, suggestions, and evidence in second person ("You explained…", "Add…"); never refer to "the candidate".` : ""}`;
 
     const text = await generateJSON(prompt);
     if (!text) throw new Error("AI providers returned no evaluation");

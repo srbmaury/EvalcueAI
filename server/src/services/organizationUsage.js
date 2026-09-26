@@ -162,6 +162,12 @@ export const releaseOrganizationUsage = async (reservation) => {
     }
 };
 
+// Frees the capacity held by an in-progress attempt that will never be submitted (ended or revoked).
+export const releaseAttemptReservation = async (attemptId) => {
+    const record = await CandidateUsageReservation.findOne({ attempt: attemptId, status: "reserved" }).select("_id").lean();
+    return record ? releaseOrganizationUsage({ reservationId: record._id }) : false;
+};
+
 export const expiredCandidateReservations = async (now = new Date(), limit = 100) => CandidateUsageReservation.find({
     status: "reserved",
     expiresAt: { $lte: now },

@@ -77,6 +77,7 @@ const decideNextFollowUp = async ({ interview, round, item }) => {
         systemDesign: /system\s*design|architecture/i.test(round?.name || ""),
         competencies: item?.competencies || [],
         sourceClaim: item?.sourceClaim || "",
+        candidateBackground: interview?.candidateIntro || "",
     });
     if (!decision?.shouldAsk || !decision?.followUp) return null;
     item.followUps.push({
@@ -449,7 +450,7 @@ export const completeRound = async (req, res, next) => {
         if (!round) return res.status(404).json({ message: "Round not found" });
         round.status = "completed";
         if (round.adaptiveState?.enabled) {
-            round.adaptiveState.completedReason = round.adaptiveState.completedReason || "Candidate ended the round manually.";
+            round.adaptiveState.completedReason = round.adaptiveState.completedReason || "You ended the round early.";
             round.adaptiveState.lastDecision.action = "end-round";
             round.adaptiveState.lastDecision.reason = round.adaptiveState.completedReason;
         }

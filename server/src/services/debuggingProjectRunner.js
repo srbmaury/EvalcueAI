@@ -108,11 +108,16 @@ export const runDebuggingProject = async ({ files, runtime, includeHiddenTests =
         tests: execution.isError ? defaultTests : defaultTests.map((test) => ({ ...test, passed: true })),
     };
     const result = protocolFromOutput(execution.stdout, defaults);
+    const setupErrorCount = String(execution.stdout || "").split("\n").filter((line) => line.startsWith("__EVALCUE_SETUP_ERROR__")).length;
+    // Only the runtime-profile guard line is surfaced, never the rest of the compile output.
+    const runtimeLine = String(execution.compileOutput || "").split("\n").find((line) => line.startsWith("EVALCUE_RUNTIME:"));
     return {
         status: normalizeStatus(execution, result),
         passed: result.passed,
         total: result.total,
         tests: result.tests,
+        setupErrorCount,
+        ...(runtimeLine ? { runtimeMessage: runtimeLine.slice("EVALCUE_RUNTIME:".length).trim().slice(0, 300) } : {}),
     };
 };
 

@@ -2,7 +2,7 @@ import crypto from "crypto";
 import Assessment from "../models/Assessment.js";
 import CandidateAttempt from "../models/CandidateAttempt.js";
 import Organization from "../models/Organization.js";
-import { reserveCandidateInterview, releaseOrganizationUsage } from "../services/organizationUsage.js";
+import { reserveCandidateInterview, releaseOrganizationUsage, releaseAttemptReservation } from "../services/organizationUsage.js";
 import { generateQuestionsForRound, improveAssessmentQuestion } from "../utils/generateQuestions.js";
 import { generateFollowUp } from "../utils/generateQuestions/followUp.js";
 import metrics from "../metrics/index.js";
@@ -27,6 +27,7 @@ const publicAssessment = (assessment, organizationName = "") => ({
     contactEmail: assessment.contactEmail,
     durationMinutes: assessment.durationMinutes,
     followUpsEnabled: assessment.followUpsEnabled,
+    askCandidateIntro: assessment.askCandidateIntro !== false,
     inviteOnly: assessment.inviteOnly,
     expiresAt: assessment.expiresAt,
     integrity: assessment.integrity || { enabled: false },
@@ -98,7 +99,7 @@ export const transcribeCandidateAudio = async (req, res, next) => {
 
 export const createAssessment = async (req, res, next) => {
     try {
-        const { title, jobRole, jobDescription, followUpsEnabled = true, inviteOnly = false, candidateInstructions = "", contactEmail = "", durationMinutes = 30, opensAt, expiresAt, timezone = "UTC", rounds, integrity, rubric = [], templateName = "", status = "draft" } = req.body;
+        const { title, jobRole, jobDescription, followUpsEnabled = true, askCandidateIntro = true, inviteOnly = false, candidateInstructions = "", contactEmail = "", durationMinutes = 30, opensAt, expiresAt, timezone = "UTC", rounds, integrity, rubric = [], templateName = "", status = "draft" } = req.body;
         if (status === "scheduled" && (!opensAt || new Date(opensAt) <= new Date())) return res.status(400).json({ message: "Choose a future opening time before scheduling." });
         if (expiresAt && opensAt && new Date(expiresAt) <= new Date(opensAt)) return res.status(400).json({ message: "The submission deadline must be after the opening time." });
         const generatedRounds = [];
@@ -120,7 +121,7 @@ export const createAssessment = async (req, res, next) => {
             generatedRounds.push({ name: input.name, description: input.description || "", deliveryMode: input.deliveryMode || "conversational", questions: texts.map((text, index) => ({ text, weight: input.questions?.[index]?.weight || 1, competencies: input.questions?.[index]?.competencies || [], knockout: Boolean(input.questions?.[index]?.knockout) })) });
         }
         const assessment = await Assessment.create({
-            organization: req.organizationId, createdBy: req.user._id, title, jobRole, jobDescription, followUpsEnabled, inviteOnly,
+            organization: req.organizationId, createdBy: req.user._id, title, jobRole, jobDescription, followUpsEnabled, askCandidateIntro, inviteOnly,
             candidateInstructions, contactEmail, durationMinutes, opensAt: opensAt || undefined, expiresAt: expiresAt || undefined, timezone, rounds: generatedRounds, integrity, rubric, templateName,
             status, publishedAt: status === "active" ? new Date() : undefined, shareToken: crypto.randomBytes(24).toString("base64url"),
         });
@@ -245,7 +246,7 @@ export const updateAssessment = async (req, res, next) => {
             if (req.body.status === "archived") assessment.archivedAt = new Date();
         } else {
             if (assessment.status !== "draft" || attempts > 0) return res.status(409).json({ message: "Only unused draft assessments can be edited. Create a new version instead." });
-            const editable = ["title", "jobRole", "jobDescription", "followUpsEnabled", "inviteOnly", "candidateInstructions", "contactEmail", "durationMinutes", "opensAt", "expiresAt", "timezone", "integrity", "rubric", "templateName", "rounds"];
+            const editable = ["title", "jobRole", "jobDescription", "followUpsEnabled", "askCandidateIntro", "inviteOnly", "candidateInstructions", "contactEmail", "durationMinutes", "opensAt", "expiresAt", "timezone", "integrity", "rubric", "templateName", "rounds"];
             for (const key of editable) if (req.body[key] !== undefined) assessment[key] = req.body[key] || (key === "expiresAt" ? undefined : req.body[key]);
         }
         await assessment.save();
@@ -370,11 +371,31 @@ export const revokeInvitation = async (req, res, next) => {
         // Every candidate-facing endpoint rejects any attempt whose status isn't
         // "started", so this alone cuts off access immediately through all of them —
         // an in-progress attempt otherwise kept working indefinitely on a revoked link.
-        await CandidateAttempt.updateOne(
-            { assessment: assessment._id, invitation: invitation._id, status: "started" },
+        const inProgress = await CandidateAttempt.find({ assessment: assessment._id, invitation: invitation._id, status: "started" }).select("_id").lean();
+        await CandidateAttempt.updateMany(
+            { _id: { $in: inProgress.map((item) => item._id) }, status: "started" },
             { $set: { status: "revoked" } },
         );
+        // A revoked attempt can never be submitted, so give its interview slot back to the organization.
+        for (const item of inProgress) await releaseAttemptReservation(item._id).catch(() => false);
         return res.json({ invitation });
+    } catch (error) { return next(error); }
+};
+
+// Lets the hiring team end an abandoned in-progress attempt and free its interview slot immediately
+// instead of waiting for the reservation to expire.
+export const endCandidateAttempt = async (req, res, next) => {
+    try {
+        const assessment = await Assessment.findOne({ _id: req.params.assessmentId, organization: req.organizationId }).select("_id");
+        if (!assessment) return res.status(404).json({ message: "Assessment not found" });
+        const attempt = await CandidateAttempt.findOneAndUpdate(
+            { _id: req.params.attemptId, assessment: assessment._id, status: "started" },
+            { $set: { status: "revoked" } },
+            { new: true },
+        ).select("_id status");
+        if (!attempt) return res.status(409).json({ message: "Only in-progress attempts can be ended" });
+        const released = await releaseAttemptReservation(attempt._id);
+        return res.json({ attempt: { _id: attempt._id, status: attempt.status }, released });
     } catch (error) { return next(error); }
 };
 

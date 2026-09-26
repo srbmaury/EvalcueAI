@@ -1,6 +1,7 @@
 import { getFetch } from "../utils/generateQuestions/aiClient.js";
 import { normalize, sanitizeText } from "../utils/generateQuestions/textUtils.js";
 import metrics from "../metrics/index.js";
+import { cleanSourceSnippet } from "../utils/sourceSnippet.js";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const cache = new Map();
@@ -55,7 +56,7 @@ export const getCompanyGrounding = async (company, role) => {
         const sources = rawSources.map((source) => ({
             title: sanitizeText(source?.title, 180),
             url: safeUrl(source?.url),
-            snippet: sanitizeText(source?.content, 700),
+            snippet: sanitizeText(cleanSourceSnippet(source?.content, source?.title), 700),
         })).filter((source) => source.title && source.url).slice(0, 6);
         const seen = new Set();
         const reportedQuestions = [];

@@ -27,7 +27,7 @@ export const createFeedback = async (req, res, next) => {
         }
         const qDoc = await Question.findById(questionId);
         if (!qDoc) return res.status(404).json({ message: "Question not found" });
-        const gen = await generateFeedbackForAnswer({ questionText: qDoc.text, userAnswer: answer });
+        const gen = await generateFeedbackForAnswer({ questionText: qDoc.text, userAnswer: answer, audience: "candidate" });
         const safeComment = (gen?.comment || "").toString().trim() || "Feedback unavailable.";
         const rawScore = Number(gen?.score);
         const clampedScore = Number.isFinite(rawScore) ? Math.min(10, Math.max(0, rawScore)) : undefined;
@@ -114,7 +114,7 @@ export const createBulkFeedback = async (req, res, next) => {
             // already made for earlier items in this same batch) for the whole request —
             // report it and continue, instead of throwing out of the loop.
             try {
-                const gen = await generateFeedbackForAnswer({ questionText: q.text, userAnswer: it.answer });
+                const gen = await generateFeedbackForAnswer({ questionText: q.text, userAnswer: it.answer, audience: "candidate" });
                 const safeComment = (gen?.comment || "").toString().trim() || "Feedback unavailable.";
                 const rawScore = Number(gen?.score);
                 const clampedScore = Number.isFinite(rawScore) ? Math.min(10, Math.max(0, rawScore)) : undefined;
