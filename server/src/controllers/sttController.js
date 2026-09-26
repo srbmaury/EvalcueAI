@@ -2,6 +2,8 @@ import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 import { assertAudioMagic } from "../utils/magicBytes.js";
 import metrics from "../metrics/index.js";
+import { recordAiQualityEvent } from "../services/aiQuality.js";
+import { looksGenerated, looksPromptDerived } from "../utils/transcriptGuard.js";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
 
@@ -12,7 +14,7 @@ const FALLBACK_MODEL = "whisper-1";
 const MAX_PROMPT_CHARS = 800;
 
 // The prompt is a vocabulary hint (role, question, technical terms) that biases spelling of jargon.
-// It never changes what was said, but keep it short and printable.
+// On non-speech audio the model can echo or answer it, so results are checked by transcriptGuard.
 const cleanPrompt = (value) => (typeof value === "string" ? value : "")
     .replace(/[\u0000-\u001f\u007f]+/g, " ")
     .replace(/\s+/g, " ")
@@ -54,7 +56,15 @@ export const transcribe = async (req, res, next) => {
             resp = await runTranscription(FALLBACK_MODEL, await typed(), options);
         }
 
-        const text = (resp?.text || "").toString().trim();
+        let text = (resp?.text || "").toString().trim();
+        if (options.prompt && looksPromptDerived(text, options.prompt)) {
+            // Likely an echo of the vocabulary hint or an answer to it rather than speech: transcribe again
+            // without the hint, and drop anything that still reads as generated text.
+            const retry = await runTranscription(PRIMARY_MODEL, await typed(), { ...options, prompt: "" }).catch(() => null);
+            const retried = (retry?.text || "").toString().trim();
+            text = looksGenerated(retried) ? "" : retried;
+            recordAiQualityEvent("transcription", "prompt_echo", text ? "retried" : "dropped");
+        }
         try { metrics.sttTranscribeTotal.labels("success").inc(); } catch {}
         return res.json({ text });
     } catch (error) {

@@ -392,7 +392,7 @@ export default function CandidateAssessmentPage() {
     const activePendingFollowUp = pendingFollowUpFor(activeRound, activeQuestion);
     const hintQuestion = activePendingFollowUp?.question || activeQuestion?.text || "";
     useEffect(() => {
-        setTranscriptionHint?.(buildTranscriptionHint({ role: assessment?.jobRole, round: activeRound?.name, question: hintQuestion }));
+        setTranscriptionHint?.(buildTranscriptionHint({ role: assessment?.jobRole, question: hintQuestion }));
     }, [activeRound?.name, assessment?.jobRole, hintQuestion, setTranscriptionHint]);
     const isActiveConversation = activeRound?.deliveryMode === "conversational";
     const isActiveSystemDesign = activeRound?.deliveryMode === "system-design";

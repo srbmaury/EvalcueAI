@@ -14,7 +14,19 @@ export const recordGuardEvent = (stage, guard, outcome) => {
 const WORD = /[a-z0-9]+/g;
 const STOP = new Set(["a", "an", "the", "and", "or", "to", "of", "in", "on", "for", "with", "you", "your", "how", "what", "did", "do", "would", "can", "could", "is", "are", "that", "this", "it", "as", "at", "by", "be", "about", "specific", "specifically", "explain", "describe", "elaborate", "more", "detail", "details"]);
 
-const contentWords = (text = "") => new Set((String(text).toLowerCase().match(WORD) || []).filter((word) => word.length > 2 && !STOP.has(word)));
+// Folds common English endings so paraphrases match ("notified"/"notification", "processed"/"processing",
+// "user"/"users"). Deliberately light: it only needs word forms to line up, not linguistic accuracy.
+const STEM_RULES = [[/ifications?$|ifies$|ified$|ify$/, "if"], [/ations?$/, ""], [/ings?$/, ""], [/ied$/, "y"], [/ed$/, ""], [/(?<!s)s$/, ""]];
+const stem = (word) => {
+    for (const [suffix, replacement] of STEM_RULES) {
+        if (!suffix.test(word)) continue;
+        const root = word.replace(suffix, replacement);
+        return root.length >= 3 ? root : word;
+    }
+    return word;
+};
+
+const contentWords = (text = "") => new Set((String(text).toLowerCase().match(WORD) || []).filter((word) => word.length > 2 && !STOP.has(word)).map(stem));
 
 // Numbers and percentages ("50%", "10,000", "8 seconds") are the most damaging invented specifics:
 // a question like "how did you measure your 50% reduction?" presumes a result the candidate never claimed.
