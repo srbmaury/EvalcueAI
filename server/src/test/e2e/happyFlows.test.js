@@ -15,6 +15,9 @@ import ProductEvent from "../../models/ProductEvent.js";
 import RefreshToken from "../../models/RefreshToken.js";
 import Assessment from "../../models/Assessment.js";
 import CandidateAttempt from "../../models/CandidateAttempt.js";
+import CandidateUsageReservation from "../../models/CandidateUsageReservation.js";
+import AdaptiveInterviewTrace from "../../models/AdaptiveInterviewTrace.js";
+import Interview from "../../models/Interview.js";
 import OrganizationUsageCounter from "../../models/OrganizationUsageCounter.js";
 import OrganizationMembership from "../../models/OrganizationMembership.js";
 import { currentMonth, PRACTICE_PLAN_LIMITS } from "../../services/practiceEntitlements.js";
@@ -464,6 +467,12 @@ describe("Launch-critical full product journey E2E", () => {
         // Remove that test membership before exercising sole-owner account deletion.
         await OrganizationMembership.deleteOne({ organization: hiringOrganization.body.organization._id, user: otherUser._id });
 
+        const roundIds = (await Interview.findById(interviewId).lean()).rounds.map((entry) => entry.round);
+        const organizationId = hiringOrganization.body.organization._id;
+        // Both exist before deletion, so the assertions below prove they are removed rather than never created.
+        expect(await AdaptiveInterviewTrace.exists({ round: { $in: roundIds } })).not.toBeNull();
+        expect(await CandidateUsageReservation.exists({ organization: organizationId })).not.toBeNull();
+
         // Self-service deletion requires confirmation and removes account-owned data.
         await agent
             .delete("/api/auth/profile")
@@ -483,5 +492,7 @@ describe("Launch-critical full product journey E2E", () => {
         expect(await Resume.exists({ user: me._id })).toBeNull();
         expect(await Assessment.exists({ organization: hiringOrganization.body.organization._id })).toBeNull();
         expect(await CandidateAttempt.exists({ assessment: assessmentId })).toBeNull();
+        expect(await AdaptiveInterviewTrace.exists({ round: { $in: roundIds } })).toBeNull();
+        expect(await CandidateUsageReservation.exists({ organization: organizationId })).toBeNull();
     }, 120000);
 });
