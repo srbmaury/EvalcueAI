@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { deploymentOrigins } from "../utils/deploymentSurface";
 
 const configuredOrigin = (() => {
     try {
@@ -10,7 +11,14 @@ const configuredOrigin = (() => {
 })();
 
 const absoluteUrl = (path = "/") => {
-    const origin = configuredOrigin || window.location.origin;
+    const origins = deploymentOrigins();
+    const pathname = window.location.pathname;
+    const surfaceOrigin = pathname === "/hire" || pathname.startsWith("/hire/")
+        ? origins.hiring
+        : pathname === "/practice" || pathname.startsWith("/practice/")
+            ? origins.practice
+            : origins.landing;
+    const origin = surfaceOrigin || configuredOrigin || window.location.origin;
     return new URL(path || "/", `${origin}/`).href;
 };
 

@@ -42,6 +42,17 @@ const ALL_INDEXABLE_ROUTES = [
     ...HIRING_INDEXABLE_ROUTES,
 ];
 
+const APP_SURFACE_ORIGINS = Object.freeze({
+    landing: "https://evalcueai.com",
+    practice: "https://practice.evalcueai.com",
+    hiring: "https://hiring.evalcueai.com",
+});
+
+const canonicalRouteUrl = (route, surface, publicOrigin) => {
+    const origin = APP_SURFACE_ORIGINS[surface] || publicOrigin || "";
+    return `${origin}${route}`;
+};
+
 const normalizePublicOrigin = (raw) => {
     const value = String(raw || "").trim();
     if (!value) return "";
@@ -110,9 +121,9 @@ const staticConfigForRoute = (route) => {
     return STATIC_PRODUCT_COPY[route] || null;
 };
 
-const renderSearchPageMarkup = (page, practiceOrigin = "") => `
+const renderSearchPageMarkup = (page, practiceOrigin = APP_SURFACE_ORIGINS.practice) => `
 <main data-static-seo="search-landing">
-  <nav aria-label="Breadcrumb"><a href="/">Evalcue AI</a></nav>
+  <nav aria-label="Breadcrumb"><a href="${APP_SURFACE_ORIGINS.landing}/">Evalcue AI</a></nav>
   <p>${escapeHtml(page.eyebrow)}</p>
   <h1>${escapeHtml(page.title)}</h1>
   <p>${escapeHtml(page.intro)}</p>
@@ -141,7 +152,7 @@ const renderSearchPageMarkup = (page, practiceOrigin = "") => `
 
 const renderResourcePageMarkup = (page) => `
 <main data-static-seo="product-resource">
-  <nav aria-label="Breadcrumb"><a href="${page.surface === "hiring" ? "/hire" : "/practice"}">Evalcue AI ${page.surface === "hiring" ? "Hire" : "Practice"}</a></nav>
+  <nav aria-label="Breadcrumb"><a href="${APP_SURFACE_ORIGINS.landing}/">Home</a> › <a href="${page.surface === "hiring" ? APP_SURFACE_ORIGINS.hiring : APP_SURFACE_ORIGINS.practice}/${page.surface === "hiring" ? "hire" : "practice"}">Evalcue AI ${page.surface === "hiring" ? "Hire" : "Practice"}</a></nav>
   <p>${escapeHtml(page.eyebrow)}</p>
   <h1>${escapeHtml(page.title)}</h1>
   <p>${escapeHtml(page.intro)}</p>
@@ -160,13 +171,15 @@ const renderResourcePageMarkup = (page) => `
     <ul>
       ${page.related.map((slug) => {
           const related = PRODUCT_RESOURCE_PAGES.find((candidate) => candidate.surface === page.surface && candidate.slug === slug);
-          return related ? `<li><a href="${escapeHtml(resourcePathFor(related))}">${escapeHtml(related.title)}</a></li>` : "";
+          return related ? `<li><a href="${escapeHtml(`${page.surface === "hiring" ? APP_SURFACE_ORIGINS.hiring : APP_SURFACE_ORIGINS.practice}${resourcePathFor(related)}`)}">${escapeHtml(related.title)}</a></li>` : "";
       }).join("")}
     </ul>
   </section>
+  <p><a href="${APP_SURFACE_ORIGINS.landing}/docs">Product documentation</a> · <a href="${APP_SURFACE_ORIGINS.landing}/">Main website</a></p>
 </main>`;
 
-const renderProductMarkup = (route, config) => {
+const renderProductMarkup = (route, config, surface) => {
+    const baseOrigin = APP_SURFACE_ORIGINS[surface] || "";
     const links = route === "/"
         ? SEARCH_LANDING_PAGES.map((page) => [page.path, page.title])
         : route === "/practice"
@@ -179,15 +192,22 @@ const renderProductMarkup = (route, config) => {
   <p>${escapeHtml(config.intro)}</p>
   <section>
     <h2>${route === "/hire" ? "Technical hiring resources" : "Interview practice resources"}</h2>
-    <ul>${links.map(([href, label]) => `<li><a href="${escapeHtml(href)}">${escapeHtml(label)}</a></li>`).join("")}</ul>
+    <ul>${links.map(([href, label]) => {
+          const destination = route === "/"
+              ? `${APP_SURFACE_ORIGINS.landing}${href}`
+              : `${baseOrigin}${href}`;
+          return `<li><a href="${escapeHtml(destination)}">${escapeHtml(label)}</a></li>`;
+      }).join("")}</ul>
   </section>
+  ${route === "/practice" || route === "/hire" ? `<p><a href="${APP_SURFACE_ORIGINS.landing}/">Evalcue AI home</a></p>` : ""}
 </main>`;
 };
 
 const renderStaticMarkup = (route, config, surfaceOrigins = {}) => {
     if (config.searchPage) return renderSearchPageMarkup(config.searchPage, surfaceOrigins.practice);
     if (config.resourcePage) return renderResourcePageMarkup(config.resourcePage);
-    return renderProductMarkup(route, config);
+    const surface = route === "/practice" ? "practice" : route === "/hire" ? "hiring" : "landing";
+    return renderProductMarkup(route, config, surface);
 };
 
 const structuredDataForStaticRoute = (route, config, canonicalUrl) => {
@@ -225,8 +245,8 @@ const structuredDataForStaticRoute = (route, config, canonicalUrl) => {
     };
 };
 
-const applyStaticRouteHtml = (baseHtml, route, origin, config, surfaceOrigins = {}) => {
-    const canonicalUrl = `${origin}${route}`;
+const applyStaticRouteHtml = (baseHtml, route, origin, config, surfaceOrigins = {}, surface = "landing") => {
+    const canonicalUrl = canonicalRouteUrl(route, surface, origin);
     const markup = renderStaticMarkup(route, config, surfaceOrigins);
     const structuredData = JSON.stringify(structuredDataForStaticRoute(route, config, canonicalUrl)).replace(/</g, "\\u003c");
 
@@ -237,6 +257,9 @@ const applyStaticRouteHtml = (baseHtml, route, origin, config, surfaceOrigins = 
         .replace(/(<meta property="og:description" content=")[^"]*(" \/>)/, `$1${escapeHtml(config.description)}$2`)
         .replace(/(<meta name="twitter:title" content=")[^"]*(" \/>)/, `$1${escapeHtml(config.title)}$2`)
         .replace(/(<meta name="twitter:description" content=")[^"]*(" \/>)/, `$1${escapeHtml(config.description)}$2`)
+        .replace(/<meta name="robots" content="[^"]*" \/>/, '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />')
+        .replace(/<meta property="og:type" content="[^"]*" \/>/, `<meta property="og:type" content="${config.schema === "TechArticle" ? "article" : "website"}" />`)
+        .replace(/<meta name="twitter:card" content="[^"]*" \/>/, '<meta name="twitter:card" content="summary_large_image" />')
         .replace(
             "</head>",
             `    <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
@@ -265,12 +288,21 @@ const seoFilesPlugin = (origin, routes, surfaceOrigins = {}) => ({
         const outDir = path.resolve(process.cwd(), "dist");
         await mkdir(outDir, { recursive: true });
 
-        const urls = routes.map((route) => `  <url><loc>${origin}${route}</loc></url>`).join("\n");
+        const deploymentSurface = ["landing", "practice", "hiring"].includes(process.env.VITE_APP_SURFACE)
+            ? process.env.VITE_APP_SURFACE
+            : "landing";
+        const urls = routes.map((route) => `  <url><loc>${escapeHtml(canonicalRouteUrl(route, deploymentSurface, origin))}</loc></url>`).join("\n");
         const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
         const robots = [
             "User-agent: *",
             "Allow: /",
             `Sitemap: ${origin}/sitemap.xml`,
+            ...(deploymentSurface === "landing"
+                ? [
+                    `Sitemap: ${APP_SURFACE_ORIGINS.practice}/sitemap.xml`,
+                    `Sitemap: ${APP_SURFACE_ORIGINS.hiring}/sitemap.xml`,
+                ]
+                : []),
             "",
         ].join("\n");
 
@@ -281,7 +313,7 @@ const seoFilesPlugin = (origin, routes, surfaceOrigins = {}) => ({
             .map(([route, config]) => writeStaticRoute(
                 outDir,
                 route,
-                applyStaticRouteHtml(baseHtml, route, origin, config, surfaceOrigins),
+                applyStaticRouteHtml(baseHtml, route, origin, config, surfaceOrigins, deploymentSurface),
             ));
 
         await Promise.all([
@@ -292,11 +324,39 @@ const seoFilesPlugin = (origin, routes, surfaceOrigins = {}) => ({
     },
 });
 
+// Route metadata for the always-loaded SEO components. Exposing only titles and descriptions keeps
+// the long-form landing and resource page copy out of the entry bundle; the pages load it lazily.
+const SEO_ROUTE_META_ID = "virtual:seo-route-meta";
+const RESOLVED_SEO_ROUTE_META_ID = `\0${SEO_ROUTE_META_ID}`;
+
+const seoRouteMetaPlugin = () => ({
+    name: "evalcue-seo-route-meta",
+    resolveId(id) {
+        return id === SEO_ROUTE_META_ID ? RESOLVED_SEO_ROUTE_META_ID : null;
+    },
+    load(id) {
+        if (id !== RESOLVED_SEO_ROUTE_META_ID) return null;
+        const searchRoutes = Object.fromEntries(SEARCH_LANDING_PAGES.map((page) => [
+            page.path,
+            { title: page.metaTitle, description: page.description, schema: page.schema || "WebPage" },
+        ]));
+        const resourceRoutes = Object.fromEntries(PRODUCT_RESOURCE_PAGES.map((page) => [
+            resourcePathFor(page),
+            { title: page.metaTitle, description: page.description, schema: "TechArticle" },
+        ]));
+        return [
+            `export const SEARCH_ROUTE_META = ${JSON.stringify(searchRoutes)};`,
+            `export const RESOURCE_ROUTE_META = ${JSON.stringify(resourceRoutes)};`,
+        ].join("\n");
+    },
+});
+
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "");
     const publicOrigin = normalizePublicOrigin(env.VITE_PUBLIC_ORIGIN);
     const surfaceOrigins = {
         practice: normalizePublicOrigin(env.VITE_PRACTICE_ORIGIN),
+        hiring: normalizePublicOrigin(env.VITE_HIRING_ORIGIN),
     };
     const appSurface = ["landing", "practice", "hiring"].includes(env.VITE_APP_SURFACE)
         ? env.VITE_APP_SURFACE
@@ -304,6 +364,7 @@ export default defineConfig(({ mode }) => {
     const indexableRoutes = appSurface
         ? INDEXABLE_ROUTES_BY_SURFACE[appSurface]
         : ALL_INDEXABLE_ROUTES;
+    const sitemapOrigin = publicOrigin || (appSurface ? APP_SURFACE_ORIGINS[appSurface] : "");
 
     return {
         test: {
@@ -311,7 +372,7 @@ export default defineConfig(({ mode }) => {
             globals: true,
             exclude: ["e2e/**", "node_modules/**"],
         },
-        plugins: [react(), seoFilesPlugin(publicOrigin, indexableRoutes, surfaceOrigins)],
+        plugins: [react(), seoRouteMetaPlugin(), seoFilesPlugin(sitemapOrigin, indexableRoutes, surfaceOrigins)],
         build: {
             manifest: true,
             rollupOptions: {
@@ -321,6 +382,10 @@ export default defineConfig(({ mode }) => {
                         // Forcing them into named chunks can pull shared entry dependencies into
                         // those chunks and make unrelated pages preload the heavy libraries.
                         if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) return "react";
+                        // Styling runtime and HTTP client are needed on every page and change rarely, so
+                        // keep them in separate long-cached chunks that download in parallel with the entry.
+                        if (/node_modules\/(@emotion|@mui\/(system|utils|styled-engine|private-theming)|@popperjs|react-transition-group|stylis|react-is)\//.test(id)) return "mui-core";
+                        if (/node_modules\/axios\//.test(id)) return "axios";
 
                         // Do not force all MUI/Emotion modules into one global chunk. Rollup can
                         // now keep route-only components/icons with the routes that use them.

@@ -28,7 +28,7 @@ VITE_GA_MEASUREMENT_ID=<your_ga_measurement_id>
 VITE_GA_LOCAL_ENABLED=false
 ```
 
-`VITE_PUBLIC_ORIGIN` should be the public canonical origin with no path component. When it is set for a production build, Vite emits `sitemap.xml` and `robots.txt` for the public landing, documentation, privacy, and terms routes. Protected Practice/Hiring routes are intentionally excluded from the sitemap and disallowed in `robots.txt`.
+`VITE_PUBLIC_ORIGIN` is an optional canonical-origin override and should be an origin with no path component. In the standard three-site deployment, Vite uses `https://evalcueai.com`, `https://practice.evalcueai.com`, or `https://hiring.evalcueai.com` based on `VITE_APP_SURFACE`, then emits that surface's `sitemap.xml` and `robots.txt` without needing this override. The landing robots file references all three sitemaps. Protected Practice/Hiring routes are excluded from their sitemaps; only the public product home and resources are included.
 
 On the server, set `CAPTCHA_ENABLED=true` and `CAPTCHA_SECRET` and enable the login/register CAPTCHA gates in production.
 

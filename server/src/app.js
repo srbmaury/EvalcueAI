@@ -295,6 +295,13 @@ app.use("/api/organizations", organizationRoutes);
 app.use("/api/sso", ssoRoutes);
 app.use("/api/assessments", assessmentRoutes);
 
+// The API host is a service endpoint, not a public website. Send requests for its root
+// to the canonical marketing site instead of leaving a bare host URL unresolved.
+app.get("/", (req, res) => {
+    const landingOrigin = String(process.env.LANDING_ORIGIN || "https://evalcueai.com").trim().replace(/\/+$/, "");
+    res.redirect(301, `${landingOrigin}/`);
+});
+
 // Health endpoints
 app.get("/health/liveness", (req, res) => {
     res.json({ status: "ok", uptime: process.uptime(), timestamp: Date.now() });

@@ -1,8 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useLocation } from "react-router-dom";
 import Seo from "./Seo";
-import { PRODUCT_RESOURCE_PAGES, resourcePathFor } from "../utils/productResourcePages";
-import { SEARCH_LANDING_PAGES } from "../utils/searchLandingPages";
+import { RESOURCE_ROUTE_META, SEARCH_ROUTE_META } from "virtual:seo-route-meta";
+import { deploymentOrigins } from "../utils/deploymentSurface";
 
 const ROUTES = {
     "/": {
@@ -67,20 +67,10 @@ const ROUTES = {
     },
 };
 
-const SEARCH_ROUTES = Object.fromEntries(SEARCH_LANDING_PAGES.map((page) => [
-    page.path,
-    { title: page.metaTitle, description: page.description, schema: page.schema || "WebPage" },
-]));
-
-const RESOURCE_ROUTES = Object.fromEntries(PRODUCT_RESOURCE_PAGES.map((page) => [
-    resourcePathFor(page),
-    { title: page.metaTitle, description: page.description, schema: "TechArticle" },
-]));
-
 export const seoForPath = (pathname) => {
     if (ROUTES[pathname]) return { ...ROUTES[pathname], canonicalPath: pathname };
-    if (SEARCH_ROUTES[pathname]) return { ...SEARCH_ROUTES[pathname], canonicalPath: pathname };
-    if (RESOURCE_ROUTES[pathname]) return { ...RESOURCE_ROUTES[pathname], canonicalPath: pathname };
+    if (SEARCH_ROUTE_META[pathname]) return { ...SEARCH_ROUTE_META[pathname], canonicalPath: pathname };
+    if (RESOURCE_ROUTE_META[pathname]) return { ...RESOURCE_ROUTE_META[pathname], canonicalPath: pathname };
     if (pathname.startsWith("/docs/")) return { ...ROUTES["/docs"], canonicalPath: pathname };
     return null;
 };
@@ -117,9 +107,20 @@ export default function PublicRouteSeo() {
     const { pathname } = useLocation();
     const config = seoForPath(pathname);
     if (!config) return null;
+    const origins = deploymentOrigins();
     const configuredOrigin = String(import.meta.env.VITE_PUBLIC_ORIGIN || "").trim();
-    let origin = window.location.origin;
-    try { if (configuredOrigin) origin = new URL(configuredOrigin).origin; } catch { /* use current origin */ }
+    const isHiringRoute = pathname === "/hire" || pathname.startsWith("/hire/");
+    const isPracticeRoute = pathname === "/practice" || pathname.startsWith("/practice/");
+    const defaultOrigin = isHiringRoute
+        ? origins.hiring
+        : isPracticeRoute
+            ? origins.practice
+            : origins.landing;
+    let origin = defaultOrigin || window.location.origin;
+    // Ignore a landing-only override for a public route hosted on another production surface.
+    if (configuredOrigin && !(isHiringRoute && origins.hiring) && !(isPracticeRoute && origins.practice)) {
+        try { origin = new URL(configuredOrigin).origin; } catch { /* use surface default */ }
+    }
     const canonicalUrl = new URL(config.canonicalPath, `${origin}/`).href;
     return (
         <Seo
