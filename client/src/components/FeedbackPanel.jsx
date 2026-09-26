@@ -1,6 +1,9 @@
 import { Alert, Box, Button, Card, CardContent, Chip, Divider, LinearProgress, Stack, TextField, Typography } from "@mui/material";
 import { memo, useEffect, useMemo, useState } from "react";
+import api from "../api/axios";
 import { trackEvent } from "../utils/analytics";
+import { describeError } from "../utils/errorFormatter";
+import { limitedEvidence } from "../utils/evidenceStrength";
 
 const getScore = (item) => {
     const rawScore = item?.feedback?.score;
@@ -17,7 +20,7 @@ const ScoreBar = ({ score, label = "Score" }) => {
                 <Typography variant="caption" color="text.secondary">{label}</Typography>
                 <Typography variant="caption" color="text.secondary">{normalized}/10</Typography>
             </Stack>
-            <LinearProgress variant="determinate" value={(normalized / 10) * 100} />
+            <LinearProgress variant="determinate" value={(normalized / 10) * 100} aria-label={`${label}: ${normalized} out of 10`} />
         </Stack>
     );
 };
@@ -115,6 +118,26 @@ const FeedbackItem = memo(({ index, item }) => {
 const FeedbackPanel = ({ round }) => {
     const [retryItem, setRetryItem] = useState(null);
     const [retryAnswer, setRetryAnswer] = useState("");
+    const [retryResult, setRetryResult] = useState(null);
+    const [retryChecking, setRetryChecking] = useState(false);
+    const [retryError, setRetryError] = useState("");
+    const resetRetry = (item = null) => { setRetryItem(item); setRetryAnswer(""); setRetryResult(null); setRetryError(""); };
+    // Scores the retry as a separate feedback record; the submitted answer and round score are unchanged.
+    const checkRetry = async () => {
+        const questionId = retryItem?.item?.question?._id;
+        if (!questionId || !retryAnswer.trim()) return;
+        setRetryChecking(true);
+        setRetryError("");
+        try {
+            const { data } = await api.post(`/feedback/${questionId}`, { answer: retryAnswer.trim() });
+            setRetryResult(data);
+            trackEvent("retry_feedback_received");
+        } catch (error) {
+            setRetryError(describeError(error, "Could not score this retry. Try again in a moment."));
+        } finally {
+            setRetryChecking(false);
+        }
+    };
     const items = useMemo(() => (Array.isArray(round?.questions) ? round.questions : []), [round?.questions]);
     const scoredItems = useMemo(() => items
         .map((item, index) => ({ item, index, score: getScore(item) }))
@@ -160,6 +183,7 @@ const FeedbackPanel = ({ round }) => {
                         <Stack spacing={0.5}>
                             <Typography variant="subtitle1">Round feedback</Typography>
                             <Typography variant="body2" color="text.secondary">Based on {scoreCount} answered question{scoreCount === 1 ? "" : "s"} with feedback</Typography>
+                            {limitedEvidence(items.map((item) => item?.answerGiven)) && <Chip size="small" color="warning" variant="outlined" label="Limited evidence: short answers make this score less reliable" sx={{ mt: .75 }} />}
                             {round?.adaptiveState?.completedReason && (
                                 <Typography variant="caption" color="text.secondary">Adaptive round: {round.adaptiveState.completedReason}</Typography>
                             )}
@@ -196,13 +220,13 @@ const FeedbackPanel = ({ round }) => {
                             <Divider />
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                                 <Box sx={{ flex: 1 }}>
-                                    <Typography variant="overline" color="success.main">Strongest answer · {strongest.score}/10</Typography>
+                                    <Typography variant="overline" color="success.main">{weakest === strongest ? "Answer score" : "Strongest answer"} · {strongest.score}/10</Typography>
                                     <Typography variant="body2">{strongest.item?.question?.text || `Question ${strongest.index + 1}`}</Typography>
                                 </Box>
-                                <Box sx={{ flex: 1 }}>
+                                {weakest && weakest !== strongest && <Box sx={{ flex: 1 }}>
                                     <Typography variant="overline" color="warning.main">Focus next · {weakest.score}/10</Typography>
                                     <Typography variant="body2">{weakest.item?.question?.text || `Question ${weakest.index + 1}`}</Typography>
-                                </Box>
+                                </Box>}
                             </Stack>
                             {topSuggestions.length > 0 && (
                                 <Box>
@@ -217,7 +241,7 @@ const FeedbackPanel = ({ round }) => {
                                 <Typography variant="body2" color="text.secondary">Re-answer the focus question using the improvements above as a checklist. Keep it direct, support claims with concrete evidence, explain trade-offs, and end with the result or takeaway.</Typography>
                             </Box>
                             <Box>
-                                <Button variant="contained" onClick={() => { trackEvent("retry_started"); setRetryItem(weakest); setRetryAnswer(""); }}>Retry weak question</Button>
+                                <Button variant="contained" onClick={() => { trackEvent("retry_started"); resetRetry(weakest); }}>Retry weak question</Button>
                             </Box>
                         </Stack>
                     )}
@@ -235,11 +259,20 @@ const FeedbackPanel = ({ round }) => {
                             {Array.isArray(retryItem.item?.feedback?.suggestions) && retryItem.item.feedback.suggestions.length > 0 && (
                                 <Alert severity="info">Before answering: {retryItem.item.feedback.suggestions.join(" · ")}</Alert>
                             )}
-                            <TextField label="Try a stronger answer" multiline minRows={5} value={retryAnswer} onChange={(event) => setRetryAnswer(event.target.value)} helperText="This draft stays in this page and does not replace your submitted answer." fullWidth />
-                            <Stack direction="row" spacing={1}>
-                                <Button variant="outlined" onClick={() => setRetryAnswer("")} disabled={!retryAnswer}>Clear draft</Button>
-                                <Button onClick={() => { setRetryItem(null); setRetryAnswer(""); }}>Close retry</Button>
+                            <TextField label="Try a stronger answer" multiline minRows={5} value={retryAnswer} onChange={(event) => setRetryAnswer(event.target.value)} helperText="Scoring a retry does not replace your submitted answer or change your round score." fullWidth />
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                <Button variant="contained" onClick={checkRetry} disabled={!retryAnswer.trim() || retryChecking}>{retryChecking ? "Scoring…" : "Get feedback"}</Button>
+                                <Button variant="outlined" onClick={() => { setRetryAnswer(""); setRetryResult(null); }} disabled={!retryAnswer || retryChecking}>Clear draft</Button>
+                                <Button onClick={() => resetRetry(null)} disabled={retryChecking}>Close retry</Button>
                             </Stack>
+                            {retryError && <Alert severity="error">{retryError}</Alert>}
+                            {retryResult && (
+                                <Alert severity={Number(retryResult.score) > Number(retryItem.score) ? "success" : "info"}>
+                                    <Typography fontWeight={750}>Retry score: {retryResult.score ?? "—"}/10 <Typography component="span" variant="body2" color="text.secondary">(original {retryItem.score}/10)</Typography></Typography>
+                                    <Typography variant="body2" sx={{ mt: .5 }}>{retryResult.comment}</Typography>
+                                    {Array.isArray(retryResult.suggestions) && retryResult.suggestions.length > 0 && <Typography variant="body2" sx={{ mt: .5 }}>Next: {retryResult.suggestions.join(" · ")}</Typography>}
+                                </Alert>
+                            )}
                         </Stack>
                     </CardContent>
                 </Card>

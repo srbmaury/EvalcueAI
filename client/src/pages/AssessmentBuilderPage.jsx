@@ -73,6 +73,7 @@ const initialForm = {
     expiresAt: "",
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     followUpsEnabled: true,
+    askCandidateIntro: true,
     inviteOnly: false,
     inviteEmails: "",
     rubric: [],
@@ -157,6 +158,8 @@ export default function AssessmentBuilderPage() {
     const [draftSavedAt, setDraftSavedAt] = useState(null);
     const [existingInvitationCount, setExistingInvitationCount] = useState(0);
     const [debuggingAssessmentsEnabled, setDebuggingAssessmentsEnabled] = useState(false);
+    // Runtimes the deployment's code runner supports (server-configured); empty means use the built-in list.
+    const [debuggingRuntimes, setDebuggingRuntimes] = useState([]);
     const [debuggingValidations, setDebuggingValidations] = useState({});
     const hydrationKeyRef = useRef("");
 
@@ -170,7 +173,9 @@ export default function AssessmentBuilderPage() {
         }
         api.get("/assessments/capabilities")
             .then(({ data }) => {
-                if (active) setDebuggingAssessmentsEnabled(Boolean(data?.debuggingAssessments));
+                if (!active) return;
+                setDebuggingAssessmentsEnabled(Boolean(data?.debuggingAssessments));
+                setDebuggingRuntimes(Array.isArray(data?.debuggingRuntimes) ? data.debuggingRuntimes : []);
             })
             .catch(() => {
                 if (active) setDebuggingAssessmentsEnabled(false);
@@ -485,7 +490,7 @@ export default function AssessmentBuilderPage() {
                                     const deliveryMode = event.target.value;
                                     setDebuggingValidation(index, null);
                                     if (deliveryMode === "debugging") {
-                                        replaceRound(index, createDebuggingRound());
+                                        replaceRound(index, createDebuggingRound(debuggingRuntimes[0]?.runtime));
                                         return;
                                     }
                                     const rest = { ...round };
@@ -510,7 +515,7 @@ export default function AssessmentBuilderPage() {
                             <Box><Typography variant="overline" color="primary.main" fontWeight={850}>Step 3 of 4</Typography><Typography variant="h5" fontWeight={850}>Define the evidence you need</Typography><Typography color="text.secondary" variant="body2" mt={.5}>Generate a starting set, then keep only questions you would actually use to make a hiring decision.</Typography></Box>
                             {form.rounds.map((round, roundIndex) => <Card variant="outlined" key={roundIndex}><CardContent>
                                 {round.deliveryMode === "debugging" ? (
-                                    <DebuggingRoundEditor round={round} onChange={(nextRound) => replaceRound(roundIndex, nextRound)} validation={debuggingValidations[roundIndex]} onValidationChange={(value) => setDebuggingValidation(roundIndex, value)} />
+                                    <DebuggingRoundEditor runtimes={debuggingRuntimes} round={round} onChange={(nextRound) => replaceRound(roundIndex, nextRound)} validation={debuggingValidations[roundIndex]} onValidationChange={(value) => setDebuggingValidation(roundIndex, value)} />
                                 ) : (
                                     <Stack spacing={2}>
                                         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1}><Box><Typography fontWeight={850}>{round.name}</Typography><Typography variant="body2" color="text.secondary">{experienceNames[round.deliveryMode]} · target {round.questionCount} question{Number(round.questionCount) === 1 ? "" : "s"}</Typography></Box><Button startIcon={generatingRound === roundIndex ? <CircularProgress size={18} /> : <AutoAwesomeRounded />} variant="outlined" disabled={generatingRound !== null} onClick={() => generateQuestions(roundIndex)}>{generatingRound === roundIndex ? "Generating…" : "Generate with AI"}</Button></Stack>
@@ -529,6 +534,7 @@ export default function AssessmentBuilderPage() {
                             <TextField multiline minRows={3} label="Candidate instructions" helperText="What should candidates know before they begin?" value={form.candidateInstructions} onChange={(event) => setField("candidateInstructions", event.target.value)} />
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}><TextField fullWidth type="email" label="Support email" value={form.contactEmail} onChange={(event) => setField("contactEmail", event.target.value)} /><TextField fullWidth type="number" label="Estimated duration (minutes)" value={form.durationMinutes} onChange={(event) => setField("durationMinutes", Number(event.target.value) || 30)} inputProps={{ min: 5, max: 240 }} /></Stack>
                             <FormControlLabel control={<Checkbox checked={form.followUpsEnabled} onChange={(event) => setField("followUpsEnabled", event.target.checked)} />} label="Allow contextual AI follow-up questions" />
+                            <FormControlLabel control={<Checkbox checked={form.askCandidateIntro !== false} onChange={(event) => setField("askCandidateIntro", event.target.checked)} />} label="Ask candidates for a short, unscored introduction before round 1 (helps the AI ask about their real experience)" />
                             <FormControlLabel control={<Checkbox checked={form.inviteOnly} onChange={(event) => setField("inviteOnly", event.target.checked)} />} label="Only invited candidates can access this assessment" />
                             {form.inviteOnly && <TextField multiline minRows={3} label="Candidate emails" placeholder="candidate@example.com" helperText={existingInvitationCount ? `${existingInvitationCount} existing invitation${existingInvitationCount === 1 ? "" : "s"} will remain. Add only new candidates here.` : "One per line, or separate with commas."} value={form.inviteEmails} onChange={(event) => setField("inviteEmails", event.target.value)} />}
                             <Button variant="text" sx={{ alignSelf: "flex-start" }} onClick={() => setShowAdvanced((current) => !current)}>{showAdvanced ? "Hide advanced launch settings" : "Show scheduling and integrity settings"}</Button>

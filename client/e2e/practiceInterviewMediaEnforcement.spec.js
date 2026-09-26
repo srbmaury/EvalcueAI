@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 
 const json = (route, body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 
@@ -9,6 +9,8 @@ const roundQuestion = (id, text) => ({ question: { _id: id, text }, answerGiven:
 const interviewPayload = ({ name, description, deliveryMode, question }) => ({
     _id: "interview-media",
     jobRole: "Software Engineer",
+    // Interviews in these scenarios already passed the one-time intro, so round 1 opens directly.
+    candidateIntroAt: "2026-09-01T00:00:00.000Z",
     company: "Acme",
     rounds: [{
         round: {

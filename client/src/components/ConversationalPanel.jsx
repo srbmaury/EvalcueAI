@@ -15,6 +15,11 @@ import NotesRoundedIcon from "@mui/icons-material/NotesRounded";
 import SkipRoundButton from "./SkipRoundButton";
 import WebcamPreview from "./WebcamPreview";
 
+// Open the code editor only when the question actually asks for code, not whenever it says "implement"
+// (e.g. "how did you implement automated testing" is a discussion question).
+const asksForCode = (text = "") => /\b(write|implement|code|build)\b[^.?]{0,60}\b(function|method|class|algorithm|program|query|snippet|data structure)\b/i.test(text)
+    || /\b(time|space) complexity\b/i.test(text);
+
 const CodeEditorField = lazy(() => import("./CodeEditorField"));
 const SPEECH_ACTIVITY_LEVEL = 0.035;
 
@@ -54,6 +59,9 @@ const ConversationalPanel = ({
     onStopHandsFree,
     target = "conv",
     showRoundControls = true,
+    // Optional round length so candidates can see progress; adaptive rounds may finish before the maximum.
+    questionTotal = 0,
+    questionTotalIsMax = false,
     allowFollowUpSkip = true,
     showFollowUpCount = false,
     submitAnswerLabel = "Submit now",
@@ -84,6 +92,8 @@ const ConversationalPanel = ({
     const isFollowUp = Boolean(pendingFollowUp);
     const isDone = convState?.done;
     const typedWorkspaceVisible = showTypedAnswer || codingEnabled || !supportsSTT;
+    // In the coding workspace the written explanation is submitted alongside the code, so either one counts.
+    const hasAnswer = Boolean(String(convAnswer || "").trim() || (codingEnabled && String(spokenAnswer || "").trim()));
     const autoAdvanceEnabled = autoSubmitVoiceOnSilence ?? showRoundControls;
     const cameraReady = cameraSlot !== undefined || !requireCameraBeforeStart || cameraState.on || cameraBypassed;
     const micReady = !supportsSTT || micSessionActive;
@@ -276,7 +286,7 @@ const ConversationalPanel = ({
                     <Stack direction="row" spacing={1} alignItems="center">
                         <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: isDone ? "success.main" : isRecording ? "success.main" : "warning.main", animation: isRecording ? "blink 1.4s ease-in-out infinite" : "none", "@keyframes blink": { "0%,100%": { opacity: 1 }, "50%": { opacity: .35 } } }} />
                         <Typography sx={{ color: "rgba(255,255,255,.76)", fontSize: ".72rem", fontWeight: 700, letterSpacing: .45, textTransform: "uppercase" }}>{isDone ? "Completed" : "Live interview"}</Typography>
-                        {!isDone && !readinessNeeded && <Chip size="small" label={`Q ${questionNumber}`} sx={{ height: 20, bgcolor: "rgba(255,255,255,.1)", color: "rgba(255,255,255,.8)" }} />}
+                        {!isDone && !readinessNeeded && <Chip size="small" label={`Q ${questionNumber}${questionTotal ? (questionTotalIsMax ? ` · up to ${questionTotal}` : ` of ${questionTotal}`) : ""}${pendingFollowUp ? ` · follow-up ${pendingFollowUp.number || 1}` : ""}`} sx={{ height: 20, bgcolor: "rgba(255,255,255,.1)", color: "rgba(255,255,255,.8)" }} />}
                     </Stack>
                     <Stack direction="row" spacing={1} alignItems="center">
                         {!isDone && <Chip size="small" label={interviewerState.label} color={interviewerState.color} sx={{ display: { xs: "none", sm: "flex" }, height: 22 }} />}
@@ -361,27 +371,28 @@ const ConversationalPanel = ({
                             codingEnabled ? (
                                 <Box data-testid="coding-workspace" sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1.65fr) minmax(300px, .85fr)" }, gap: 2, alignItems: "start" }}>
                                     <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 2 }} />}>
-                                        <CodeEditorField value={convAnswer} onChange={setConvAnswer} onModeChange={onCodingModeChange} draftKey={codeDraftKey} suggestCode={/\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(questionText || "")} outlinedInputSx={outlinedInputSx} minRows={7} {...codeEditorProps} />
+                                        <CodeEditorField questionText={questionText || ""} value={convAnswer} onChange={setConvAnswer} onModeChange={onCodingModeChange} draftKey={codeDraftKey} suggestCode={asksForCode(questionText)} outlinedInputSx={outlinedInputSx} minRows={7} {...codeEditorProps} />
                                     </Suspense>
                                     <TextField label="Explain your approach" value={spokenAnswer || ""} onChange={(event) => setSpokenAnswer?.(event.target.value)} multiline minRows={7} fullWidth helperText="Explain complexity, edge cases, and the decisions behind the code while it remains visible beside you." />
                                 </Box>
                             ) : (
                                 <Suspense fallback={<Skeleton variant="rectangular" height={180} sx={{ borderRadius: 2 }} />}>
-                                    <CodeEditorField value={convAnswer} onChange={setConvAnswer} onModeChange={onCodingModeChange} draftKey={codeDraftKey} suggestCode={/\b(code|implement|algorithm|data structure|complexity|function|program)\b/i.test(questionText || "")} outlinedInputSx={outlinedInputSx} minRows={7} {...codeEditorProps} />
+                                    <CodeEditorField questionText={questionText || ""} value={convAnswer} onChange={setConvAnswer} onModeChange={onCodingModeChange} draftKey={codeDraftKey} suggestCode={asksForCode(questionText)} outlinedInputSx={outlinedInputSx} minRows={7} {...codeEditorProps} />
                                 </Suspense>
                             )
                         )}
 
                         {pendingFollowUp ? (
-                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="flex-end">
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="flex-end" alignItems={{ sm: "center" }}>
+                                {showRoundControls && (onCompleteRound || onSkip) && <Stack direction="row" spacing={1} sx={{ mr: { sm: "auto" } }}>{onCompleteRound && <Button variant="text" size="small" color="inherit" onClick={() => setSubmitRoundOpen(true)} disabled={convRoundSubmitting}>End round</Button>}{onSkip && <SkipRoundButton onSkip={skipRound} disabled={convRoundSubmitting || convSubmitting} />}</Stack>}
                                 {allowFollowUpSkip && <Button variant="outlined" onClick={() => submitFollowUpTurn(true)}>Move on</Button>}
-                                <Button variant="contained" startIcon={<SendIcon />} onClick={() => submitFollowUpTurn(false)} disabled={!String(convAnswer || "").trim()} sx={{ minWidth: 150 }}>{submitFollowUpLabel}</Button>
+                                <Button variant="contained" startIcon={<SendIcon />} onClick={() => submitFollowUpTurn(false)} disabled={!hasAnswer} sx={{ minWidth: 150 }}>{submitFollowUpLabel}</Button>
                             </Stack>
                         ) : (
                             <Stack direction={{ xs: "column", lg: "row" }} spacing={1.25} alignItems={{ lg: "center" }}>
-                                <Button variant="contained" startIcon={convSubmitting ? <CircularProgress size={16} color="inherit" /> : <SendIcon />} onClick={submitAnswerTurn} disabled={convSubmitting || !String(convAnswer || "").trim()} sx={{ minWidth: 150, order: { xs: 1, lg: 3 } }}>{convSubmitting ? "One moment…" : submitAnswerLabel}</Button>
+                                <Button variant="contained" startIcon={convSubmitting ? <CircularProgress size={16} color="inherit" /> : <SendIcon />} onClick={submitAnswerTurn} disabled={convSubmitting || !hasAnswer} sx={{ minWidth: 150, order: { xs: 1, lg: 3 } }}>{convSubmitting ? "One moment…" : submitAnswerLabel}</Button>
                                 {onClarify && <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ flex: 1, minWidth: 0, width: "100%", order: { xs: 2, lg: 1 } }}><TextField size="small" placeholder="Need clarification? Ask the interviewer…" fullWidth value={clarifyText} onChange={(event) => setClarifyText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") submitClarify(); }} /><Button variant="outlined" size="small" onClick={submitClarify} disabled={!clarifyText.trim() || clarifying}>{clarifying ? "Asking…" : "Ask"}</Button></Stack>}
-                                {showRoundControls && (onCompleteRound || onSkip) && <Stack direction="row" spacing={1} sx={{ order: { xs: 3, lg: 2 } }}>{onCompleteRound && <Button variant="text" size="small" color="inherit" onClick={() => setSubmitRoundOpen(true)} disabled={convRoundSubmitting}>End round</Button>}{onSkip && <SkipRoundButton onSkip={skipRound} />}</Stack>}
+                                {showRoundControls && (onCompleteRound || onSkip) && <Stack direction="row" spacing={1} sx={{ order: { xs: 3, lg: 2 } }}>{onCompleteRound && <Button variant="text" size="small" color="inherit" onClick={() => setSubmitRoundOpen(true)} disabled={convRoundSubmitting}>End round</Button>}{onSkip && <SkipRoundButton onSkip={skipRound} disabled={convRoundSubmitting || convSubmitting} />}</Stack>}
                             </Stack>
                         )}
                         {savedLabel && <Typography variant="caption" color="text.secondary" textAlign="right">{savedLabel}</Typography>}

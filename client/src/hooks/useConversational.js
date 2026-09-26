@@ -139,6 +139,8 @@ export const useConversational = ({
             storage.remove(storageKeys.conv(interviewId, selectedRound._id, currentIndex));
             const { data } = await api.post(`/questions/${selectedRound._id}/answer`, { index: currentIndex, answer });
             setConvAnswer("");
+            // Autosave can re-write the draft while the request is in flight (e.g. a late voice transcript).
+            storage.remove(storageKeys.conv(interviewId, selectedRound._id, currentIndex));
             if (data?.followUp) setPendingFollowUp({ question: data.followUp, number: data.followUpNumber || 1, qIndex: currentIndex });
             const feedbackResult = await waitForFinalFeedback(data);
             const snapshot = await refreshInterviewAndRound();
@@ -170,6 +172,7 @@ export const useConversational = ({
                 skip: !answer,
             });
             setConvAnswer("");
+            storage.remove(storageKeys.conv(interviewId, selectedRound._id, pendingFollowUp.qIndex));
             if (data?.followUp) setPendingFollowUp({ question: data.followUp, number: data.followUpNumber || pendingFollowUp.number + 1, qIndex: pendingFollowUp.qIndex });
             else setPendingFollowUp(null);
             const feedbackResult = await waitForFinalFeedback(data);

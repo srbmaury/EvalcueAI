@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 
 const json = (route, body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 
@@ -32,7 +32,7 @@ const mockSignedIn = async (page, user = { _id: "user-1", name: "Recruiter One",
 test("public homepage explains both candidate and recruiter value", async ({ page }) => {
     await mockSignedOut(page);
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Prepare better. Hire with clearer evidence." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "AI interview practice and structured technical hiring for software engineers.", level: 1 })).toBeVisible();
     await expect(page.getByRole("link", { name: "Practice interviews" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Assess candidates" })).toBeVisible();
     await expect(page.getByText("Hiring workspace", { exact: true })).toBeVisible();
@@ -80,10 +80,10 @@ test("protected Practice and Hire URLs use their product-specific sign-in pages"
     await mockSignedOut(page);
     await page.goto("/practice/new");
     await expect(page).toHaveURL(/\/practice\/login$/);
-    await expect(page.getByRole("heading", { name: "Sign in to Evalcue AI" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to EvalcueAI" })).toBeVisible();
     await page.goto("/hire/assessments");
     await expect(page).toHaveURL(/\/hire\/login$/);
-    await expect(page.getByRole("heading", { name: "Sign in to Evalcue AI" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to EvalcueAI" })).toBeVisible();
 });
 
 test("a signed-in hiring user can create their first organization", async ({ page }) => {
@@ -462,8 +462,8 @@ test("supporting authenticated screens render without overflow", async ({ page }
 test("public account and legal screens have clear page titles without overflow", async ({ page }) => {
     await mockSignedOut(page);
     const screens = [
-        ["/login", "Sign in to Evalcue AI"],
-        ["/register", "Create your Evalcue AI account"],
+        ["/login", "Sign in to EvalcueAI"],
+        ["/register", "Create your account"],
         ["/forgot-password", "Forgot your password?"],
         ["/reset-password", "Reset your password"],
         ["/verify-email", "Verify your email"],

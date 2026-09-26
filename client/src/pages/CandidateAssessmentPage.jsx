@@ -10,6 +10,7 @@ import CandidateDebuggingRound from "../components/CandidateDebuggingRound";
 import Captcha from "../components/Captcha";
 import CodeEditorField from "../components/CodeEditorField";
 import ConversationalPanel from "../components/ConversationalPanel";
+import CandidateIntroCard from "../components/CandidateIntroCard";
 import SystemDesignDiscussionPanel from "../components/SystemDesignDiscussionPanel";
 import VoiceControls from "../components/VoiceControls";
 import WebcamPreview from "../components/WebcamPreview";
@@ -349,6 +350,15 @@ export default function CandidateAssessmentPage() {
     };
 
     const activeRound = attempt?.rounds?.[activeRoundIndex];
+    // Optional unscored intro before round 1 when the hiring team enabled it for this assessment.
+    const showCandidateIntro = Boolean(
+        assessment?.askCandidateIntro && attempt?.status === "started" && !attempt.candidateIntroAt
+        && activeRoundIndex === 0 && !(attempt.rounds?.[0]?.questions || []).some((question) => question?.answer),
+    );
+    const saveCandidateIntro = async (body) => {
+        const { data } = await api.put(`${candidateToolBase}/intro`, body, { headers: candidateToolHeaders, skipAuthRedirect: true });
+        persist({ ...attempt, candidateIntroAt: data.candidateIntroAt });
+    };
     const activeQuestion = activeRound?.questions?.[activeQuestionIndex];
     const activePendingFollowUp = pendingFollowUpFor(activeRound, activeQuestion);
     const isActiveConversation = activeRound?.deliveryMode === "conversational";
@@ -598,6 +608,8 @@ export default function CandidateAssessmentPage() {
                                     {integrityRecovery === "fullscreen" ? <Button variant="contained" onClick={enterFullscreen}>Enter fullscreen</Button> : <Button variant="contained" onClick={checkCamera}>Restore camera</Button>}
                                 </Stack>
                             </Paper>
+                        ) : showCandidateIntro ? (
+                            <CandidateIntroCard onSubmit={(answer) => saveCandidateIntro({ answer })} onSkip={() => saveCandidateIntro({ skip: true })} />
                         ) : roundTransition ? (
                             <Paper variant="outlined" sx={{ p: { xs: 3, md: 5 }, minHeight: 340, display: "grid", alignContent: "center", borderRadius: 3 }}>
                                 <Stack spacing={2} alignItems="flex-start">
@@ -618,6 +630,7 @@ export default function CandidateAssessmentPage() {
                                 target={voiceTarget}
                                 checkpointEndpoint={`${candidateToolBase}/system-design/checkpoint`}
                                 checkpointHeaders={candidateToolHeaders}
+                                checkpointBody={{ roundIndex: activeRoundIndex, questionIndex: activeQuestionIndex }}
                                 skipAuthRedirect
                                 supportsSTT={supportsSTT}
                                 supportsTTS={supportsTTS}
@@ -642,6 +655,8 @@ export default function CandidateAssessmentPage() {
                             />
                         ) : isActiveConversation && activeQuestion ? (
                             <ConversationalPanel
+                                questionTotal={Number(activeRound?.maxQuestions) || (activeRound?.questions || []).length}
+                                questionTotalIsMax={Boolean(activeRound?.adaptive)}
                                 convSubmitting={busy}
                                 convRoundSubmitting={false}
                                 convState={{ index: activeQuestionIndex, current: { text: activeQuestion.text }, done: false }}
@@ -709,7 +724,7 @@ export default function CandidateAssessmentPage() {
                                     </Box>
                                     <Box sx={{ p: 2.5, minWidth: 0, bgcolor: "background.default" }}>
                                         <Typography variant="caption" color="text.secondary" fontWeight={850}>WORKSPACE</Typography>
-                                        <Box mt={1}><CodeEditorField value={activeQuestion.answer || ""} onChange={(value) => updateLocal(activeRoundIndex, activeQuestionIndex, "answer", value)} onFocus={() => setFocusedField("answer")} minRows={16} draftKey={`candidate:${attempt._id}:${activeRound._id}:${activeQuestion._id}`} suggestCode={/\b(code|coding|implement|algorithm|function|class|program)\b/i.test(activeQuestion.text)} onModeChange={setCodingEnabled} executionEndpoint={`${candidateToolBase}/run-code`} executionHeaders={candidateToolHeaders} skipAuthRedirect canRun={assessment.capabilities?.codeExecution !== false} /></Box>
+                                        <Box mt={1}><CodeEditorField questionText={activeQuestion.text || ""} value={activeQuestion.answer || ""} onChange={(value) => updateLocal(activeRoundIndex, activeQuestionIndex, "answer", value)} onFocus={() => setFocusedField("answer")} minRows={16} draftKey={`candidate:${attempt._id}:${activeRound._id}:${activeQuestion._id}`} suggestCode={/\b(code|coding|implement|algorithm|function|class|program|query|endpoint|api|script)\b/i.test(activeQuestion.text)} onModeChange={setCodingEnabled} executionEndpoint={`${candidateToolBase}/run-code`} executionHeaders={candidateToolHeaders} skipAuthRedirect canRun={assessment.capabilities?.codeExecution !== false} /></Box>
                                         {codingEnabled && <TextField fullWidth multiline minRows={3} sx={{ mt: 2 }} label="Explain your approach" value={spokenNotes[answerTarget] ?? activeQuestion.spokenExplanation ?? ""} onChange={(event) => { setSpokenNotes((current) => ({ ...current, [answerTarget]: event.target.value })); setDirty((current) => ({ ...current, [answerKey(activeRoundIndex, activeQuestionIndex)]: true })); }} />}
                                         {activePendingFollowUp && <Paper variant="outlined" sx={{ p: 2, mt: 2, borderColor: "primary.main" }}><Typography variant="caption" color="primary.main" fontWeight={850}>INTERVIEWER FOLLOW-UP</Typography><Typography fontWeight={750}>{activePendingFollowUp.question}</Typography><TextField fullWidth multiline minRows={3} sx={{ mt: 1 }} label="Your follow-up answer" value={activeQuestion.followUpAnswer || ""} onChange={(event) => updateLocal(activeRoundIndex, activeQuestionIndex, "followUpAnswer", event.target.value)} /><Button sx={{ mt: 1 }} variant="contained" disabled={busy || !activeQuestion.followUpAnswer?.trim()} onClick={async () => { const nextAttempt = await saveAnswer(activeRoundIndex, activeQuestionIndex, true); if (nextAttempt && !pendingFollowUpFor(nextAttempt.rounds[activeRoundIndex], nextAttempt.rounds[activeRoundIndex].questions[activeQuestionIndex])) goToNextQuestion(nextAttempt); }}>Save follow-up</Button></Paper>}
                                         {/* Scoped to its own sized slot (matching Practice's OAForm) rather than

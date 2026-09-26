@@ -35,9 +35,20 @@ const hasRepeatingOutro = (text) => {
     return thanksCount >= 2;
 };
 
+// Speech-to-text models commonly emit these from background noise or a mic tone. A segment made only
+// of them carries no answer content; real one-word answers such as "yes" or "okay" are kept.
+const NOISE_ONLY_SEGMENT = /^(?:you|thank you|thanks|bye|bye bye|uh|um|hmm|mm)(?: (?:you|thank you|thanks|bye|uh|um|hmm|mm))*$/;
+
+const isNoiseOnlySegment = (text) => NOISE_ONLY_SEGMENT.test(
+    text.toLowerCase().replace(/[.!?,;:"'’`…-]+/g, " ").replace(/\s+/g, " ").trim(),
+);
+
 export const looksLikeSilenceHallucination = (value = "") => {
     const text = normalize(value);
     if (!text) return true;
+    if (isNoiseOnlySegment(text)) return true;
+    // Symbols with no letters or digits (e.g. "♪♪♪" transcribed from a tone or music) carry no answer content.
+    if (!/[\p{L}\p{N}]/u.test(text)) return true;
     const wordCount = text.split(/\s+/).filter(Boolean).length;
     const outroMatches = OUTRO_PATTERNS.filter((pattern) => pattern.test(text)).length;
     if (repeatedOutroOnly(text)) return true;

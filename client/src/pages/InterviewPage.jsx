@@ -7,6 +7,7 @@ import { useOAForm } from "../hooks/useOAForm";
 import { useVoiceInput } from "../hooks/useVoiceInput";
 import { useResumePdf } from "../hooks/useResumePdf";
 import api from "../api/axios";
+import CandidateIntroCard from "../components/CandidateIntroCard";
 
 import {
     Alert, Box, Button, Chip, CircularProgress,
@@ -70,6 +71,20 @@ const InterviewPage = () => {
     const isSystemDesign = useMemo(() => Boolean(
         isConversational && /system\s*design|architecture/i.test(`${selectedRound?.name || ""} ${selectedRound?.description || ""}`),
     ), [isConversational, selectedRound?.description, selectedRound?.name]);
+
+    // One unscored intro at the very start of the interview (before round 1, whatever its format),
+    // while the round prepares in the background.
+    const firstRoundId = interview?.rounds?.[0]?.round?._id;
+    const showCandidateIntro = Boolean(
+        interview && !interview.candidateIntroAt
+        && selectedRound?._id && selectedRound._id === firstRoundId
+        && selectedRound.status !== "completed"
+        && !(selectedRound.questions || []).some((item) => item?.answerGiven),
+    );
+    const saveCandidateIntro = useCallback(async (body) => {
+        const { data } = await api.put(`/interviews/${interviewId}/intro`, body);
+        setInterview((current) => (current ? { ...current, ...data } : current));
+    }, [interviewId, setInterview]);
 
     const hasAnsweredMissingFeedback = useMemo(() => {
         const questions = selectedRound?.questions || [];
@@ -303,6 +318,18 @@ const InterviewPage = () => {
         };
     }, [interview?.rounds, selectedRound?._id]);
 
+    // Preparing questions marks a round in_progress before the user enters it, so "started" means answers exist.
+    const roundHasProgress = (round) => round?.status === "completed" || (round?.questions || []).some((item) => item?.answerGiven);
+
+    // Rounds run in order, so the primary overview action points at the first unfinished round
+    // once the selected one is done (or nothing has been selected yet).
+    const firstUnfinishedRound = useMemo(() => {
+        if (selectedRound && selectedRound.status !== "completed") return null;
+        const rounds = interview?.rounds || [];
+        const index = rounds.findIndex((item) => item.round && item.round.status !== "completed");
+        return index >= 0 ? { round: rounds[index].round, number: index + 1 } : null;
+    }, [interview?.rounds, selectedRound]);
+
     const nextRound = useMemo(() => {
         if (!selectedRound || roundMeta.index < 0) return null;
         return interview?.rounds?.[roundMeta.index + 1]?.round || null;
@@ -373,9 +400,13 @@ const InterviewPage = () => {
 
                             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                                 {showRoundsOverview ? (
-                                    selectedRound && (
+                                    firstUnfinishedRound ? (
+                                        <Button size="small" variant="contained" onClick={() => enterRound(firstUnfinishedRound.round)}>
+                                            {`${roundHasProgress(firstUnfinishedRound.round) ? "Continue" : "Start"} round ${firstUnfinishedRound.number}`}
+                                        </Button>
+                                    ) : selectedRound && (
                                         <Button size="small" variant="contained" onClick={() => setShowRoundsOverview(false)}>
-                                            Return to round
+                                            {selectedRound.status === "completed" ? `View round ${roundMeta.index + 1}` : roundHasProgress(selectedRound) ? "Return to round" : `Start round ${roundMeta.index + 1}`}
                                         </Button>
                                     )
                                 ) : (
@@ -431,6 +462,8 @@ const InterviewPage = () => {
                                         <Button variant="contained" onClick={() => setShowRoundsOverview(true)}>View rounds</Button>
                                     </Stack>
                                 </Paper>
+                            ) : showCandidateIntro ? (
+                                <CandidateIntroCard onSubmit={(answer) => saveCandidateIntro({ answer })} onSkip={() => saveCandidateIntro({ skip: true })} />
                             ) : loadingRound ? (
                                 <Paper variant="outlined" sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 3 }}>
                                     <Stack spacing={1.5}>
@@ -490,6 +523,8 @@ const InterviewPage = () => {
                                 ) : (
                                     <>
                                         <ConversationalPanel
+                                            questionTotal={selectedRound.adaptiveState?.enabled ? (Number(selectedRound.adaptiveState?.maxQuestions) || Number(selectedRound.questionLimit) || 0) : (Number(selectedRound.questionLimit) || (selectedRound.questions || []).length)}
+                                            questionTotalIsMax={Boolean(selectedRound.adaptiveState?.enabled)}
                                             convSubmitting={convSubmitting}
                                             convRoundSubmitting={convRoundSubmitting}
                                             convState={convViewState}
