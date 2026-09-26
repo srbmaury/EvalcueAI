@@ -2,16 +2,19 @@ import metrics from "../metrics/index.js";
 import { RUNTIME_IDS, SNIPPET_RUNTIMES } from "../config/codeRuntimes.js";
 
 // Client for the sandboxed code runner service (see /runner).
+// Successful runtime lists are cached for 5 minutes; failures for 30 seconds so an outage is noticed
+// quickly without every capabilities or readiness request waiting on an unreachable runner.
 const RUNTIME_CACHE_MS = 5 * 60 * 1000;
-let runtimeCache = { at: 0, ids: null };
+const RUNTIME_FAILURE_CACHE_MS = 30 * 1000;
+const RUNTIME_TIMEOUT_MS = 3000;
+let runtimeCache = { at: 0, ids: null, ttl: 0 };
 
 const runnerError = (message, statusCode = 502) => Object.assign(new Error(message), { statusCode });
 
 export const codeRunnerConfigured = () => Boolean(process.env.CODE_RUNNER_URL && process.env.CODE_RUNNER_TOKEN);
 
-const request = async (path, body) => {
+const request = async (path, body, { timeoutMs = Number(process.env.CODE_RUNNER_TIMEOUT_MS) || 90_000 } = {}) => {
     if (!codeRunnerConfigured()) throw runnerError("Code execution is temporarily unavailable", 503);
-    const timeoutMs = Number(process.env.CODE_RUNNER_TIMEOUT_MS) || 90_000;
     let response;
     try {
         response = await fetch(new URL(path, process.env.CODE_RUNNER_URL), {
@@ -29,21 +32,26 @@ const request = async (path, body) => {
     return data;
 };
 
-// Runtimes whose toolchain passed the runner's startup probe. Cached; empty when the runner is not reachable.
-export const availableRuntimeIds = async () => {
-    if (!codeRunnerConfigured()) return [];
-    if (runtimeCache.ids && Date.now() - runtimeCache.at < RUNTIME_CACHE_MS) return runtimeCache.ids;
-    try {
-        const { runtimes = [] } = await request("/v1/runtimes");
-        const ids = runtimes.map((item) => item.id).filter((id) => RUNTIME_IDS.includes(id));
-        runtimeCache = { at: Date.now(), ids };
-        return ids;
-    } catch {
-        return [];
-    }
+const recordAvailability = (ids) => {
+    metrics.componentReady.labels("code_runner").set(ids.length ? 1 : 0);
+    for (const runtime of RUNTIME_IDS) metrics.codeRunnerRuntimeAvailable.labels(runtime).set(ids.includes(runtime) ? 1 : 0);
 };
 
-export const resetRuntimeCache = () => { runtimeCache = { at: 0, ids: null }; };
+// Runtimes whose toolchain passed the runner's startup probe. Empty when the runner is unreachable.
+export const availableRuntimeIds = async () => {
+    if (!codeRunnerConfigured()) return [];
+    if (runtimeCache.ids && Date.now() - runtimeCache.at < runtimeCache.ttl) return runtimeCache.ids;
+    let ids = [];
+    try {
+        const { runtimes = [] } = await request("/v1/runtimes", undefined, { timeoutMs: RUNTIME_TIMEOUT_MS });
+        ids = runtimes.map((item) => item.id).filter((id) => RUNTIME_IDS.includes(id));
+    } catch { /* reported through metrics and readiness */ }
+    runtimeCache = { at: Date.now(), ids, ttl: ids.length ? RUNTIME_CACHE_MS : RUNTIME_FAILURE_CACHE_MS };
+    recordAvailability(ids);
+    return ids;
+};
+
+export const resetRuntimeCache = () => { runtimeCache = { at: 0, ids: null, ttl: 0 }; };
 
 // Compiles and runs one file. Returns the shape the editor's output panel renders.
 export const runSnippet = async ({ language, code, stdin = "" }) => {

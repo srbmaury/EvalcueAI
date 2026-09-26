@@ -20,6 +20,7 @@ A project test passes when its program exits with status 0. At startup the runne
 Every compile and run step is a separate [nsjail](https://github.com/google/nsjail) process:
 
 - new user, PID, mount, network, IPC, UTS and cgroup namespaces; **no network interface**
+- a seccomp filter ([sandbox/seccomp.kafel](sandbox/seccomp.kafel)) blocking tracing, mounts, new namespaces, kernel modules, BPF, keyrings and io_uring
 - runs as `nobody` (65534); sees only read-only `/usr`, `/opt/java`, a private `/tmp`, and its job directory at `/work`
 - cgroup v2 limits per step: memory (512 MB, 768 MB for compiles), 128 processes, one CPU
 - wall-clock and CPU-time limits (6 s run, 10 s per test, 20 s compile, 60 s per project), 16 MB max file size
@@ -36,7 +37,9 @@ host** that holds no other secrets.
 All routes except `/healthz` need `Authorization: Bearer $RUNNER_TOKEN`.
 
 ```
-GET  /healthz        -> { ok, active, waiting }
+GET  /healthz        -> { ok, runtimes, active, waiting }   (503 when no runtime passed its probe)
+GET  /metrics        -> Prometheus text: runner_jobs_total, runner_job_duration_seconds, runner_queue_jobs,
+                        runner_queue_rejected_total, runner_runtime_available
 GET  /v1/runtimes    -> { runtimes: [{ id, label, version }] }
 POST /v1/snippets    { runtime, source, stdin? }
                      -> { status: ok|compile_error|runtime_error|timeout|killed, stdout, stderr, compileOutput, exitCode, durationMs, truncated }
@@ -94,6 +97,10 @@ tests (all runtimes, infinite loops, memory and fork bombs, network and filesyst
    `CODE_RUNNER_URL=https://runner.evalcueai.com`, `CODE_RUNNER_TOKEN=<token from .env>`.
 7. **Keep it free and running.** Oracle may reclaim Always Free instances that stay idle. Upgrading the
    account to Pay As You Go prevents that; usage within Always Free limits is still not charged.
+
+**Monitoring.** Point an uptime check (e.g. UptimeRobot, free) at `https://runner.evalcueai.com/healthz`; it
+returns 503 if no toolchain works. Prometheus can scrape `/metrics` with the bearer token. The API also
+reports the runner as `component_ready{component="code_runner"}` and in `/health/readiness`.
 
 Updating: `git pull && sudo docker compose --profile tls up -d --build`. Rotating the token: edit `.env`,
 restart, and update `CODE_RUNNER_TOKEN` on Render.

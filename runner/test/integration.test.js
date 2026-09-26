@@ -46,6 +46,16 @@ describe("runner snippets", live, () => {
         assert.equal(write.status, "runtime_error");
     });
 
+    it("filters dangerous syscalls but keeps threads working", async () => {
+        const unshare = await snippet("python-3", "import os\nos.unshare(os.CLONE_NEWUSER)");
+        assert.equal(unshare.status, "runtime_error");
+        assert.match(unshare.stderr, /PermissionError|Operation not permitted/);
+        const threads = await snippet("python-3", "import threading\nout = []\nts = [threading.Thread(target=out.append, args=(i,)) for i in range(8)]\n[t.start() for t in ts]\n[t.join() for t in ts]\nprint(sorted(out))");
+        assert.equal(threads.stdout.trim(), "[0, 1, 2, 3, 4, 5, 6, 7]");
+        const workers = await snippet("node-22", "const { Worker } = require('node:worker_threads'); new Worker('require(\"node:worker_threads\").parentPort.postMessage(21)', { eval: true }).on('message', (n) => console.log(n * 2));");
+        assert.equal(workers.stdout.trim(), "42");
+    });
+
     it("truncates output floods", async () => {
         const flood = await snippet("python-3", "import sys\nsys.stdout.write('x' * 10_000_000)");
         assert.equal(flood.truncated, true);

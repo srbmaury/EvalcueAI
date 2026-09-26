@@ -1,0 +1,28 @@
+// Syscalls sandboxed programs never need. Namespaces already isolate the job; this removes kernel attack
+// surface (tracing, mounts, new namespaces, modules, BPF, keyrings, io_uring) on top of that.
+// Syntax: https://github.com/google/kafel. Names must exist in kafel's table for every target arch
+// (amd64 and arm64); newer syscalls use their numbers, which are the same on both from 403 onwards.
+#define CLONE_NAMESPACES 0x7e020000
+
+POLICY evalcue {
+  ERRNO(1) {
+    ptrace, process_vm_readv, process_vm_writev,
+    mount, pivot_root, chroot, unshare, setns,
+    kexec_load, reboot, swapon, swapoff,
+    init_module, finit_module, delete_module,
+    bpf, perf_event_open, userfaultfd,
+    keyctl, add_key, request_key,
+    open_by_handle_at, name_to_handle_at,
+    acct, quotactl, syslog,
+    settimeofday, clock_settime, clock_adjtime, adjtimex,
+    fanotify_init,
+    SYSCALL[425], SYSCALL[426], SYSCALL[427], // io_uring_setup, io_uring_enter, io_uring_register
+    clone { (clone_flags & CLONE_NAMESPACES) != 0 }
+  },
+  // clone3 (435) passes flags in memory the filter can't inspect; ENOSYS makes libc fall back to clone.
+  ERRNO(38) {
+    SYSCALL[435]
+  }
+}
+
+USE evalcue DEFAULT ALLOW

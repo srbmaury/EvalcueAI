@@ -1,15 +1,17 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createApp } from "../src/app.js";
+import { createMetrics } from "../src/metrics.js";
 import { createQueue } from "../src/queue.js";
 
 const token = "t".repeat(40);
 let server;
 let base;
+let available = [{ id: "python-3", label: "Python 3.12", version: "Python 3.12" }];
 
 before(async () => {
     const jobs = { runSnippet: async (input) => ({ status: "ok", stdout: input.source }), runProject: async () => ({ status: "completed", tests: [] }) };
-    server = createApp({ token, jobs, queue: createQueue({ concurrency: 1, limit: 1 }), runtimes: () => [{ id: "python-3", label: "Python 3.12", version: "Python 3.12" }] });
+    server = createApp({ token, jobs, queue: createQueue({ concurrency: 1, limit: 1 }), runtimes: () => available, metrics: createMetrics() });
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
     base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -34,6 +36,30 @@ describe("http api", () => {
         assert.equal((await call("/v1/snippets", { body: { runtime: "node-22", source: "1" } })).status, 503);
         const ok = await call("/v1/snippets", { body: { runtime: "python-3", source: "print(1)" } });
         assert.deepEqual(await ok.json(), { status: "ok", stdout: "print(1)" });
+    });
+});
+
+describe("health and metrics", () => {
+    it("reports unhealthy when no runtime passed its probe", async () => {
+        assert.equal((await call("/healthz", { auth: null })).status, 200);
+        const saved = available;
+        available = [];
+        try {
+            const response = await call("/healthz", { auth: null });
+            assert.equal(response.status, 503);
+            assert.equal((await response.json()).runtimes, 0);
+        } finally { available = saved; }
+    });
+
+    it("exposes job, queue and runtime metrics behind the token", async () => {
+        assert.equal((await call("/metrics", { auth: null })).status, 401);
+        await call("/v1/snippets", { body: { runtime: "python-3", source: "print(2)" } });
+        const text = await (await call("/metrics")).text();
+        assert.match(text, /runner_jobs_total\{kind="snippet",runtime="python-3",status="ok"\} \d+/);
+        assert.match(text, /runner_job_duration_seconds_count\{kind="snippet",runtime="python-3"\} \d+/);
+        assert.match(text, /runner_runtime_available\{runtime="python-3"\} 1/);
+        assert.match(text, /runner_runtime_available\{runtime="java-21"\} 0/);
+        assert.match(text, /runner_queue_jobs\{state="active"\} 0/);
     });
 });
 

@@ -71,6 +71,10 @@ Keep the launch setup small and operationally useful:
 - Authentication spike: invalid or blocked login attempts exceed 30 over 10 minutes.
 - Candidate funnel degradation: assessment start or submit failures exceed 10% over 30 minutes, with at least 10 actions.
 - Assessment abuse pressure: any sustained increase in `quotas_denied_total{actionKey=~"assessment_.*"}` for 15 minutes.
+- Code runner down: `component_ready{component="code_runner"} == 0` for 5 minutes while `ENABLE_CODE_EXEC=true` (the API keeps serving, but Run and debugging rounds fail).
+- Code runner lost a runtime: `code_runner_runtime_available == 0` for any runtime for 10 minutes.
+- Code runner saturated: any increase in `runner_queue_rejected_total`, or `runner_queue_jobs{state="waiting"} > 10` for 5 minutes (scraped from the runner's `/metrics`).
+- Code runner slow: p95 `runner_job_duration_seconds{kind="project"}` above 30 seconds for 15 minutes.
 
 ## Render process separation
 
