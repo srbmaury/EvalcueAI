@@ -100,7 +100,7 @@ const DashboardPage = () => {
         if (!user?.targetRole) return {
             eyebrow: "Personalize your practice",
             title: "Set the role you’re targeting",
-            body: "Your target role helps Evalcue AI choose more relevant interview plans and recommendations.",
+            body: "Your target role helps EvalcueAI choose more relevant interview plans and recommendations.",
             label: "Set target role",
             href: "/practice/profile#target-role",
         };
@@ -131,7 +131,7 @@ const DashboardPage = () => {
     return (
         <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
             <Box mb={3}>
-                <Typography variant="overline" color="primary.main" fontWeight={800}>Evalcue AI Practice</Typography>
+                <Typography variant="overline" color="primary.main" fontWeight={800}>EvalcueAI Practice</Typography>
                 <Typography component="h1" variant="h3" sx={{ fontSize: { xs: "2.35rem", sm: "3rem" } }} fontWeight={800} letterSpacing="-.035em">Welcome back, {firstName}</Typography>
                 <Typography color="text.secondary" mt={1}>One focused next step, then everything else when you need it.</Typography>
             </Box>

@@ -251,7 +251,7 @@ export const importJobPost = async (rawUrl) => {
             maxRedirects: MAX_REDIRECTS,
             timeoutMs: TIMEOUT_MS,
             maxBytes: MAX_BYTES,
-            headers: { "user-agent": "Evalcue AI-JobImporter/2.0", accept: "text/html,text/plain;q=0.9" },
+            headers: { "user-agent": "EvalcueAI-JobImporter/2.0", accept: "text/html,text/plain;q=0.9" },
         });
     } catch (error) {
         const message = error?.message || "";

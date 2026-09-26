@@ -89,7 +89,7 @@ const provisionSsoAccess = async ({ organization, metadata, claims, email }) => 
             if (user) {
                 const existingForOrganization = user.ssoIdentities?.find((identity) => String(identity.organization) === String(organization._id));
                 if (existingForOrganization && (existingForOrganization.issuer !== metadata.issuer || existingForOrganization.subject !== claims.sub)) {
-                    throw new SsoAccessError("This Evalcue AI account is linked to a different SSO identity");
+                    throw new SsoAccessError("This EvalcueAI account is linked to a different SSO identity");
                 }
                 membership = await OrganizationMembership.findOne({ organization: organization._id, user: user._id }).session(session);
                 if (membership?.status === "disabled") throw new SsoAccessError("Your organization access is disabled");
@@ -100,7 +100,7 @@ const provisionSsoAccess = async ({ organization, metadata, claims, email }) => 
                     // issuer claim an unclaimed domain and impersonate any existing user on it.
                     // JIT provisioning may only create brand-new accounts; an account matched by
                     // email must already have been added to this organization by an admin.
-                    if (matchedByEmail) throw new SsoAccessError("An Evalcue AI account already exists for this email. Ask your organization admin to add you before using SSO.");
+                    if (matchedByEmail) throw new SsoAccessError("An EvalcueAI account already exists for this email. Ask your organization admin to add you before using SSO.");
                     if (!organization.sso.jitProvisioning) throw new SsoAccessError("Ask your organization admin to add you before using SSO");
                 }
 
@@ -192,7 +192,7 @@ router.get("/callback", async (req, res) => {
         const email = normalizeEmail(claims.email || claims.preferred_username || claims.upn || "");
         const domain = emailDomain(email);
         if (!email || claims.email_verified === false || !config.domains.includes(domain)) return fail("Your identity is not allowed for this organization");
-        if (email !== attempt.emailHint) return fail("Sign in with the same work email you entered in Evalcue AI");
+        if (email !== attempt.emailHint) return fail("Sign in with the same work email you entered in EvalcueAI");
 
         let access;
         try {

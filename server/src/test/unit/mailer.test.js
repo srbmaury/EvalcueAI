@@ -11,7 +11,7 @@ describe("Brevo transactional mailer", () => {
         process.env.NODE_ENV = "development";
         process.env.BREVO_API_KEY = "test-api-key";
         process.env.BREVO_SENDER_EMAIL = "sender@example.com";
-        process.env.BREVO_SENDER_NAME = "Evalcue AI";
+        process.env.BREVO_SENDER_NAME = "EvalcueAI";
     });
 
     it("sends transactional email through the Brevo HTTPS API", async () => {
@@ -21,10 +21,10 @@ describe("Brevo transactional mailer", () => {
         expect(url).toBe("https://api.brevo.com/v3/smtp/email");
         expect(options.headers["api-key"]).toBe("test-api-key");
         expect(JSON.parse(options.body)).toMatchObject({
-            sender: { email: "sender@example.com", name: "Evalcue AI" },
+            sender: { email: "sender@example.com", name: "EvalcueAI" },
             to: [{ email: "person@example.com" }],
             subject: "Verify",
-            replyTo: { email: "sender@example.com", name: "Evalcue AI" },
+            replyTo: { email: "sender@example.com", name: "EvalcueAI" },
         });
     });
 
@@ -32,7 +32,7 @@ describe("Brevo transactional mailer", () => {
         fetchMock.mockResolvedValue({ ok: true, status: 201, json: vi.fn().mockResolvedValue({ messageId: "message-2" }) });
         await sendMail({ to: "candidate@example.com", subject: "Assessment", text: "Hello", replyTo: "recruiting@acme.example" });
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(body.replyTo).toEqual({ email: "recruiting@acme.example", name: "Evalcue AI" });
+        expect(body.replyTo).toEqual({ email: "recruiting@acme.example", name: "EvalcueAI" });
     });
 
     it("verifies the API key without sending email", async () => {

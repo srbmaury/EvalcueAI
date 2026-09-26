@@ -17,7 +17,8 @@ import {
 } from "@mui/material";
 import SiteFooter from "../components/SiteFooter";
 import { searchLandingPageForPath, searchLandingPageForSlug } from "../utils/searchLandingPages";
-import { externalSurfaceUrl } from "../utils/deploymentSurface";
+import { deploymentOrigins, externalSurfaceUrl } from "../utils/deploymentSurface";
+import { HIRING_PLAN_SUMMARY, PRACTICE_PLANS } from "../utils/brandEntity";
 
 export default function SearchLandingPage() {
     const { pathname } = useLocation();
@@ -26,15 +27,27 @@ export default function SearchLandingPage() {
     if (!page) return <Navigate to="/" replace />;
 
     const practicePath = `/practice/resources/${page.practiceResource}`;
-    const practiceUrl = externalSurfaceUrl("practice", practicePath);
+    const origins = deploymentOrigins();
+    const practiceUrl = externalSurfaceUrl("practice", practicePath, {
+        ...import.meta.env,
+        VITE_PRACTICE_ORIGIN: origins.practice || "https://practice.evalcueai.com",
+    });
+    const ctaUrl = page.cta?.surface === "hiring"
+        ? externalSurfaceUrl("hiring", page.cta.path, {
+            ...import.meta.env,
+            VITE_HIRING_ORIGIN: origins.hiring || "https://hiring.evalcueai.com",
+        })
+        : practiceUrl;
+    const ctaLabel = page.cta?.label || "Start AI interview practice";
+    const showPricing = page.schema !== "TechArticle";
 
     return (
         <Box component="article" sx={{ overflow: "hidden" }}>
             <Box sx={(theme) => ({
                 py: { xs: 7, md: 11 },
                 background: theme.palette.mode === "dark"
-                    ? "radial-gradient(circle at 50% 0%, rgba(124,92,255,.18), transparent 42%), #0b1020"
-                    : "radial-gradient(circle at 50% 0%, rgba(99,91,255,.12), transparent 42%), linear-gradient(180deg,#f8f9ff,#fff)",
+                    ? "#0e0f11"
+                    : "radial-gradient(circle at 50% 0%, rgba(36,81,199,.12), transparent 42%), linear-gradient(180deg,#f8f9fb,#fff)",
             })}>
                 <Container maxWidth="lg">
                     <Grid container spacing={{ xs: 4, md: 7 }} alignItems="center">
@@ -46,7 +59,7 @@ export default function SearchLandingPage() {
                                     color="primary.main"
                                     sx={{ textDecoration: "none", fontWeight: 800, alignSelf: "flex-start" }}
                                 >
-                                    Evalcue AI
+                                    EvalcueAI
                                 </Typography>
                                 <Chip label={page.eyebrow} color="primary" variant="outlined" sx={{ alignSelf: "flex-start" }} />
                                 <Typography
@@ -70,12 +83,12 @@ export default function SearchLandingPage() {
                                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} pt={1}>
                                     <Button
                                         component="a"
-                                        href={practiceUrl}
+                                        href={ctaUrl}
                                         variant="contained"
                                         size="large"
                                         endIcon={<ArrowForwardRounded />}
                                     >
-                                        Start AI interview practice
+                                        {ctaLabel}
                                     </Button>
                                     <Button
                                         component={RouterLink}
@@ -112,6 +125,12 @@ export default function SearchLandingPage() {
             </Box>
 
             <Container maxWidth="md" sx={{ py: { xs: 7, md: 10 } }}>
+                {page.audience && (
+                    <Paper component="section" aria-labelledby="audience-heading" variant="outlined" sx={{ p: { xs: 2.5, md: 3.5 }, borderRadius: 4, mb: { xs: 6, md: 8 } }}>
+                        <Typography id="audience-heading" component="h2" variant="h5" fontWeight={900}>Who it&apos;s for</Typography>
+                        <Typography color="text.secondary" sx={{ mt: 1.25, fontSize: "1.05rem", lineHeight: 1.8 }}>{page.audience}</Typography>
+                    </Paper>
+                )}
                 <Stack spacing={{ xs: 6, md: 8 }}>
                     {page.sections.map((section) => (
                         <Box component="section" key={section.heading}>
@@ -136,6 +155,72 @@ export default function SearchLandingPage() {
                         </Box>
                     ))}
                 </Stack>
+
+                {page.example && (
+                    <>
+                        <Divider sx={{ my: { xs: 7, md: 9 } }} />
+                        <Box component="section" aria-labelledby="example-heading">
+                            <Typography id="example-heading" component="h2" variant="h3" fontWeight={900} letterSpacing="-.035em">
+                                {page.example.heading}
+                            </Typography>
+                            <Typography color="text.secondary" sx={{ mt: 2, fontSize: "1.05rem", lineHeight: 1.8 }}>{page.example.intro}</Typography>
+                            <Stack spacing={1.5} mt={3}>
+                                {page.example.turns.map(([speaker, text], index) => (
+                                    <Paper
+                                        key={index}
+                                        variant="outlined"
+                                        sx={{
+                                            p: 2,
+                                            borderRadius: 3,
+                                            ml: speaker === "Interviewer" ? 0 : { xs: 2, sm: 6 },
+                                            mr: speaker === "Interviewer" ? { xs: 2, sm: 6 } : 0,
+                                            bgcolor: speaker === "Interviewer" ? "action.hover" : "background.paper",
+                                        }}
+                                    >
+                                        <Typography variant="overline" color={speaker === "Interviewer" ? "primary.main" : "text.secondary"} fontWeight={800}>{speaker}</Typography>
+                                        <Typography sx={{ lineHeight: 1.7 }}>{text}</Typography>
+                                    </Paper>
+                                ))}
+                            </Stack>
+                            <Typography component="h3" variant="h6" fontWeight={850} mt={4}>What EvalcueAI evaluates here</Typography>
+                            <Grid container spacing={1.5} mt={1}>
+                                {page.example.evaluates.map((item) => (
+                                    <Grid size={{ xs: 12, sm: 6 }} key={item}>
+                                        <Stack direction="row" spacing={1.1} alignItems="flex-start">
+                                            <CheckCircleOutlineRounded color="primary" fontSize="small" sx={{ mt: .2 }} />
+                                            <Typography>{item}</Typography>
+                                        </Stack>
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </Box>
+                    </>
+                )}
+
+                {showPricing && (
+                    <>
+                        <Divider sx={{ my: { xs: 7, md: 9 } }} />
+                        <Box component="section" aria-labelledby="pricing-heading">
+                            <Typography id="pricing-heading" component="h2" variant="h3" fontWeight={900} letterSpacing="-.035em">Pricing</Typography>
+                            <Grid container spacing={2} mt={2}>
+                                {PRACTICE_PLANS.map((plan) => (
+                                    <Grid size={{ xs: 12, md: 4 }} key={plan.name}>
+                                        <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: "100%" }}>
+                                            <Typography fontWeight={850}>Practice · {plan.name}</Typography>
+                                            <Typography variant="body2" color="text.secondary" mt={.75}>{plan.summary}</Typography>
+                                        </Paper>
+                                    </Grid>
+                                ))}
+                                <Grid size={{ xs: 12, md: 4 }}>
+                                    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: "100%" }}>
+                                        <Typography fontWeight={850}>Hire</Typography>
+                                        <Typography variant="body2" color="text.secondary" mt={.75}>{HIRING_PLAN_SUMMARY}</Typography>
+                                    </Paper>
+                                </Grid>
+                            </Grid>
+                        </Box>
+                    </>
+                )}
 
                 <Divider sx={{ my: { xs: 7, md: 9 } }} />
 
@@ -196,8 +281,8 @@ export default function SearchLandingPage() {
                         <Typography color="text.secondary" sx={{ maxWidth: 700, fontSize: "1.05rem", lineHeight: 1.7 }}>
                             Choose your target role, run an adaptive interview, then use the transcript and feedback to repeat the areas that need more depth.
                         </Typography>
-                        <Button component="a" href={practiceUrl} variant="contained" size="large" endIcon={<ArrowForwardRounded />}>
-                            Start practicing
+                        <Button component="a" href={ctaUrl} variant="contained" size="large" endIcon={<ArrowForwardRounded />}>
+                            {page.cta?.label || "Start practicing"}
                         </Button>
                     </Stack>
                 </Container>

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { deploymentOrigins } from "../utils/deploymentSurface";
 
 const configuredOrigin = (() => {
     try {
@@ -10,7 +11,14 @@ const configuredOrigin = (() => {
 })();
 
 const absoluteUrl = (path = "/") => {
-    const origin = configuredOrigin || window.location.origin;
+    const origins = deploymentOrigins();
+    const pathname = window.location.pathname;
+    const surfaceOrigin = pathname === "/hire" || pathname.startsWith("/hire/")
+        ? origins.hiring
+        : pathname === "/practice" || pathname.startsWith("/practice/")
+            ? origins.practice
+            : origins.landing;
+    const origin = surfaceOrigin || configuredOrigin || window.location.origin;
     return new URL(path || "/", `${origin}/`).href;
 };
 
@@ -39,7 +47,7 @@ export default function Seo({ title, description, canonicalPath = "/", structure
             ensureMeta('meta[property="og:description"]', { property: "og:description", content: description }),
             ensureMeta('meta[property="og:type"]', { property: "og:type", content: type }),
             ensureMeta('meta[property="og:url"]', { property: "og:url", content: canonicalUrl }),
-            ensureMeta('meta[property="og:site_name"]', { property: "og:site_name", content: "Evalcue AI" }),
+            ensureMeta('meta[property="og:site_name"]', { property: "og:site_name", content: "EvalcueAI" }),
             ensureMeta('meta[property="og:locale"]', { property: "og:locale", content: "en_US" }),
             ensureMeta('meta[name="twitter:card"]', { name: "twitter:card", content: imagePath ? "summary_large_image" : "summary" }),
             ensureMeta('meta[name="twitter:title"]', { name: "twitter:title", content: title }),

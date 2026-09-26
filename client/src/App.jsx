@@ -109,6 +109,10 @@ function App() {
                 <Route path="/hire/resources/:slug" element={<ProductResourcePage surface="hiring" />} />
                 <Route path="/ai-interview-practice" element={<SearchLandingPage />} />
                 <Route path="/ai-mock-interview" element={<SearchLandingPage />} />
+                <Route path="/ai-interview-platform" element={<SearchLandingPage />} />
+                <Route path="/engineering-assessment" element={<SearchLandingPage />} />
+                <Route path="/ai-interview-evaluation-methodology" element={<SearchLandingPage />} />
+                <Route path="/about" element={<SearchLandingPage />} />
                 <Route path="/software-engineer-interview-practice" element={<SearchLandingPage />} />
                 <Route path="/technical-interview-practice" element={<SearchLandingPage />} />
                 <Route path="/system-design-interview-practice" element={<SearchLandingPage />} />

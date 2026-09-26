@@ -113,7 +113,7 @@ export default function ProfilePage() {
             <Stack spacing={2.5}>
                 <Box>
                     <Typography component="h2" variant="h5" fontWeight={800}>Practice</Typography>
-                    <Typography variant="body2" color="text.secondary" mt={.5}>Give Evalcue AI the minimum context it needs to tailor your interviews.</Typography>
+                    <Typography variant="body2" color="text.secondary" mt={.5}>Give EvalcueAI the minimum context it needs to tailor your interviews.</Typography>
                 </Box>
 
                 <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}>
@@ -136,7 +136,7 @@ export default function ProfilePage() {
             <Stack spacing={2.25}>
                 <Box>
                     <Typography component="h2" variant="h5" fontWeight={800}>Weekly Practice Plan</Typography>
-                    <Typography variant="body2" color="text.secondary" mt={.5}>Choose how many tailored interview templates Evalcue AI should prepare for you each week.</Typography>
+                    <Typography variant="body2" color="text.secondary" mt={.5}>Choose how many tailored interview templates EvalcueAI should prepare for you each week.</Typography>
                 </Box>
 
                 <TextField select label="Sessions per week" value={weeklyTarget} onChange={(e) => setWeeklyTarget(Number(e.target.value))} helperText={`Your weekly email will contain ${weeklyTarget} separately crafted interview ${weeklyTarget === 1 ? "template" : "templates"}.`} fullWidth>

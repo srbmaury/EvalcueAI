@@ -1,8 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { isProductResourcePath } from "../utils/productResourcePages";
-import { searchLandingPageForPath } from "../utils/searchLandingPages";
+import { RESOURCE_ROUTE_META, SEARCH_ROUTE_META } from "virtual:seo-route-meta";
 
 export const isIndexablePath = (pathname) => (
     pathname === "/" ||
@@ -12,8 +11,8 @@ export const isIndexablePath = (pathname) => (
     pathname === "/terms" ||
     pathname === "/docs" ||
     pathname.startsWith("/docs/") ||
-    isProductResourcePath(pathname) ||
-    Boolean(searchLandingPageForPath(pathname))
+    Object.hasOwn(RESOURCE_ROUTE_META, pathname) ||
+    Object.hasOwn(SEARCH_ROUTE_META, pathname)
 );
 
 export default function SearchIndexPolicy() {

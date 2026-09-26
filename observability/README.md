@@ -1,4 +1,4 @@
-# Evalcue AI observability
+# EvalcueAI observability
 
 The server exports Prometheus metrics at `/metrics` and pushes OTLP metrics when the Grafana environment variables are configured. Route labels use Express route templates and never user IDs, candidate IDs, attempt IDs, assessment IDs, or job IDs. New `prom-client` metrics registered in the default registry are automatically included in the existing OTLP push path.
 
@@ -50,7 +50,7 @@ Keep the launch setup small and operationally useful:
 1. **API / infrastructure** — request RED metrics, process CPU/memory/default Node metrics, Mongo pool pressure, Redis readiness/latency, dependency readiness.
 2. **Workers / queues** — depth, oldest waiting job, queue wait p95, processing duration, in-flight jobs, retries/dead letters, end-to-end Hire evaluation latency.
 3. **AI / cost** — requests, latency, failures, fallbacks, invalid responses, tokens by provider/model/purpose.
-4. **Evalcue AI Hire** — assessments, candidate funnel, completion duration, evaluation success, reports viewed.
+4. **EvalcueAI Hire** — assessments, candidate funnel, completion duration, evaluation success, reports viewed.
 5. **Adaptive / calibration** — question count, coverage, adaptive transitions, fallback rate, calibration agreement and disagreement signals.
 
 ## Recommended alerts

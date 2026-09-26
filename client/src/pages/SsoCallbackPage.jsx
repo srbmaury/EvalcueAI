@@ -43,7 +43,7 @@ export default function SsoCallbackPage() {
                 {error ? <Alert severity="error">{error}</Alert> : (
                     <Stack spacing={2} alignItems="center">
                         <CircularProgress />
-                        <Typography component="h1" variant="h5" fontWeight={800}>Completing Evalcue AI Hire SSO sign-in…</Typography>
+                        <Typography component="h1" variant="h5" fontWeight={800}>Completing EvalcueAI Hire SSO sign-in…</Typography>
                         <Typography color="text.secondary">Verifying your organization access securely.</Typography>
                     </Stack>
                 )}
