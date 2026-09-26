@@ -27,4 +27,9 @@ export default defineConfig([
       'react-refresh/only-export-components': ['error', { allowConstantExport: true, allowExportNames: ['isProductNavItemActive'] }],
     },
   },
+  {
+    // Demo recorder scripts and Playwright configs run in Node, not the browser.
+    files: ['e2e-demo/**/*.{js,mjs}', 'playwright*.config.js'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
 ])

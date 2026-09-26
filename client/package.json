@@ -19,7 +19,9 @@
     "test:coverage": "NODE_OPTIONS=--no-experimental-webstorage vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:production": "playwright test --config=playwright.production.config.js",
-    "test:watch": "NODE_OPTIONS=--no-experimental-webstorage vitest"
+    "test:watch": "NODE_OPTIONS=--no-experimental-webstorage vitest",
+    "demo:record": "playwright test --config=playwright.demo.config.js",
+    "demo:voice": "node e2e-demo/addVoice.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
