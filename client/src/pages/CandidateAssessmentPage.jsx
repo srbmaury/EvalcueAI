@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link as RouterLink, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
-    Alert, Box, Button, Checkbox, Chip, CircularProgress, Container,
-    Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Link, Paper, Stack, TextField, Typography,
+    Alert, Box, Button, Chip, CircularProgress, Container,
+    Paper, Stack, Typography,
 } from "@mui/material";
-import { CheckCircleOutlineRounded, ErrorOutlineRounded } from "@mui/icons-material";
 import api from "../api/axios";
+import CandidateAssessmentStart from "../components/CandidateAssessmentStart";
+import { InterviewCompleteCard, IntegrityRecoveryPanel, RoundTransitionPanel, SubmitConfirmDialog } from "../components/CandidateAssessmentScreens";
 import CandidateDebuggingRound from "../components/CandidateDebuggingRound";
-import Captcha from "../components/Captcha";
-import CodeEditorField from "../components/CodeEditorField";
+import CandidateOnlineAssessmentRound from "../components/CandidateOnlineAssessmentRound";
 import ConversationalPanel from "../components/ConversationalPanel";
 import CandidateIntroCard from "../components/CandidateIntroCard";
 import SelfIdentificationCard from "../components/SelfIdentificationCard";
 import SystemDesignDiscussionPanel from "../components/SystemDesignDiscussionPanel";
-import VoiceControls from "../components/VoiceControls";
 import WebcamPreview from "../components/WebcamPreview";
 import usePublicConfig from "../hooks/usePublicConfig";
 import { useVoiceInput } from "../hooks/useVoiceInput";
@@ -26,7 +25,6 @@ import {
 } from "../utils/candidateAssessmentProgress";
 import { canStartHiringAssessment, integrityRecoveryReason } from "../utils/hiringIntegrityPolicy";
 import { candidateTranscriptionConfig } from "../utils/hiringVoicePolicy";
-import { formatAssessmentDateTime } from "../utils/hiringAssessmentPayload";
 import { describeError } from "../utils/errorFormatter";
 import { buildTranscriptionHint, replaceLastOccurrence } from "../utils/speechTranscription";
 
@@ -548,6 +546,26 @@ export default function CandidateAssessmentPage() {
         if (!pendingFollowUpFor(nextRound, nextQuestion)) goToNextQuestion(nextAttempt);
     };
 
+    // Online assessments let candidates move between problems; switching stops dictation into the old one.
+    const selectOaQuestion = (index) => {
+        stopListening();
+        setActiveQuestionIndex(index);
+    };
+
+    const saveOaAnswer = async () => {
+        const nextAttempt = await saveAnswer(activeRoundIndex, activeQuestionIndex, false, spokenNotes[answerTarget] ?? activeQuestion.spokenExplanation);
+        if (!nextAttempt) return;
+        const nextRound = nextAttempt.rounds[activeRoundIndex];
+        if (!pendingFollowUpFor(nextRound, nextRound.questions[activeQuestionIndex])) goToNextQuestion(nextAttempt);
+    };
+
+    const saveOaFollowUp = async () => {
+        const nextAttempt = await saveAnswer(activeRoundIndex, activeQuestionIndex, true);
+        if (!nextAttempt) return;
+        const nextRound = nextAttempt.rounds[activeRoundIndex];
+        if (!pendingFollowUpFor(nextRound, nextRound.questions[activeQuestionIndex])) goToNextQuestion(nextAttempt);
+    };
+
     const submit = async () => {
         stopHandsFree();
         setSubmitConfirmOpen(false);
@@ -589,38 +607,29 @@ export default function CandidateAssessmentPage() {
         <>
         <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
             {!attempt ? (
-                <>
-                    <Typography variant="overline" color="primary" fontWeight={800}>{assessment.organizationName || "Candidate assessment"}</Typography>
-                    <Typography component="h1" variant="h3" sx={{ fontSize: { xs: "2.35rem", sm: "3rem" } }} fontWeight={850}>{assessment.title}</Typography>
-                    <Typography color="text.secondary" mt={1}>{assessment.jobRole} · up to {plannedUnits} {plannedUnits === 1 ? "question" : "questions"} · about {assessment.durationMinutes || 30} minutes</Typography>
-                    {assessment.expiresAt && <Typography variant="body2" color="text.secondary" mt={1}>Submit by {formatAssessmentDateTime(assessment.expiresAt, assessment.timezone || "UTC")}</Typography>}
-                    {assessment.candidateInstructions && <Alert severity="info" sx={{ mt: 3 }}>{assessment.candidateInstructions}</Alert>}
-                    {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-
-                    <Paper component="form" onSubmit={start} variant="outlined" sx={{ p: { xs: 2, md: 4 }, mt: 3, maxWidth: 900 }}>
-                        <Typography component="h2" variant="h5" fontWeight={800}>Before you begin</Typography>
-                        <Typography color="text.secondary" mt={1} mb={3}>Check your device once, confirm your identity, and start. There is no interviewer configuration step.</Typography>
-                        <Stack spacing={2}>
-                            <Paper variant="outlined" sx={{ p: 2 }}>
-                                <Typography fontWeight={800}>Device readiness</Typography>
-                                <Typography variant="body2" color="text.secondary" mb={1.5}>Voice is optional unless the interview instructions say otherwise. You can always type.</Typography>
-                                <Stack direction={{ xs: "column", sm: "row" }} gap={1} flexWrap="wrap">
-                                    <Chip icon={online ? <CheckCircleOutlineRounded /> : <ErrorOutlineRounded />} color={online ? "success" : "error"} variant="outlined" label={online ? "Internet connected" : "Offline"} />
-                                    <Chip icon={supportsSTT ? <CheckCircleOutlineRounded /> : <ErrorOutlineRounded />} color={supportsSTT ? "success" : "default"} variant="outlined" label={supportsSTT ? "Voice input supported" : "Typing available"} />
-                                    {micReady ? <Chip icon={<CheckCircleOutlineRounded />} color="success" variant="outlined" label="Microphone ready" /> : <Button type="button" size="small" variant="outlined" onClick={checkMicrophone}>Check microphone</Button>}
-                                    {assessment.integrity?.requireCamera && (cameraReady ? <Chip icon={<CheckCircleOutlineRounded />} color="success" variant="outlined" label="Camera ready" /> : <Button type="button" size="small" variant="outlined" onClick={checkCamera}>Check camera</Button>)}
-                                </Stack>
-                            </Paper>
-                            <TextField required label="Full name" value={identity.name} onChange={(event) => setIdentity({ ...identity, name: event.target.value })} />
-                            <TextField required type="email" label="Email address" value={identity.email} disabled={emailLocked} helperText={emailLocked ? "Prefilled from your invitation" : ""} onChange={(event) => setIdentity({ ...identity, email: event.target.value })} />
-                            <FormControlLabel control={<Checkbox required checked={consent} onChange={(event) => setConsent(event.target.checked)} />} label={<span>I understand how my assessment data is processed and shared. <Link component={RouterLink} to="/privacy" target="_blank">Privacy notice</Link></span>} />
-                            {assessment.integrity?.enabled && <Alert severity="warning"><Typography fontWeight={750}>Integrity signals are enabled</Typography><Typography variant="body2">The recruiting team may review tab visibility, window focus, fullscreen, clipboard, connectivity{assessment.integrity.monitorFacePresence ? ", and sustained face-presence" : ""} events. Camera frames stay in your browser and are not saved or uploaded. These signals are context—not automatic cheating findings—and are retained for {assessment.integrity.retentionDays || 30} days.</Typography><FormControlLabel control={<Checkbox required checked={integrityConsent} onChange={(event) => setIntegrityConsent(event.target.checked)} />} label="I consent to these integrity signals" /></Alert>}
-                            {assessment.contactEmail && <Typography variant="body2" color="text.secondary">Need an accommodation or technical help? Contact <Link href={`mailto:${assessment.contactEmail}`}>{assessment.contactEmail}</Link>.</Typography>}
-                            <Captcha enabled={candidateCaptchaEnabled} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken("")} />
-                            <Box><Button type="submit" variant="contained" disabled={busy || !online || !consent || (candidateCaptchaEnabled && !captchaToken) || (assessment.integrity?.enabled && !integrityConsent) || (assessment.integrity?.requireCamera && !cameraReady)}>{busy ? <CircularProgress size={22} color="inherit" /> : "Start assessment"}</Button></Box>
-                        </Stack>
-                    </Paper>
-                </>
+                <CandidateAssessmentStart
+                    assessment={assessment}
+                    plannedUnits={plannedUnits}
+                    error={error}
+                    busy={busy}
+                    onStart={start}
+                    online={online}
+                    supportsSTT={supportsSTT}
+                    micReady={micReady}
+                    onCheckMicrophone={checkMicrophone}
+                    cameraReady={cameraReady}
+                    onCheckCamera={checkCamera}
+                    identity={identity}
+                    onIdentityChange={setIdentity}
+                    emailLocked={emailLocked}
+                    consent={consent}
+                    onConsentChange={setConsent}
+                    integrityConsent={integrityConsent}
+                    onIntegrityConsentChange={setIntegrityConsent}
+                    captchaEnabled={candidateCaptchaEnabled}
+                    captchaToken={captchaToken}
+                    onCaptchaToken={setCaptchaToken}
+                />
             ) : (
                 <>
                     <Paper variant="outlined" sx={{ position: "sticky", top: 8, zIndex: 30, mb: 2, px: { xs: 1.5, md: 2.5 }, py: 1.5, borderRadius: 3, bgcolor: "background.paper" }}>
@@ -643,24 +652,11 @@ export default function CandidateAssessmentPage() {
 
                     <Box sx={{ minWidth: 0 }}>
                         {integrityRecovery ? (
-                            <Paper variant="outlined" sx={{ p: { xs: 3, md: 5 }, minHeight: 320, display: "grid", alignContent: "center", borderRadius: 3 }}>
-                                <Stack spacing={2} alignItems="flex-start">
-                                    <Typography component="h2" variant="h5" fontWeight={850}>Restore required assessment conditions</Typography>
-                                    <Alert severity="warning">{integrityRecovery === "fullscreen" ? "Fullscreen is required to continue this assessment." : "Camera access is required to continue this assessment."}</Alert>
-                                    {integrityRecovery === "fullscreen" ? <Button variant="contained" onClick={enterFullscreen}>Enter fullscreen</Button> : <Button variant="contained" onClick={checkCamera}>Restore camera</Button>}
-                                </Stack>
-                            </Paper>
+                            <IntegrityRecoveryPanel reason={integrityRecovery} onEnterFullscreen={enterFullscreen} onRestoreCamera={checkCamera} />
                         ) : showCandidateIntro ? (
                             <CandidateIntroCard onSubmit={(answer) => saveCandidateIntro({ answer })} onSkip={() => saveCandidateIntro({ skip: true })} />
                         ) : roundTransition ? (
-                            <Paper variant="outlined" sx={{ p: { xs: 3, md: 5 }, minHeight: 340, display: "grid", alignContent: "center", borderRadius: 3 }}>
-                                <Stack spacing={2} alignItems="flex-start">
-                                    <Typography variant="overline" color="primary.main" fontWeight={800}>Interviewer</Typography>
-                                    <Typography component="h2" variant="h4" fontWeight={850}>{roundTransition.title}</Typography>
-                                    <Typography color="text.secondary" sx={{ maxWidth: 680 }}>{roundTransition.message}</Typography>
-                                    <Button variant="contained" onClick={continueAfterRound}>{roundTransition.nextRoundIndex != null ? `Continue to ${attempt.rounds[roundTransition.nextRoundIndex]?.name || "next round"}` : "Review and submit"}</Button>
-                                </Stack>
-                            </Paper>
+                            <RoundTransitionPanel transition={roundTransition} nextRoundName={attempt.rounds[roundTransition.nextRoundIndex]?.name} onContinue={continueAfterRound} />
                         ) : isActiveSystemDesign && activeQuestion ? (
                             <SystemDesignDiscussionPanel
                                 problem={activeQuestion.text}
@@ -747,74 +743,41 @@ export default function CandidateAssessmentPage() {
                                 }}
                             />
                         ) : isActiveOA && activeQuestion ? (
-                            <Paper variant="outlined" sx={{ overflow: "hidden", borderRadius: 3, position: "relative" }}>
-                                <Box sx={{ px: 2.5, py: 1.5, bgcolor: "action.hover", borderBottom: "1px solid", borderColor: "divider" }}>
-                                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1} alignItems={{ sm: "center" }}>
-                                        <Box><Typography variant="overline" color="primary.main" fontWeight={850}>Online assessment · Problem {activeQuestionIndex + 1} of {activeRound.questions.length}</Typography><Typography variant="body2" color="text.secondary">Move freely between problems. The round only finishes after every problem has a saved response.</Typography></Box>
-                                        <Chip size="small" color={dirty[answerKey(activeRoundIndex, activeQuestionIndex)] ? "warning" : activeQuestion.answer ? "success" : "default"} label={dirty[answerKey(activeRoundIndex, activeQuestionIndex)] ? "Unsaved draft" : activeQuestion.answer ? "Saved" : "Not answered"} />
-                                    </Stack>
-                                </Box>
-                                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(300px,.7fr) minmax(0,1.3fr)" }, minHeight: { lg: 580 } }}>
-                                    <Box sx={{ p: 2.5, borderRight: { lg: "1px solid" }, borderBottom: { xs: "1px solid", lg: 0 }, borderColor: "divider" }}>
-                                        <Typography variant="caption" color="text.secondary" fontWeight={850}>PROBLEM STATEMENT</Typography>
-                                        <Typography component="h2" variant="h5" fontWeight={850} sx={{ lineHeight: 1.45, mt: .5 }}>{activeQuestion.text}</Typography>
-                                        <Box sx={{ mt: 2 }}><VoiceControls target={voiceTarget} speakText={activeQuestion.text} supportsTTS={supportsTTS} supportsSTT={supportsSTT} listening={listening} listeningTarget={listeningTarget} onSpeak={speakNow} handsFree micSessionActive={micSessionActive} handsFreePaused={handsFreePaused} onStartHandsFree={startHandsFree} micPermission={micPermission} micLevel={micLevel} inputDevices={inputDevices} selectedDeviceId={selectedDeviceId} onChangeDevice={setSelectedDeviceId} /></Box>
-                                        <Typography variant="caption" color="text.secondary" fontWeight={850} display="block" mt={3}>PROBLEM NAVIGATION</Typography>
-                                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: .75, mt: 1 }}>
-                                            {activeRound.questions.map((question, index) => <Button key={question._id} size="small" variant={index === activeQuestionIndex ? "contained" : "outlined"} color={question.answer ? "success" : "primary"} onClick={() => { stopListening(); setActiveQuestionIndex(index); }}>{index + 1}</Button>)}
-                                        </Box>
-                                    </Box>
-                                    <Box sx={{ p: 2.5, minWidth: 0, bgcolor: "background.default" }}>
-                                        <Typography variant="caption" color="text.secondary" fontWeight={850}>WORKSPACE</Typography>
-                                        <Box mt={1}><CodeEditorField questionText={activeQuestion.text || ""} value={activeQuestion.answer || ""} onChange={(value) => updateLocal(activeRoundIndex, activeQuestionIndex, "answer", value)} onFocus={() => setFocusedField("answer")} minRows={16} draftKey={`candidate:${attempt._id}:${activeRound._id}:${activeQuestion._id}`} suggestCode={/\b(code|coding|implement|algorithm|function|class|program|query|endpoint|api|script)\b/i.test(activeQuestion.text)} onModeChange={setCodingEnabled} executionEndpoint={`${candidateToolBase}/run-code`} executionHeaders={candidateToolHeaders} skipAuthRedirect canRun={assessment.capabilities?.codeExecution !== false} /></Box>
-                                        {codingEnabled && <TextField fullWidth multiline minRows={3} sx={{ mt: 2 }} label="Explain your approach" value={spokenNotes[answerTarget] ?? activeQuestion.spokenExplanation ?? ""} onChange={(event) => { setSpokenNotes((current) => ({ ...current, [answerTarget]: event.target.value })); setDirty((current) => ({ ...current, [answerKey(activeRoundIndex, activeQuestionIndex)]: true })); }} />}
-                                        {activePendingFollowUp && <Paper variant="outlined" sx={{ p: 2, mt: 2, borderColor: "primary.main" }}><Typography variant="caption" color="primary.main" fontWeight={850}>INTERVIEWER FOLLOW-UP</Typography><Typography fontWeight={750}>{activePendingFollowUp.question}</Typography><TextField fullWidth multiline minRows={3} sx={{ mt: 1 }} label="Your follow-up answer" value={activeQuestion.followUpAnswer || ""} onChange={(event) => updateLocal(activeRoundIndex, activeQuestionIndex, "followUpAnswer", event.target.value)} /><Button sx={{ mt: 1 }} variant="contained" disabled={busy || !activeQuestion.followUpAnswer?.trim()} onClick={async () => { const nextAttempt = await saveAnswer(activeRoundIndex, activeQuestionIndex, true); if (nextAttempt && !pendingFollowUpFor(nextAttempt.rounds[activeRoundIndex], nextAttempt.rounds[activeRoundIndex].questions[activeQuestionIndex])) goToNextQuestion(nextAttempt); }}>Save follow-up</Button></Paper>}
-                                        {/* Scoped to its own sized slot (matching Practice's OAForm) rather than
-                                            floating relative to the whole round Paper, which let the tile drift
-                                            over the footer's Save/Save-and-continue button and block clicks. */}
-                                        <Box data-testid="online-assessment-camera-slot" sx={{ position: "relative", height: { xs: 104, sm: 131 }, mt: 2 }}>
-                                            <WebcamPreview autoStart={assessment.integrity?.requireCamera} required={assessment.integrity?.requireCamera} monitorFaces={assessment.integrity?.enabled && assessment.integrity?.monitorFacePresence} onIntegrityEvent={recordIntegrityEvent} onFaceStatusChange={setFaceStatus} />
-                                        </Box>
-                                    </Box>
-                                </Box>
-                                <Box sx={{ px: 2.5, py: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
-                                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1}>
-                                        <Stack direction="row" spacing={1}><Button disabled={activeQuestionIndex === 0 || busy} onClick={() => setActiveQuestionIndex((index) => Math.max(0, index - 1))}>Previous</Button>{activeQuestionIndex < activeRound.questions.length - 1 && <Button variant="outlined" disabled={busy} onClick={() => setActiveQuestionIndex((index) => Math.min(activeRound.questions.length - 1, index + 1))}>Next problem</Button>}</Stack>
-                                        <Button variant="contained" disabled={busy || !activeQuestion.answer?.trim() || Boolean(activePendingFollowUp)} onClick={async () => { const nextAttempt = await saveAnswer(activeRoundIndex, activeQuestionIndex, false, spokenNotes[answerTarget] ?? activeQuestion.spokenExplanation); if (!nextAttempt) return; const nextRound = nextAttempt.rounds[activeRoundIndex]; const nextQuestion = nextRound.questions[activeQuestionIndex]; if (!pendingFollowUpFor(nextRound, nextQuestion)) goToNextQuestion(nextAttempt); }}>{busy ? "Saving…" : activeQuestionIndex === activeRound.questions.length - 1 ? "Save and review round" : "Save and continue"}</Button>
-                                    </Stack>
-                                </Box>
-                            </Paper>
+                            <CandidateOnlineAssessmentRound
+                                round={activeRound}
+                                question={activeQuestion}
+                                questionIndex={activeQuestionIndex}
+                                draftKey={`candidate:${attempt._id}:${activeRound._id}:${activeQuestion._id}`}
+                                busy={busy}
+                                dirty={Boolean(dirty[answerKey(activeRoundIndex, activeQuestionIndex)])}
+                                voiceControlsProps={{ target: voiceTarget, supportsTTS, supportsSTT, listening, listeningTarget, onSpeak: speakNow, micSessionActive, handsFreePaused, onStartHandsFree: startHandsFree, micPermission, micLevel, inputDevices, selectedDeviceId, onChangeDevice: setSelectedDeviceId }}
+                                codeEditorProps={{ executionEndpoint: `${candidateToolBase}/run-code`, executionHeaders: candidateToolHeaders, canRun: assessment.capabilities?.codeExecution !== false }}
+                                cameraSlot={<WebcamPreview autoStart={assessment.integrity?.requireCamera} required={assessment.integrity?.requireCamera} monitorFaces={assessment.integrity?.enabled && assessment.integrity?.monitorFacePresence} onIntegrityEvent={recordIntegrityEvent} onFaceStatusChange={setFaceStatus} />}
+                                codingEnabled={codingEnabled}
+                                onCodingModeChange={setCodingEnabled}
+                                onAnswerChange={(value) => updateLocal(activeRoundIndex, activeQuestionIndex, "answer", value)}
+                                onAnswerFocus={() => setFocusedField("answer")}
+                                explanation={spokenNotes[answerTarget] ?? activeQuestion.spokenExplanation ?? ""}
+                                onExplanationChange={(value) => { setSpokenNotes((current) => ({ ...current, [answerTarget]: value })); setDirty((current) => ({ ...current, [answerKey(activeRoundIndex, activeQuestionIndex)]: true })); }}
+                                pendingFollowUp={activePendingFollowUp}
+                                onFollowUpAnswerChange={(value) => updateLocal(activeRoundIndex, activeQuestionIndex, "followUpAnswer", value)}
+                                onSaveFollowUp={saveOaFollowUp}
+                                onSelectQuestion={selectOaQuestion}
+                                onSave={saveOaAnswer}
+                            />
                         ) : (
                             <Paper variant="outlined" sx={{ p: 4 }}><Typography color="text.secondary">Preparing the next interview step…</Typography></Paper>
                         )}
 
                         {assessment.integrity?.monitorFacePresence && ["missing", "multiple", "camera_interrupted", "unavailable"].includes(faceStatus) && <Alert severity={faceStatus === "unavailable" ? "info" : "warning"} sx={{ mt: 1 }}>{faceStatus === "missing" ? "We can’t clearly see your face. Please return to the camera view." : faceStatus === "multiple" ? "More than one face is visible. Please ensure only you are in frame." : faceStatus === "camera_interrupted" ? "Your camera stopped. Restore camera access to continue the monitored interview." : "Face detection is unavailable in this browser. This is recorded as a technical event, not an automatic misconduct finding."}</Alert>}
 
-                        {allRoundsComplete && !roundTransition && (
-                            <Paper id="assessment-submit" variant="outlined" sx={{ mt: 2, p: { xs: 2.5, md: 3 }, borderRadius: 3 }}>
-                                <Typography component="h2" variant="h5" fontWeight={850}>Interview complete</Typography>
-                                <Typography color="text.secondary" mt={.5}>All {attempt.rounds.length} rounds are complete and your responses are saved. Detailed evaluation is generated only after submission.</Typography>
-                                <Button variant="contained" sx={{ mt: 2 }} disabled={busy} onClick={() => setSubmitConfirmOpen(true)}>Review and submit</Button>
-                            </Paper>
-                        )}
+                        {allRoundsComplete && !roundTransition && <InterviewCompleteCard roundCount={attempt.rounds.length} busy={busy} onReview={() => setSubmitConfirmOpen(true)} />}
                     </Box>
                 </>
             )}
         </Container>
 
-        <Dialog open={submitConfirmOpen} onClose={() => !busy && setSubmitConfirmOpen(false)} aria-labelledby="candidate-submit-title" maxWidth="sm" fullWidth>
-            <DialogTitle id="candidate-submit-title">Ready to submit?</DialogTitle>
-            <DialogContent>
-                <Stack spacing={1.5}>
-                    <Typography>{attempt?.rounds?.length || 0} of {attempt?.rounds?.length || 0} rounds completed.</Typography>
-                    <Alert severity="info">Your responses are saved. After submission, you won’t be able to change them.</Alert>
-                </Stack>
-            </DialogContent>
-            <DialogActions>
-                <Button disabled={busy} onClick={() => setSubmitConfirmOpen(false)}>Keep reviewing</Button>
-                <Button variant="contained" disabled={busy} onClick={submit}>{busy ? "Submitting…" : "Submit assessment"}</Button>
-            </DialogActions>
-        </Dialog>
+        <SubmitConfirmDialog open={submitConfirmOpen} roundCount={attempt?.rounds?.length || 0} busy={busy} onClose={() => setSubmitConfirmOpen(false)} onSubmit={submit} />
         </>
     );
 }
