@@ -1,4 +1,5 @@
 import { generateJSON } from "../utils/generateQuestions/aiClient.js";
+import { recordGuardEvent, repeatsEarlierQuestion } from "../utils/generateQuestions/questionGuards.js";
 import { sanitizeText } from "../utils/generateQuestions/textUtils.js";
 
 const ALLOWED_KINDS = new Set(["clarify", "challenge", "constraint", "scale", "failure", "tradeoff", "security", "observability"]);
@@ -96,13 +97,20 @@ Interview behavior:
 - Good reasons to probe: an important requirement is ambiguous; the candidate makes a consequential assumption without validating it; a key design choice needs justification; scale changes the architecture; a failure mode is being skipped; a trade-off was asserted without support; or the candidate has reached a natural point where a thoughtful interviewer would introduce a new constraint.
 - Keep every interviewer turn concise and natural. One response or one question, usually one sentence and never more than two short sentences.
 - Make probes directly grounded in something the candidate has actually said or drawn whenever possible.
-- Avoid repeating prior interjections.
+- Never repeat a prior interjection, including in new words. If you already probed a dimension (for example scale or peak load), move to a different one (data model, failure handling, consistency, security, observability) unless the candidate's newest statement raises something new about it.
 - Prefer discussion across requirements, capacity/scale, APIs/data model, component boundaries, data flow, bottlenecks, consistency, caching, partitioning, failure handling, security, observability, and explicit trade-offs as relevant to this particular design.
 - Never turn the interview into a checklist.`;
 
     try {
         const text = await generateJSON(prompt);
         const decision = normalizeSystemDesignInterjection(JSON.parse(text || "{}"));
+        // Answers to the candidate's clarification questions may legitimately restate earlier context.
+        if (decision.shouldInterrupt && !candidateAskedQuestion && repeatsEarlierQuestion(decision.interjection, previousInterjections)) {
+            recordGuardEvent("system_design", "repeat", "suppressed");
+            return forceInteraction
+                ? fallbackForcedInterjection({ previousInterjections, candidateAskedQuestion })
+                : normalizeSystemDesignInterjection({ shouldInterrupt: false, reason: "repeated_interjection_suppressed" });
+        }
         if (forceInteraction && !decision.shouldInterrupt) {
             return fallbackForcedInterjection({ previousInterjections, candidateAskedQuestion });
         }

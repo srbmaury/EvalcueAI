@@ -9,11 +9,13 @@ describe("speech transcription helpers", () => {
         expect(recognitionLanguage(["en"])).toBe("en-US");
     });
 
-    it("builds a bounded vocabulary hint with the role and question", () => {
-        const hint = buildTranscriptionHint({ role: "Backend Engineer", round: "System design", question: "Design a URL shortener" });
-        expect(hint).toContain("Backend Engineer");
-        expect(hint).toContain("Design a URL shortener");
+    it("builds a glossary from the role and the question's technical terms, never the question itself", () => {
+        const question = "How would you handle a duplicated Idempotency-Key when PostgreSQL and gRPC calls time out?";
+        const hint = buildTranscriptionHint({ role: "Backend Engineer", question });
+        expect(hint.startsWith("Glossary: Backend Engineer, Idempotency-Key, PostgreSQL")).toBe(true);
         expect(hint).toContain("idempotency");
+        expect(hint).not.toContain("How would you");
+        expect(hint).not.toContain("?");
         expect(hint.length).toBeLessThanOrEqual(800);
     });
 

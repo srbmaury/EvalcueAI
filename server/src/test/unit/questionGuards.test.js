@@ -16,6 +16,14 @@ describe("question guards", () => {
         expect(questionSimilarity("", "anything")).toBe(0);
     });
 
+    it("matches paraphrases that only change word forms", () => {
+        // Seen in a live adaptive round: the second follow-up re-asked the first in different words.
+        const earlier = ["How would you ensure that the user is notified of the transaction status if a failure occurs after the payment is processed?"];
+        expect(repeatsEarlierQuestion("How would you implement a mechanism to ensure that users receive a confirmation or notification of their transaction status in the event of a failure after processing?", earlier)).toBe(true);
+        expect(repeatsEarlierQuestion("How would you handle a transaction that fails after the payment has been processed but before the confirmation is sent?", ["How would you retry failed payments safely?"])).toBe(false);
+        expect(repeatsEarlierQuestion("How would you invalidate cached product prices when they change?", ["What caching strategy would you use for product pages?"])).toBe(false);
+    });
+
     it("keeps question formats aligned with the round", () => {
         expect(fitsDeliveryMode("Write a function in Python that returns two numbers adding up to a target.", "conversational")).toBe(false);
         expect(fitsDeliveryMode("How would you design a rate limiter for a public API?", "conversational")).toBe(true);

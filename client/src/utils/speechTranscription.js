@@ -23,14 +23,15 @@ const ENGINEERING_TERMS = [
 
 const clip = (value, max) => String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
 
-export const buildTranscriptionHint = ({ role = "", round = "", question = "" } = {}) => {
-    const context = [clip(role, 80), clip(round, 60)].filter(Boolean).join(", ");
-    const parts = [
-        `Software engineering interview${context ? ` (${context})` : ""}.`,
-        question ? `Question: ${clip(question, 300)}` : "",
-        `Terms: ${ENGINEERING_TERMS.join(", ")}.`,
-    ].filter(Boolean);
-    return parts.join(" ").slice(0, 800);
+// Technical-looking words from the question: hyphenated or dotted identifiers, CamelCase, acronyms.
+const TECHNICAL_WORD = /\b[A-Za-z][A-Za-z0-9]*(?:[-./][A-Za-z0-9]+)+\b|\b[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*\b|\b[A-Z]{2,}[A-Za-z0-9]*\b/g;
+
+// A glossary only, never the question itself: given a question, transcription models may answer it or
+// echo it when a chunk of audio contains no speech, which would put words in the candidate's mouth.
+export const buildTranscriptionHint = ({ role = "", question = "" } = {}) => {
+    const fromQuestion = String(question || "").match(TECHNICAL_WORD) || [];
+    const terms = [...new Set([clip(role, 80), ...fromQuestion.slice(0, 12), ...ENGINEERING_TERMS].filter(Boolean))];
+    return `Glossary: ${terms.join(", ")}.`.slice(0, 800);
 };
 
 // Replace the last occurrence of `previous` with `next`. Used to swap a segment's live browser text

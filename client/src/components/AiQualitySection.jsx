@@ -13,7 +13,7 @@ const RATES = [
     { key: "feedbackFailed", label: "Feedback failures", helper: "Final evaluation retried by the job queue", volume: "feedbackEvaluations", warnAbove: 2 },
 ];
 
-const LABELS = { followup: "Follow-up", next_question: "Next question", adaptive_evaluation: "Answer evaluation", feedback_evaluation: "Final feedback", question_generation: "Question generation" };
+const LABELS = { followup: "Follow-up", next_question: "Next question", system_design: "System design interviewer", adaptive_evaluation: "Answer evaluation", feedback_evaluation: "Final feedback", question_generation: "Question generation", transcription: "Speech-to-text" };
 
 export default function AiQualitySection({ days = 30 }) {
     const [data, setData] = useState(null);
@@ -61,7 +61,7 @@ export default function AiQualitySection({ days = 30 }) {
                                 <TableRow key={`${row.stage}-${row.signal}-${row.outcome}`} hover>
                                     <TableCell>{LABELS[row.stage] || row.stage}</TableCell>
                                     <TableCell>{row.signal.replaceAll("_", " ")}</TableCell>
-                                    <TableCell><Chip size="small" label={row.outcome.replaceAll("_", " ")} color={["suppressed", "unscored", "failed", "provider_unavailable", "deterministic"].includes(row.outcome) ? "warning" : "default"} variant="outlined" /></TableCell>
+                                    <TableCell><Chip size="small" label={row.outcome.replaceAll("_", " ")} color={["suppressed", "unscored", "failed", "provider_unavailable", "deterministic", "dropped"].includes(row.outcome) ? "warning" : "default"} variant="outlined" /></TableCell>
                                     <TableCell align="right">{row.count}</TableCell>
                                 </TableRow>
                             ))}

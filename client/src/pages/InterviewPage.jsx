@@ -169,7 +169,7 @@ const InterviewPage = () => {
 
     const hintQuestion = pendingFollowUp?.question || convViewState?.current || "";
     useEffect(() => {
-        setTranscriptionHint?.(buildTranscriptionHint({ role: interview?.jobRole, round: selectedRound?.name, question: hintQuestion }));
+        setTranscriptionHint?.(buildTranscriptionHint({ role: interview?.jobRole, question: hintQuestion }));
     }, [hintQuestion, interview?.jobRole, selectedRound?.name, setTranscriptionHint]);
 
     const {
