@@ -224,6 +224,19 @@ const summaryForPrompt = (state) => (state?.competencies || []).map((item) => ({
     coverage: item.coverage,
 }));
 
+// Recorded when the evaluator could not produce a score. It adds no competency evidence, so the
+// round keeps probing, and reviewers see "unscored" instead of a fabricated middling score.
+const unscoredEvaluation = (currentDifficulty) => ({
+    unscored: true,
+    overallScore: null,
+    confidence: 0,
+    dimensions: [],
+    competencyEvidence: [],
+    strengths: [],
+    gaps: [],
+    policy: { action: "next-question", targetCompetency: "", difficulty: currentDifficulty, reason: "Evaluation unavailable for the previous answer.", confidence: 0, sourceClaim: "" },
+});
+
 export const evaluateAdaptiveAnswer = async ({
     questionText,
     answerText,
@@ -279,14 +292,22 @@ Evaluation rules:
 - Do not recommend end-round before ${minQuestions} questions. At ${maxQuestions}, recommend end-round.
 - Before the maximum, recommend end-round only when the important competencies already have enough evidence; avoid redundant questions.
 - If an unvalidated resume claim is highly relevant to an uncertain competency, sourceClaim may name that exact claim for the next question. Never invent a claim.`;
-        const raw = (await generateJSON(prompt)) || "{}";
-        parsed = JSON.parse(raw);
+        // One retry: a failed call or unparseable JSON must never turn into a made-up score.
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            try {
+                parsed = JSON.parse((await generateJSON(prompt)) || "{}");
+            } catch {
+                parsed = {};
+            }
+            if (Number.isFinite(Number(parsed?.overallScore))) break;
+        }
     } catch {
         parsed = {};
     }
 
     const rawScore = Number(parsed?.overallScore);
-    const overallScore = Number.isFinite(rawScore) ? Math.max(0, Math.min(10, rawScore)) : 5;
+    if (!Number.isFinite(rawScore)) return unscoredEvaluation(currentDifficulty);
+    const overallScore = Math.max(0, Math.min(10, rawScore));
     const confidence = Math.max(0, Math.min(1, Number(parsed?.confidence) || (safeAnswer ? 0.25 : 0.1)));
     const dimensions = (Array.isArray(parsed?.dimensions) ? parsed.dimensions : [])
         .map(normalizedDimension)
@@ -351,7 +372,7 @@ export const applyEvidenceToState = (state, evaluation, { questionIndex = 0, tar
         item.updatedAt = new Date();
     }
 
-    if (!updates.length && targetedCompetencies.length) {
+    if (!updates.length && targetedCompetencies.length && !evaluation?.unscored) {
         for (const name of targetedCompetencies) {
             const match = byKey.get(keyOf(name));
             if (!match) continue;

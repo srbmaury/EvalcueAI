@@ -125,7 +125,8 @@ const completeAdaptiveQuestion = async ({ interview, round, index, userId }) => 
     });
 
     item.quickEvaluation = {
-        overallScore: evaluation.overallScore,
+        overallScore: evaluation.overallScore ?? undefined,
+        unscored: Boolean(evaluation.unscored),
         confidence: evaluation.confidence,
         dimensions: evaluation.dimensions,
         competencyEvidence: evaluation.competencyEvidence,
