@@ -32,6 +32,7 @@ import {
 const LANDING_INDEXABLE_ROUTES = [
     "/",
     ...searchLandingPaths(),
+    "/plans",
     "/docs",
     "/docs/technical-hiring/structured-technical-assessments",
     "/docs/technical-hiring/system-design-interviews",

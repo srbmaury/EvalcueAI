@@ -26,7 +26,7 @@ export default function SiteFooter() {
                 <Grid size={{ xs: 6, sm: 4, md: 2 }}>
                     <Typography variant="body2" fontWeight={650} mb={2}>Company</Typography>
                     <Stack spacing={1.5}>
-                        {[["About", "/about"], ["How we evaluate", "/ai-interview-evaluation-methodology"], ["Privacy", "/privacy"], ["Terms", "/terms"]].map(([label, path]) => <Link key={path} {...siteLink(path)} color="text.secondary" underline="hover" variant="body2">{label}</Link>)}
+                        {[["Pricing", "/plans"], ["About", "/about"], ["How we evaluate", "/ai-interview-evaluation-methodology"], ["Privacy", "/privacy"], ["Terms", "/terms"]].map(([label, path]) => <Link key={path} {...siteLink(path)} color="text.secondary" underline="hover" variant="body2">{label}</Link>)}
                     </Stack>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4, md: 3 }}>

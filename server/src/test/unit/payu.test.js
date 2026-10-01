@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { paymentHash, responseHash, validResponseHash, sha512, verifyPayment, zionRequest } from '../../config/payu.js';
 import { nextMonth, validateVerifiedPayment } from '../../services/payuBilling.js';
+import { getPayuPrice } from '../../services/payuCatalog.js';
 const fields = { key:'merchant', txnid:'order123', amount:'100.00', productinfo:'Practice Pro', firstname:'Test', email:'test@example.com', udf1:'practice', udf2:'pro' };
 afterEach(() => vi.unstubAllEnvs());
 const configure = () => {
@@ -45,4 +46,22 @@ describe('PayU protocol and access verification', () => {
         expect(request.mock.calls[1][1].headers['X-PayU-Subscription-Signature']).toBe(sha512('merchantId:merchant|subscriptionId:sub-1|salt'));
     });
     it('clamps monthly periods at month end',()=>expect(nextMonth(new Date('2026-01-31T12:00:00Z')).toISOString()).toBe('2026-02-28T12:00:00.000Z'));
+});
+
+describe('PayU service prices', () => {
+    it('preserves approved INR prices when no environment override exists', () => {
+        for (const [product, plan, name, amount] of [['practice','pro','PRACTICE_PRO',69900],['hiring','pilot','HIRING_PILOT',299900],['hiring','starter','HIRING_STARTER',999900],['hiring','growth','HIRING_GROWTH',2999900]]) {
+            vi.stubEnv(`PAYU_${name}_AMOUNT_PAISE`, undefined);
+            expect(getPayuPrice(product,plan)).toMatchObject({unitAmount:amount,currency:'inr'});
+        }
+    });
+    it('uses configured prices and rejects invalid overrides', () => {
+        vi.stubEnv('PAYU_PRACTICE_PRO_AMOUNT_PAISE','79900');
+        expect(getPayuPrice('practice','pro').unitAmount).toBe(79900);
+        for (const value of ['', '-100', '699.00', 'NaN']) {
+            vi.stubEnv('PAYU_PRACTICE_PRO_AMOUNT_PAISE',value);
+            expect(getPayuPrice('practice','pro')).toBeNull();
+        }
+        expect(getPayuPrice('practice','unknown')).toBeNull();
+    });
 });

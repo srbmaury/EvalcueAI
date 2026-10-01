@@ -18,6 +18,10 @@ import metrics from "../metrics/index.js";
 import { hiringClientOrigin, practiceClientOrigin } from "../config/clientOrigins.js";
 
 const router = express.Router();
+router.get("/catalog", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ prices: { practice: { pro: getPayuPrice("practice", "pro") }, hiring: { pilot: getPayuPrice("hiring", "pilot"), starter: getPayuPrice("hiring", "starter"), growth: getPayuPrice("hiring", "growth") } } });
+});
 const billingConfigured = () => payuConfigured(true);
 const PORTAL_REQUIRED_STATUSES = new Set(["incomplete", "trialing", "active", "past_due", "unpaid", "paused"]);
 const PAID_HIRING_PLANS = new Set(["starter", "growth", "enterprise"]);
