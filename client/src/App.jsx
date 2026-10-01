@@ -11,6 +11,7 @@ import CanonicalProductRedirect from "./components/CanonicalProductRedirect";
 import DeploymentSurfaceGuard from "./components/DeploymentSurfaceGuard";
 import { PRACTICE_LIMIT_EVENT } from "./utils/appEvents";
 
+const PublicPricingPage = lazy(() => import("./pages/PublicPricingPage"));
 const ProductHeader = lazy(() => import("./components/ProductHeader"));
 const ProtectedRoute = lazy(() => import("./components/ProtectedRoute"));
 const AdminRoute = lazy(() => import("./components/AdminRoute"));
@@ -116,6 +117,7 @@ function App() {
                 <Route path="/ai-interview-platform" element={<SearchLandingPage />} />
                 <Route path="/engineering-assessment" element={<SearchLandingPage />} />
                 <Route path="/ai-interview-evaluation-methodology" element={<SearchLandingPage />} />
+                <Route path="/plans" element={<PublicPricingPage />} />
                 <Route path="/about" element={<SearchLandingPage />} />
                 <Route path="/software-engineer-interview-practice" element={<SearchLandingPage />} />
                 <Route path="/technical-interview-practice" element={<SearchLandingPage />} />

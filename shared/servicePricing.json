@@ -1,0 +1,6 @@
+[
+  {"product":"practice","plan":"pro","name":"Practice Pro","unitAmount":69900,"currency":"inr","interval":"month","features":["100 practice interviews per month","100 resume reviews per month","100 tailored resume generations per month"],"path":"/practice/pricing"},
+  {"product":"hiring","plan":"pilot","name":"Hire Pilot","unitAmount":299900,"currency":"inr","type":"one_time","features":["15 candidate interviews","30 days of access","No automatic renewal"],"path":"/hire/pilot"},
+  {"product":"hiring","plan":"starter","name":"Hire Starter","unitAmount":999900,"currency":"inr","interval":"month","features":["25 candidate interviews per month","Shared organization workspace","Candidate reports and team review"],"path":"/hire/team"},
+  {"product":"hiring","plan":"growth","name":"Hire Growth","unitAmount":2999900,"currency":"inr","interval":"month","features":["100 candidate interviews per month","Shared organization workspace","Candidate reports and team review"],"path":"/hire/team"}
+]

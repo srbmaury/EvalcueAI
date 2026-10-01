@@ -7,6 +7,7 @@ export const isIndexablePath = (pathname) => (
     pathname === "/" ||
     pathname === "/practice" ||
     pathname === "/hire" ||
+    pathname === "/plans" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
     pathname === "/docs" ||

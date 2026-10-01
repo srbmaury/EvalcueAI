@@ -104,6 +104,7 @@ export default function Header() {
                                     </> : <>
                                         <Button component={RouterLink} to="/practice" color="inherit">Practice</Button>
                                         <Button component={RouterLink} to="/hire" color="inherit">Hire</Button>
+                                        <Button component={RouterLink} to="/plans" color="inherit">Pricing</Button>
                                         <Button component={RouterLink} to="/docs" color="inherit">Docs</Button>
                                         <Button component={RouterLink} to="/about" color="inherit">About</Button>
                                     </>}
@@ -165,6 +166,7 @@ export default function Header() {
                                         ] : [
                                             <MenuItem key="practice" component={RouterLink} to="/practice" onClick={closeMobile}>Practice</MenuItem>,
                                             <MenuItem key="hire" component={RouterLink} to="/hire" onClick={closeMobile}>Hire</MenuItem>,
+                                            <MenuItem key="pricing" component={RouterLink} to="/plans" onClick={closeMobile}>Pricing</MenuItem>,
                                             <MenuItem key="docs" component={RouterLink} to="/docs" onClick={closeMobile}>Docs</MenuItem>,
                                             <MenuItem key="about" component={RouterLink} to="/about" onClick={closeMobile}>About</MenuItem>,
                                         ]}
