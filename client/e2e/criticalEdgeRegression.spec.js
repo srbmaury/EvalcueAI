@@ -309,11 +309,15 @@ test("Hiring billing shows configured quotas and sends the selected plan to chec
     await expect(page.getByText("100 candidate interviews / month", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Choose Starter" }).click();
+    await page.getByLabel("Billing phone number").fill("9876543210");
+    await page.getByRole("button", { name: "Review payment", exact: true }).click();
     await expect(page.getByText("Checkout service unavailable in test", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Choose Starter" })).toBeEnabled();
     await page.getByRole("button", { name: "Choose Growth" }).click();
+    await page.getByLabel("Billing phone number").fill("9876543210");
+    await page.getByRole("button", { name: "Review payment", exact: true }).click();
 
-    await expect.poll(() => checkoutBodies).toEqual([{ plan: "starter" }, { plan: "growth" }]);
+    await expect.poll(() => checkoutBodies).toEqual([{ plan: "starter", phone: "9876543210" }, { plan: "growth", phone: "9876543210" }]);
 });
 
 test("Hiring billing blocks a second checkout when the existing subscription requires the portal", async ({ page }) => {

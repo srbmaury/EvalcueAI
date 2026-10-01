@@ -278,17 +278,17 @@ describe("authentication controller", () => {
         await deleteAccount(request({ user: { _id: "user-1" }, body: { confirmation: "delete" } }), unconfirmed, vi.fn());
         expect(unconfirmed.json).toHaveBeenCalledWith({ message: "Type DELETE to confirm" });
 
-        mocks.findById.mockResolvedValueOnce(null);
+        mocks.findById.mockReturnValueOnce({ select: vi.fn().mockResolvedValue(null) });
         const missing = response();
         await deleteAccount(request({ user: { _id: "user-1" }, body: { confirmation: "DELETE" } }), missing, vi.fn());
         expect(missing.status).toHaveBeenCalledWith(404);
 
-        mocks.findById.mockResolvedValueOnce({ provider: "local", matchPassword: vi.fn().mockResolvedValue(false) });
+        mocks.findById.mockReturnValueOnce({ select: vi.fn().mockResolvedValue({ provider: "local", matchPassword: vi.fn().mockResolvedValue(false) }) });
         const password = response();
         await deleteAccount(request({ user: { _id: "user-1" }, body: { confirmation: "DELETE", password: "wrong" } }), password, vi.fn());
         expect(password.json).toHaveBeenCalledWith({ message: "Current password is incorrect" });
 
-        mocks.findById.mockResolvedValueOnce({ provider: "local", practiceSubscriptionStatus: "active", matchPassword: vi.fn().mockResolvedValue(true) });
+        mocks.findById.mockReturnValueOnce({ select: vi.fn().mockResolvedValue({ provider: "local", practiceSubscriptionStatus: "active", matchPassword: vi.fn().mockResolvedValue(true) }) });
         const subscribed = response();
         await deleteAccount(request({ user: { _id: "user-1" }, body: { confirmation: "DELETE", password: "correct" } }), subscribed, vi.fn());
         expect(subscribed.status).toHaveBeenCalledWith(409);

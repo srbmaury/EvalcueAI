@@ -1,3 +1,4 @@
+import PublicSiteFrame from "../components/PublicSiteFrame";
 import { Alert, Box, Container, Divider, Paper, Stack, Typography } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import Seo from "../components/Seo";
@@ -17,7 +18,7 @@ export default function OidcSsoDocsPage() {
     const description = "Configure organization-level OIDC single sign-on for EvalcueAI Hiring using Microsoft Entra ID, Okta, Auth0, Google Workspace, or another OpenID Connect provider.";
 
     return (
-        <Box>
+        <PublicSiteFrame>
             <Container maxWidth="md" sx={{ py: { xs: 5, md: 9 } }}>
                 <Seo
                     title={title}
@@ -63,6 +64,6 @@ export default function OidcSsoDocsPage() {
                 </Stack>
             </Container>
             <SiteFooter />
-        </Box>
+        </PublicSiteFrame>
     );
 }

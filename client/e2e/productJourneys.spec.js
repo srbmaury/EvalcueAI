@@ -32,10 +32,10 @@ const mockSignedIn = async (page, user = { _id: "user-1", name: "Recruiter One",
 test("public homepage explains both candidate and recruiter value", async ({ page }) => {
     await mockSignedOut(page);
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "AI interview practice and structured technical hiring for software engineers.", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Better practice.*Clearer hiring evidence/, level: 1 })).toBeVisible();
     await expect(page.getByRole("link", { name: "Practice interviews" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Assess candidates" })).toBeVisible();
-    await expect(page.getByText("Hiring workspace", { exact: true })).toBeVisible();
+    await expect(page.getByText("For hiring teams", { exact: true })).toBeVisible();
 });
 
 test("login survives a browser reload through refresh-token restoration", async ({ page }) => {

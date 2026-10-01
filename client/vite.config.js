@@ -463,7 +463,7 @@ export default defineConfig(({ mode }) => {
             },
             proxy: {
                 "/api": {
-                    target: "http://localhost:5000",
+                    target: env.VITE_API_PROXY_TARGET || "http://localhost:5000",
                     changeOrigin: true,
                     secure: false,
                 },

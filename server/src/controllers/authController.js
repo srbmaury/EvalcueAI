@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import User from "../models/User.js";
+import PaymentOrder from "../models/PaymentOrder.js";
 import { bumpTokenVersion, signAccessToken, issueRefreshToken, rotateRefreshToken, revokeRefreshToken, revokeAllRefreshTokens, setRefreshCookie, refreshCookieOptions } from "../utils/tokens.js";
 import { OAuth2Client } from "google-auth-library";
 import metrics from "../metrics/index.js";
@@ -328,7 +329,7 @@ export const deleteAccount = async (req, res, next) => {
     try {
         const { confirmation, password } = req.body || {};
         if (confirmation !== "DELETE") return res.status(400).json({ message: "Type DELETE to confirm" });
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.user._id).select("+practiceBillingProvider +practiceBillingSubscriptionId");
         if (!user) return res.status(404).json({ message: "User not found" });
 
         if (user.provider === "local") {
@@ -342,7 +343,7 @@ export const deleteAccount = async (req, res, next) => {
             const adminCount = await User.countDocuments({ role: "admin" });
             if (adminCount <= 1) return res.status(409).json({ message: "Assign another platform administrator before deleting the last admin account" });
         }
-        if (["active", "trialing"].includes(user.practiceSubscriptionStatus)) return res.status(409).json({ message: "Cancel your active Practice subscription before deleting your account" });
+        if (["active", "trialing"].includes(user.practiceSubscriptionStatus) || (user.practiceBillingProvider === "payu" && user.practiceBillingSubscriptionId && !user.practiceCancelAtPeriodEnd)) return res.status(409).json({ message: "Cancel your active Practice subscription before deleting your account" });
 
         const interviews = await Interview.find({ user: user._id }).select("rounds.round").lean();
         const roundIds = interviews.flatMap((item) => (item.rounds || []).map((entry) => entry.round));
@@ -356,10 +357,13 @@ export const deleteAccount = async (req, res, next) => {
         const ownedMemberships = await OrganizationMembership.find({ user: user._id, role: "owner", status: "active" }).select("organization").lean();
         const ownedOrganizationIds = ownedMemberships.map((membership) => membership.organization);
         const ownedOrganizations = ownedOrganizationIds.length
-            ? await Organization.find({ _id: { $in: ownedOrganizationIds } }).select("_id hiringSubscriptionStatus").lean()
+            ? await Organization.find({ _id: { $in: ownedOrganizationIds } }).select("_id hiringSubscriptionStatus +hiringBillingProvider +hiringBillingSubscriptionId hiringCancelAtPeriodEnd").lean()
             : [];
-        if (ownedOrganizations.some((organization) => ["active", "trialing"].includes(organization.hiringSubscriptionStatus))) {
+        if (ownedOrganizations.some((organization) => (["active", "trialing"].includes(organization.hiringSubscriptionStatus) || (organization.hiringBillingProvider === "payu" && organization.hiringBillingSubscriptionId && !organization.hiringCancelAtPeriodEnd)))) {
             return res.status(409).json({ message: "Cancel Hiring billing or transfer organization ownership before deleting your account" });
+        }
+        if (await PaymentOrder.exists({ $and: [{ $or: [{ product: "practice", user: user._id }, { organization: { $in: ownedOrganizationIds } }] }, { status: { $ne: "paid" } }, { $or: [{ expiresAt: { $gt: new Date() } }, { provisioning: { $in: ["creating", "ready", "review_required"] } }] }] })) {
+            return res.status(409).json({ message: "Resolve your pending payment with billing support before deleting your account" });
         }
         for (const organizationId of ownedOrganizationIds) {
             const activeMembers = await OrganizationMembership.countDocuments({ organization: organizationId, status: "active" });
@@ -392,6 +396,7 @@ export const deleteAccount = async (req, res, next) => {
                 await Organization.deleteMany({ _id: { $in: ownedOrganizationIds } }, { session });
                 await RefreshToken.deleteMany({ user: user._id }, { session });
                 await AuditLog.deleteMany({ user: user._id }, { session });
+                await PaymentOrder.updateMany({ $or: [{ product: "practice", user: user._id }, { organization: { $in: ownedOrganizationIds } }] }, { $unset: { checkoutFields: "", tokenHash: "" } }, { session });
                 await User.deleteOne({ _id: user._id }, { session });
             });
         } finally {

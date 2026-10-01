@@ -246,7 +246,7 @@ export default function AdminCommercialAccessPage() {
             <Divider sx={{ my: 4 }} />
 
             <Typography component="h2" variant="h5" fontWeight={850}>Hiring organizations</Typography>
-            <Typography color="text.secondary" mt={.5} mb={2}>Use grants for founder-led design partners or manually approved exceptions. Standard Starter/Growth billing remains Stripe-managed.</Typography>
+            <Typography color="text.secondary" mt={.5} mb={2}>Use grants for founder-led design partners or manually approved exceptions. New Starter and Growth subscriptions use PayU; existing Stripe subscriptions retain their current billing provider.</Typography>
             <Stack spacing={2}>
                 {organizations.map((organization) => (
                     <Card key={organization._id} variant="outlined">

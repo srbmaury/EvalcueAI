@@ -15,6 +15,7 @@ const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
 
 export const activePracticePlan = (user) => (
     user?.practicePlan === "pro" && ACTIVE_SUBSCRIPTION_STATUSES.has(user?.practiceSubscriptionStatus)
+    && (!user?.practiceCurrentPeriodEnd || new Date(user.practiceCurrentPeriodEnd) > new Date())
         ? "pro"
         : "free"
 );

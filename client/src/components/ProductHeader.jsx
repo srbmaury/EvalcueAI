@@ -212,13 +212,13 @@ export default function ProductHeader({ surface = "practice" }) {
 
     return (
         <>
-            <AppBar position="sticky" color="transparent" elevation={0} sx={{ bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider", color: "text.primary", backdropFilter: "blur(18px)", zIndex: 1200 }}>
-                <Container maxWidth="xl">
+            <AppBar position="sticky" color="transparent" elevation={0} sx={{ bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider", color: "text.primary", backdropFilter: "blur(18px)", zIndex: 1200, ...(!user ? { "& .MuiButton-root": { borderRadius: "4px", boxShadow: "none", fontWeight: 600 } } : {}) }}>
+                <Container maxWidth={user ? "xl" : "lg"}>
                     <Toolbar disableGutters sx={{ minHeight: { xs: 64, md: 72 }, gap: 1.25 }}>
                         <Stack direction="row" spacing={1.15} alignItems="center" minWidth={0} component={RouterLink} to={home} sx={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
-                            <Box sx={{ width: 34, height: 34, borderRadius: 2.5, display: "grid", placeItems: "center", color: "white", background: surface === "hiring" ? "linear-gradient(135deg,#12685f,#36aa9d)" : "linear-gradient(135deg,#1b3e9c,#2f6be0)", boxShadow: surface === "hiring" ? "0 8px 20px rgba(18,104,95,.24)" : "0 8px 20px rgba(36,81,199,.28)" }}><ProductIcon fontSize="small" /></Box>
+                            <Box sx={{ width: 34, height: 34, borderRadius: user ? 2.5 : "4px", display: "grid", placeItems: "center", color: "white", background: !user ? (surface === "hiring" ? "#0b7a6a" : "#1b3e9c") : surface === "hiring" ? "linear-gradient(135deg,#12685f,#36aa9d)" : "linear-gradient(135deg,#1b3e9c,#2f6be0)", boxShadow: !user ? "none" : surface === "hiring" ? "0 8px 20px rgba(18,104,95,.24)" : "0 8px 20px rgba(36,81,199,.28)" }}><ProductIcon fontSize="small" /></Box>
                             <Box sx={{ minWidth: 0 }}>
-                                <Typography fontWeight={900} letterSpacing="-.025em" lineHeight={1.05} sx={{ display: { xs: "none", sm: "block" } }}>EvalcueAI</Typography>
+                                <Typography fontWeight={900} letterSpacing="-.025em" lineHeight={1.05} sx={{ display: { xs: user ? "none" : "block", sm: "block" } }}>EvalcueAI</Typography>
                                 <Typography variant="caption" color="text.secondary" fontWeight={800} lineHeight={1} sx={{ display: { xs: "none", sm: "block" } }}>{config.label}</Typography>
                             </Box>
                         </Stack>

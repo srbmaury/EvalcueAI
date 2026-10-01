@@ -1,3 +1,4 @@
+import PublicSiteFrame from "../components/PublicSiteFrame";
 import { Box, Card, CardActionArea, CardContent, Chip, Container, Divider, Stack, Typography } from "@mui/material";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import Seo from "../components/Seo";
@@ -78,17 +79,17 @@ export default function PublicDocsPage() {
         const title = "EvalcueAI Documentation | Technical interviews and hiring";
         const description = "Practical documentation for structured technical assessments, system design interviews, candidate scorecards, AI interview practice, enterprise SSO, and responsible human review.";
         return (
-            <Box>
+            <PublicSiteFrame>
                 <Container maxWidth="lg" sx={{ py: { xs: 5, md: 9 } }}>
                     <Seo title={title} description={description} canonicalPath="/docs" structuredData={{ "@context": "https://schema.org", "@type": "CollectionPage", name: "EvalcueAI Documentation", description }} />
                     <Stack spacing={2} maxWidth={780}>
                         <Chip label="Documentation" color="primary" variant="outlined" sx={{ alignSelf: "flex-start" }} />
-                        <Typography component="h1" variant="h2" fontWeight={900} letterSpacing="-.04em">Technical interview documentation built around evidence.</Typography>
+                        <Typography component="h1" variant="h2" fontWeight={900} letterSpacing="-.04em">Guides and documentation.</Typography>
                         <Typography variant="h6" color="text.secondary">Guides for engineering teams designing assessments and candidates preparing for technical interviews.</Typography>
                     </Stack>
                     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: 2, mt: 5 }}>
                         {cards.map(([name, path, summary]) => (
-                            <Card key={path} variant="outlined" sx={{ borderRadius: 4 }}>
+                            <Card key={path} variant="outlined" sx={{ borderRadius: 1, border: 0, borderTop: "1px solid", borderColor: "divider" }}>
                                 <CardActionArea component={RouterLink} to={path} sx={{ height: "100%" }}>
                                     <CardContent sx={{ p: 3 }}>
                                         <Typography component="h2" variant="h5" fontWeight={800}>{name}</Typography>
@@ -100,14 +101,14 @@ export default function PublicDocsPage() {
                     </Box>
                 </Container>
                 <SiteFooter />
-            </Box>
+            </PublicSiteFrame>
         );
     }
 
     const canonicalPath = pathname;
     const title = `${article.title} | EvalcueAI Docs`;
     return (
-        <Box>
+        <PublicSiteFrame>
             <Container maxWidth="md" sx={{ py: { xs: 5, md: 9 } }}>
                 <Seo title={title} description={article.description} canonicalPath={canonicalPath} structuredData={{ "@context": "https://schema.org", "@type": "Article", headline: article.title, description: article.description, author: { "@type": "Organization", name: "EvalcueAI" }, publisher: { "@type": "Organization", name: "EvalcueAI" }, mainEntityOfPage: `${window.location.origin}${canonicalPath}` }} />
                 <Stack spacing={2}>
@@ -129,6 +130,6 @@ export default function PublicDocsPage() {
                 <Typography component={RouterLink} to="/docs" color="primary.main" sx={{ textDecoration: "none", fontWeight: 800 }}>Browse all EvalcueAI documentation →</Typography>
             </Container>
             <SiteFooter />
-        </Box>
+        </PublicSiteFrame>
     );
 }

@@ -55,7 +55,7 @@ React 19 / Vite / MUI
 Express 5 API
   |       |        |          |
 MongoDB  Redis    AI APIs    External services
-         BullMQ   OpenAI /   Stripe, Brevo,
+         BullMQ   OpenAI /   PayU, Brevo,
                   Gemini     Cloudinary, code runner
 ```
 
@@ -90,7 +90,7 @@ observability/           dashboards, PromQL, and alert guidance
 
 For local development: Node.js 22 (see `.nvmrc`; `nvm use`), MongoDB, and credentials for whichever integrations you want to exercise. AI features require OpenAI or Gemini. Resume storage requires Cloudinary.
 
-Production additionally requires Redis, HTTPS, Brevo transactional email, CAPTCHA, Stripe, MongoDB transactions, and any dependencies for enabled STT/code-execution features.
+Production additionally requires Redis, HTTPS, Brevo transactional email, CAPTCHA, PayU (including Zion for automatic renewal), MongoDB transactions, and any dependencies for enabled STT/code-execution features.
 
 ### Install
 
@@ -120,7 +120,8 @@ For production set `NODE_ENV=production` and configure, at minimum:
 - at least one AI provider; OpenAI is required when server STT is enabled
 - The code runner (`runner/`) with `CODE_RUNNER_URL` and `CODE_RUNNER_TOKEN` when code execution is enabled
 - `ENABLE_DEBUGGING_ASSESSMENTS=true` only when the debugging-assignment feature is intentionally enabled; code-fix debugging additionally requires `ENABLE_CODE_EXEC=true`
-- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the Practice Pro + Hiring Pilot/Starter/Growth price IDs
+- PayU merchant key/salt, HTTPS callback origin, approved INR plan amounts, Zion enablement/token and monthly plan IDs; see [PayU billing setup](docs/payu-billing.md)
+- Legacy Stripe credentials and price IDs remain required while any existing Stripe subscriptions continue
 - a transaction-capable MongoDB replica set or sharded cluster
 
 ### Configure the client
@@ -244,7 +245,7 @@ Major API areas:
 - `/api/interviews/*`, `/api/rounds/*`, `/api/questions/*`, `/api/feedback/*` — Practice interview lifecycle
 - `/api/assessments/*` — hiring assessment creation, candidate pipeline, reporting, invitations, scorecards
 - `/api/assessments/public/:shareToken/*` — candidate assessment experience guarded by hashed attempt credentials
-- `/api/billing/*` — Practice/Hiring entitlements, checkout, portal, signed Stripe webhook
+- `/api/billing/*` — Practice/Hiring entitlements, PayU checkout and mandate management, verified PayU callbacks and Zion reconciliation; legacy Stripe portal/webhook
 - `/api/organizations/*`, `/api/sso/*` — hiring organization and SSO workflows
 - `/api/stt/*`, `/api/run-code` — optional transcription and code execution
 - `/health/liveness`, `/health/readiness`, `/metrics` — operations endpoints
@@ -306,7 +307,7 @@ See [RUNBOOK.md](RUNBOOK.md) for production operations and recovery.
 - Code execution in nsjail: no network, fresh namespaces, uid nobody, cgroup memory/CPU/process limits, and a token-protected runner on a dedicated host
 - Debugging assignments use validated relative paths, immutable baselines, server-owned runtimes, candidate source-only overlays, and hidden-test isolation
 - Hashed candidate attempt credentials and non-indexable assessment URLs
-- Signed/idempotent Stripe webhooks
+- Verified/idempotent PayU payment callbacks and authoritative Zion reconciliation; legacy signed Stripe webhooks
 - Organization-scoped hiring authorization
 - Explicit consent for optional integrity signals
 - Human review requirements for AI-assisted hiring evidence
@@ -325,7 +326,7 @@ Public product and documentation pages receive route-specific titles, descriptio
 - Set explicit browser/API origins and CSP allowlists
 - Use a secret manager; never commit `.env`
 - Configure backups and test restoration
-- Validate Stripe webhook replay and Brevo delivery/bounce handling
+- Validate PayU callbacks, mandate activation, renewal and cancellation, legacy Stripe webhook replay, and Brevo delivery/bounce handling
 - Alert on readiness, 5xx rates, auth/rate-limit spikes, queue failures, failed reminders, webhook failures, and AI cost/error anomalies
 - Calibrate AI-generated hiring scores against independent human reviewers before production hiring use
 

@@ -39,8 +39,9 @@ const hiringGrantSchema = new mongoose.Schema(
         expiresAt: { type: Date, default: null },
         grantId: { type: String, trim: true, default: "", maxlength: 200 },
         grantedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-        source: { type: String, enum: ["admin", "stripe", "none"], default: "none" },
+        source: { type: String, enum: ["admin", "stripe", "payu", "none"], default: "none" },
         note: { type: String, trim: true, default: "", maxlength: 500 },
+        paymentOrderId: { type: String, default: "", maxlength: 100 },
         stripeCheckoutSessionId: { type: String, trim: true, default: "", maxlength: 200 },
     },
     { _id: false }
@@ -80,7 +81,7 @@ const organizationSchema = new mongoose.Schema(
         hiringGrant: { type: hiringGrantSchema, default: () => ({}) },
         hiringBillingProvider: {
             type: String,
-            enum: ["none", "stripe"],
+            enum: ["none", "stripe", "payu"],
             default: "none",
             select: false,
         },
@@ -94,6 +95,7 @@ const organizationSchema = new mongoose.Schema(
             default: "",
             select: false,
         },
+        hiringCancelAtPeriodEnd: { type: Boolean, default: false },
         hiringCurrentPeriodEnd: {
             type: Date,
             default: null,

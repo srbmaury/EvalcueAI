@@ -956,8 +956,8 @@ export const SEARCH_LANDING_PAGES = [
         metaTitle: "About EvalcueAI | AI Interview Practice & Technical Hiring for Engineers",
         description: "EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, debugging, and technical interviews with adaptive follow-ups.",
         eyebrow: "About",
-        audience: "Anyone who wants an accurate summary of what EvalcueAI is, including journalists, reviewers, search engines, and AI assistants.",
-        intro: "EvalcueAI (one word) is AI interview practice and structured technical hiring for software engineers. It runs coding, system-design, debugging, and technical-discussion interviews with adaptive AI follow-ups, and produces evidence-based feedback and scorecards.",
+        audience: "Engineers preparing for technical interviews and teams looking for a more consistent way to assess candidates.",
+        intro: "Technical interviews should reveal how someone approaches a problem. EvalcueAI helps engineers practice that process and helps hiring teams review it through structured assessments, adaptive follow-ups, and feedback grounded in the work submitted.",
         sections: [
             {
                 heading: "Products",
@@ -976,7 +976,7 @@ export const SEARCH_LANDING_PAGES = [
             },
         ],
         faq: [
-            ["How do you spell EvalcueAI?", "EvalcueAI, written as one word. It is not related to EvalAI, the open-source platform for benchmarking machine-learning models."],
+            ["Who operates EvalcueAI?", "EvalcueAI is operated by SAURABH MAURYA. You can contact our team through the support and contact links on this website."],
             ["Who is EvalcueAI for?", "Software engineers preparing for technical interviews, and engineering teams hiring software engineers."],
             ["Is there a free plan?", "Yes. The free practice plan includes 3 AI practice interviews per month, with no card required."],
         ],

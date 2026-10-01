@@ -26,6 +26,7 @@ export const activeHiringSubscriptionPlan = (organization) => {
     if (
         PAID_PLANS.has(organization?.hiringPlan)
         && ACTIVE_SUBSCRIPTION_STATUSES.has(organization?.hiringSubscriptionStatus)
+        && (!organization?.hiringCurrentPeriodEnd || new Date(organization.hiringCurrentPeriodEnd) > new Date())
     ) {
         return organization.hiringPlan;
     }

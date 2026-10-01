@@ -1,3 +1,4 @@
+import useBillingPhone from "../hooks/useBillingPhone";
 import { useEffect, useState } from "react";
 import { Alert, Button, Card, CardContent, Chip, Container, LinearProgress, Stack, Typography } from "@mui/material";
 import api from "../api/axios";
@@ -14,6 +15,7 @@ const labelForPlan = (plan) => ({
 }[plan] || plan);
 
 export default function HiringPilotPage() {
+    const { requestBillingPhone, billingPhoneDialog } = useBillingPhone();
     const [billing, setBilling] = useState(null);
     const [loading, setLoading] = useState(true);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -30,7 +32,9 @@ export default function HiringPilotPage() {
         setCheckoutLoading(true);
         setError("");
         try {
-            const { data } = await api.post("/billing/hiring/pilot-checkout-session");
+            const phone = await requestBillingPhone();
+            if (!phone) { setCheckoutLoading(false); return; }
+            const { data } = await api.post("/billing/hiring/pilot-checkout-session", { phone });
             if (!data?.url) throw new Error("Missing checkout URL");
             window.location.assign(data.url);
         } catch (requestError) {
@@ -48,10 +52,11 @@ export default function HiringPilotPage() {
     const pilot = billing?.pilotOffer || { candidateInterviews: 15, validDays: 30 };
     const paidSubscription = ["starter", "growth", "enterprise"].includes(billing?.plan);
     const activePilot = billing?.plan === "paid_pilot";
-    const canCheckout = Boolean(billing?.canManageBilling && billing?.billingAvailable?.pilot && !billing?.requiresBillingPortal && !paidSubscription && !activePilot);
+    const canCheckout = Boolean(billing?.canManageBilling && billing?.billingAvailable?.pilot && price && !billing?.requiresBillingPortal && !paidSubscription && !activePilot);
 
     return (
         <Container maxWidth="sm" sx={{ py: { xs: 4, md: 7 } }}>
+            {billingPhoneDialog}
             <Stack spacing={3}>
                 <Stack alignItems="center" textAlign="center">
                     <Typography variant="overline" color="primary.main" fontWeight={850}>EvalcueAI Hire</Typography>
@@ -67,7 +72,7 @@ export default function HiringPilotPage() {
                             <Typography variant="h5" fontWeight={850}>Paid pilot</Typography>
                             <Chip label="One-time" color="primary" variant="outlined" />
                         </Stack>
-                        <Typography variant="h3" fontWeight={900} mt={2}>{priceLabel || "₹2,999"}</Typography>
+                        <Typography variant="h3" fontWeight={900} mt={2}>{priceLabel || "Price currently unavailable"}</Typography>
                         <Typography color="text.secondary">one-time payment</Typography>
                         <Stack spacing={1} mt={3}>
                             <Typography>• {pilot.candidateInterviews} candidate interviews</Typography>
@@ -83,7 +88,7 @@ export default function HiringPilotPage() {
                             disabled={!canCheckout || checkoutLoading}
                             onClick={startCheckout}
                         >
-                            {checkoutLoading ? "Opening secure checkout…" : activePilot ? "Pilot already active" : paidSubscription ? `${labelForPlan(billing.plan)} already active` : billing?.requiresBillingPortal ? "Resolve existing billing first" : billing?.billingAvailable?.pilot ? `Start pilot for ${priceLabel || "₹2,999"}` : "Pilot checkout not configured"}
+                            {checkoutLoading ? "Opening secure checkout…" : activePilot ? "Pilot already active" : paidSubscription ? `${labelForPlan(billing.plan)} already active` : billing?.requiresBillingPortal ? "Resolve existing billing first" : billing?.billingAvailable?.pilot && priceLabel ? `Start pilot for ${priceLabel}` : "Pilot checkout not configured"}
                         </Button>
                         {!billing?.canManageBilling && <Alert severity="info" sx={{ mt: 2 }}>Only an organization Owner or Admin can purchase the Launch Pilot.</Alert>}
                     </CardContent>

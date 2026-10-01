@@ -3,6 +3,7 @@
 // name, positioning, official URLs, and plan facts stay identical everywhere they are published.
 
 export const BRAND_NAME = "EvalcueAI";
+export const BUSINESS_LEGAL_NAME = "SAURABH MAURYA";
 export const BRAND_TAGLINE = "AI interview practice and structured technical hiring for software engineers";
 export const BRAND_POSITIONING = "Coding, system design, debugging, and technical interviews with adaptive AI follow-ups and structured engineering assessments.";
 export const BRAND_DESCRIPTION = `${BRAND_NAME} is a browser-based platform for software engineering interviews. Engineers practice coding, system-design, debugging, and technical-discussion rounds with an AI interviewer that asks adaptive follow-ups based on their answers. Hiring teams build structured engineering assessments and review evidence-based scorecards, with every hiring decision made by a human reviewer.`;
@@ -20,7 +21,7 @@ export const BRAND_URLS = Object.freeze({
 // Independent profiles that describe the product. Add Product Hunt, G2, LinkedIn, etc. as they go live.
 export const BRAND_SAME_AS = Object.freeze([BRAND_URLS.source]);
 
-// Server defaults from server/src/services/practiceEntitlements.js. The Pro price comes from Stripe at
+// Server defaults from server/src/services/practiceEntitlements.js. The Pro price comes from the PayU catalog at
 // runtime, so public pages state the included limits and link to pricing instead of a fixed amount.
 export const PRACTICE_PLANS = Object.freeze([
     { name: "Free", summary: "3 AI practice interviews, 10 resume reviews, and 10 tailored resume generations each month. No card required." },
@@ -41,6 +42,7 @@ export const organizationSchema = () => ({
     "@type": "Organization",
     "@id": `${BRAND_URLS.landing}/#organization`,
     name: BRAND_NAME,
+    legalName: BUSINESS_LEGAL_NAME,
     url: `${BRAND_URLS.landing}/`,
     logo: `${BRAND_URLS.landing}/favicon.svg`,
     description: BRAND_DESCRIPTION,
@@ -58,7 +60,7 @@ export const softwareApplicationSchema = () => ({
     applicationSubCategory: "Technical interview practice and assessment",
     operatingSystem: "Web",
     featureList: [...INTERVIEW_TYPES],
-    offers: { "@type": "Offer", price: "0", priceCurrency: "USD", name: "Free practice plan" },
+    offers: { "@type": "Offer", price: "0", priceCurrency: "INR", name: "Free practice plan" },
     publisher: { "@id": `${BRAND_URLS.landing}/#organization` },
 });
 

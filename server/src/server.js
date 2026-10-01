@@ -1,3 +1,5 @@
+import PaymentOrder from "./models/PaymentOrder.js";
+import { reconcilePayuSubscription } from "./services/payuBilling.js";
 import "./config/bootstrapEnv.js";
 import connectDB from "./config/db.js";
 import app from "./app.js";
@@ -210,6 +212,17 @@ const server = app.listen(PORT, async () => {
             }
         });
     } catch (error) { console.warn("[INTEGRITY] Retention cleanup scheduler failed", error?.message || error); }
+
+    try {
+        scheduleTask("*/15 * * * *", async () => {
+            if (process.env.PAYU_ZION_ENABLED !== "true") return;
+            const orders = await PaymentOrder.find({ status: "paid", subscriptionId: { $ne: "" } }).select("subscriptionId").lean();
+            for (const order of orders) {
+                try { await reconcilePayuSubscription(order.subscriptionId); }
+                catch (error) { console.warn("[PAYU] Subscription reconciliation failed", order.subscriptionId, error.message); }
+            }
+        }, { noOverlap: true });
+    } catch (error) { console.warn("[PAYU] Reconciliation scheduler failed", error.message); }
 
     try { stopOtlpPush = startOtlpPush() || (() => {}); } catch {}
 });

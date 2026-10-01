@@ -2,44 +2,33 @@ import express from "express";
 import { z } from "zod";
 import protect from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
+import PaymentOrder from "../models/PaymentOrder.js";
+import { confirmPayuOrder } from "../services/payuBilling.js";
 import Organization from "../models/Organization.js";
 import OrganizationUsageCounter from "../models/OrganizationUsageCounter.js";
 import { currentMonth, practiceLimitsFor, PRACTICE_PLAN_LIMITS } from "../services/practiceEntitlements.js";
 import { reconcilePracticeUsageCounter } from "../services/practiceUsageAccounting.js";
 import { hiringLimitsFor, hiringUsagePeriod, HIRING_PLAN_LIMITS } from "../services/hiringEntitlements.js";
 import { getStripe } from "../config/stripe.js";
-import { getConfiguredPriceId, getOneTimePrice, getPlanPrice } from "../services/billingCatalog.js";
+import { getPayuPrice } from "../services/payuCatalog.js";
+import { payuConfigured, zionRequest } from "../config/payu.js";
+import { createPayuCheckout } from "../services/payuBilling.js";
 import { organizationContext, requireOrganizationRole } from "../middleware/organizationContext.js";
 import metrics from "../metrics/index.js";
 import { hiringClientOrigin, practiceClientOrigin } from "../config/clientOrigins.js";
 
 const router = express.Router();
-const billingConfigured = () => Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET);
+const billingConfigured = () => payuConfigured(true);
 const PORTAL_REQUIRED_STATUSES = new Set(["incomplete", "trialing", "active", "past_due", "unpaid", "paused"]);
 const PAID_HIRING_PLANS = new Set(["starter", "growth", "enterprise"]);
 const requiresBillingPortal = (hasBillingAccount, subscriptionStatus) => (
     Boolean(hasBillingAccount) && PORTAL_REQUIRED_STATUSES.has(subscriptionStatus)
 );
 
-const safePrice = async (product, plan) => {
-    try {
-        if (process.env.NODE_ENV === "test" || !process.env.STRIPE_SECRET_KEY) return null;
-        return await getPlanPrice(product, plan);
-    } catch (error) {
-        console.warn(`Stripe ${product} ${plan} price lookup failed`, error?.message || error);
-        return null;
-    }
-};
-
-const safeOneTimePrice = async (product, plan) => {
-    try {
-        if (process.env.NODE_ENV === "test" || !process.env.STRIPE_SECRET_KEY) return null;
-        return await getOneTimePrice(product, plan);
-    } catch (error) {
-        console.warn(`Stripe ${product} ${plan} one-time price lookup failed`, error?.message || error);
-        return null;
-    }
-};
+const safePrice = async (product, plan) => getPayuPrice(product, plan);
+const safeOneTimePrice = safePrice;
+const phoneSchema = z.string().regex(/^[+\d][\d\s-]{7,19}$/);
+const legacyRequiresPortal = (owner, prefix) => owner[`${prefix}BillingProvider`] !== "payu" && requiresBillingPortal(Boolean(owner[`${prefix}BillingCustomerId`]), owner[`${prefix}SubscriptionStatus`]);
 
 router.get("/practice/entitlements", protect, async (req, res, next) => {
     try {
@@ -59,7 +48,10 @@ router.get("/practice/entitlements", protect, async (req, res, next) => {
             plan: limits.plan,
             subscriptionStatus: req.user.practiceSubscriptionStatus,
             hasBillingAccount,
-            requiresBillingPortal: requiresBillingPortal(hasBillingAccount, req.user.practiceSubscriptionStatus),
+            requiresBillingPortal: legacyRequiresPortal(req.user, "practice"),
+            billingProvider: req.user.practiceBillingProvider || "none",
+            currentPeriodEnd: req.user.practiceCurrentPeriodEnd,
+            cancelAtPeriodEnd: Boolean(req.user.practiceCancelAtPeriodEnd),
             limits: {
                 interviews: limits.interviewsPerMonth,
                 resumeReviews: limits.resumeReviewsPerMonth,
@@ -83,49 +75,24 @@ router.get("/practice/entitlements", protect, async (req, res, next) => {
                 resumeGenerations: resumeGenerationUsage.used,
             },
             prices: { pro: proPrice },
-            billingAvailable: { pro: Boolean(billingConfigured() && proPrice) },
+            billingAvailable: { pro: Boolean(billingConfigured() && proPrice?.id) },
         });
     } catch (error) {
         return next(error);
     }
 });
 
-router.post(
-    "/practice/checkout-session",
-    protect,
-    validate(z.object({ plan: z.literal("pro").optional().default("pro") })),
-    async (req, res, next) => {
+router.post("/practice/checkout-session", protect,
+    validate(z.object({ plan: z.literal("pro").default("pro"), phone: phoneSchema })), async (req, res, next) => {
         try {
-            const selectedPlan = req.body.plan;
-            const priceId = getConfiguredPriceId("practice", selectedPlan);
-            if (!priceId) return res.status(503).json({ message: "Practice Pro checkout is not configured" });
-            if (practiceLimitsFor(req.user).plan === "pro") return res.status(409).json({ message: "Practice Pro is already active" });
-            if (requiresBillingPortal(Boolean(req.user.practiceBillingCustomerId), req.user.practiceSubscriptionStatus)) {
-                return res.status(409).json({ message: "Use Manage billing to resolve or change your existing Practice subscription" });
-            }
-            const session = await getStripe().checkout.sessions.create({
-                mode: "subscription",
-                line_items: [{ price: priceId, quantity: 1 }],
-                customer: req.user.practiceBillingCustomerId || undefined,
-                customer_email: req.user.practiceBillingCustomerId ? undefined : req.user.email,
-                client_reference_id: String(req.user._id),
-                metadata: { billingProduct: "practice", userId: String(req.user._id), plan: selectedPlan },
-                subscription_data: { metadata: { billingProduct: "practice", userId: String(req.user._id), plan: selectedPlan } },
-                allow_promotion_codes: true,
-                success_url: `${practiceClientOrigin()}/practice/billing/success?product=practice`,
-                cancel_url: `${practiceClientOrigin()}/practice/pricing?checkout=cancelled`,
-            });
-            metrics.billingCheckoutTotal.labels("success").inc();
-            return res.json({ url: session.url });
-        } catch (error) {
-            metrics.billingCheckoutTotal.labels("failure").inc();
-            return next(error);
-        }
-    },
-);
+            if (practiceLimitsFor(req.user).plan === "pro" || legacyRequiresPortal(req.user, "practice")) return res.status(409).json({ message: "Manage or cancel your current subscription before starting a new checkout" });
+            return res.json(await createPayuCheckout({ product: "practice", plan: "pro", user: req.user, phone: req.body.phone }));
+        } catch (error) { metrics.billingCheckoutTotal.labels("failure").inc(); return next(error); }
+    });
 
 router.post("/practice/portal-session", protect, async (req, res, next) => {
     try {
+        if (req.user.practiceBillingProvider === "payu") return res.json({ url: `${practiceClientOrigin()}/practice/billing/manage` });
         if (!req.user.practiceBillingCustomerId) return res.status(400).json({ message: "No Practice billing account found" });
         const session = await getStripe().billingPortal.sessions.create({
             customer: req.user.practiceBillingCustomerId,
@@ -148,7 +115,7 @@ router.get("/hiring/entitlements", protect, organizationContext, async (req, res
                 metric: "candidateInterviews",
                 period: period.key,
             }).lean(),
-            Organization.findById(req.organizationId).select("+hiringBillingCustomerId").lean(),
+            Organization.findById(req.organizationId).select("+hiringBillingCustomerId +hiringBillingProvider").lean(),
             safeOneTimePrice("hiring", "pilot"),
             safePrice("hiring", "starter"),
             safePrice("hiring", "growth"),
@@ -164,7 +131,10 @@ router.get("/hiring/entitlements", protect, organizationContext, async (req, res
             accessType: limits.accessType,
             subscriptionStatus: req.organization.hiringSubscriptionStatus,
             hasBillingAccount,
-            requiresBillingPortal: requiresBillingPortal(hasBillingAccount, req.organization.hiringSubscriptionStatus),
+            requiresBillingPortal: legacyRequiresPortal(billingOrganization || req.organization, "hiring"),
+            billingProvider: billingOrganization?.hiringBillingProvider || "none",
+            currentPeriodEnd: req.organization.hiringCurrentPeriodEnd,
+            cancelAtPeriodEnd: Boolean(req.organization.hiringCancelAtPeriodEnd),
             period: period.key,
             periodType: period.cadence,
             limits: { candidateInterviews: limits.candidateInterviews },
@@ -189,9 +159,9 @@ router.get("/hiring/entitlements", protect, organizationContext, async (req, res
             },
             prices: { pilot: pilotPrice, starter: starterPrice, growth: growthPrice },
             billingAvailable: {
-                pilot: Boolean(billingConfigured() && pilotPrice),
-                starter: Boolean(billingConfigured() && starterPrice),
-                growth: Boolean(billingConfigured() && growthPrice),
+                pilot: Boolean(payuConfigured() && pilotPrice),
+                starter: Boolean(billingConfigured() && starterPrice?.id),
+                growth: Boolean(billingConfigured() && growthPrice?.id),
             },
             canManageBilling: ["owner", "admin"].includes(req.organizationRole),
         });
@@ -200,113 +170,17 @@ router.get("/hiring/entitlements", protect, organizationContext, async (req, res
     }
 });
 
-router.post(
-    "/hiring/pilot-checkout-session",
-    protect,
-    organizationContext,
-    requireOrganizationRole("owner", "admin"),
-    async (req, res, next) => {
-        try {
-            const priceId = getConfiguredPriceId("hiring", "pilot");
-            if (!priceId) return res.status(503).json({ message: "Hiring paid pilot checkout is not configured" });
-            const organization = await Organization.findById(req.organizationId)
-                .select("+hiringBillingCustomerId +hiringBillingSubscriptionId");
-            if (!organization) return res.status(404).json({ message: "Organization not found" });
-            const limits = hiringLimitsFor(organization);
-            if (PAID_HIRING_PLANS.has(limits.plan)) {
-                return res.status(409).json({ message: "This organization already has a paid Hiring subscription" });
-            }
-            if (limits.plan === "paid_pilot") {
-                return res.status(409).json({ message: "This organization already has an active paid pilot" });
-            }
-            if (requiresBillingPortal(Boolean(organization.hiringBillingCustomerId), organization.hiringSubscriptionStatus)) {
-                return res.status(409).json({ message: "Resolve this organization's existing Hiring subscription before starting a pilot" });
-            }
-
-            const candidateInterviews = Math.max(1, Math.min(1000, Number(process.env.HIRING_PAID_PILOT_CANDIDATE_INTERVIEWS || 15)));
-            const validDays = Math.max(1, Math.min(365, Number(process.env.HIRING_PAID_PILOT_VALID_DAYS || 30)));
-            const existingCustomer = organization.hiringBillingCustomerId || "";
-            const metadata = {
-                billingProduct: "hiring",
-                purchaseType: "paid_pilot",
-                organizationId: String(organization._id),
-                purchasedByUserId: String(req.user._id),
-                candidateInterviews: String(candidateInterviews),
-                validDays: String(validDays),
-            };
-            const session = await getStripe().checkout.sessions.create({
-                mode: "payment",
-                line_items: [{ price: priceId, quantity: 1 }],
-                customer: existingCustomer || undefined,
-                customer_creation: existingCustomer ? undefined : "always",
-                customer_email: existingCustomer ? undefined : req.user.email,
-                client_reference_id: String(organization._id),
-                metadata,
-                payment_intent_data: { metadata },
-                success_url: `${hiringClientOrigin()}/hire/billing/success?product=hiring&purchase=pilot&organizationId=${organization._id}`,
-                cancel_url: `${hiringClientOrigin()}/hire/team?billing=cancelled`,
-            });
-            metrics.billingCheckoutTotal.labels("success").inc();
-            return res.json({ url: session.url });
-        } catch (error) {
-            metrics.billingCheckoutTotal.labels("failure").inc();
-            return next(error);
-        }
-    },
-);
-
-router.post(
-    "/hiring/checkout-session",
-    protect,
-    organizationContext,
-    requireOrganizationRole("owner", "admin"),
-    validate(z.object({ plan: z.enum(["starter", "growth"]) })),
-    async (req, res, next) => {
-        try {
-            const selectedPlan = req.body.plan;
-            const priceId = getConfiguredPriceId("hiring", selectedPlan);
-            if (!priceId) return res.status(503).json({ message: `${selectedPlan === "growth" ? "Growth" : "Starter"} checkout is not configured` });
-            if (hiringLimitsFor(req.organization).plan === selectedPlan) {
-                return res.status(409).json({ message: `Hiring ${selectedPlan} is already active for this organization` });
-            }
-            const organization = await Organization.findById(req.organizationId)
-                .select("+hiringBillingCustomerId +hiringBillingSubscriptionId");
-            if (!organization) return res.status(404).json({ message: "Organization not found" });
-            if (requiresBillingPortal(Boolean(organization.hiringBillingCustomerId), organization.hiringSubscriptionStatus)) {
-                return res.status(409).json({ message: "Use Manage billing to resolve or change this organization's existing Hiring subscription" });
-            }
-            const session = await getStripe().checkout.sessions.create({
-                mode: "subscription",
-                line_items: [{ price: priceId, quantity: 1 }],
-                customer: organization.hiringBillingCustomerId || undefined,
-                customer_email: organization.hiringBillingCustomerId ? undefined : req.user.email,
-                client_reference_id: String(organization._id),
-                metadata: {
-                    billingProduct: "hiring",
-                    organizationId: String(organization._id),
-                    purchasedByUserId: String(req.user._id),
-                    plan: selectedPlan,
-                },
-                subscription_data: {
-                    metadata: {
-                        billingProduct: "hiring",
-                        organizationId: String(organization._id),
-                        purchasedByUserId: String(req.user._id),
-                        plan: selectedPlan,
-                    },
-                },
-                allow_promotion_codes: true,
-                success_url: `${hiringClientOrigin()}/hire/billing/success?product=hiring&organizationId=${organization._id}`,
-                cancel_url: `${hiringClientOrigin()}/hire/team?billing=cancelled`,
-            });
-            metrics.billingCheckoutTotal.labels("success").inc();
-            return res.json({ url: session.url });
-        } catch (error) {
-            metrics.billingCheckoutTotal.labels("failure").inc();
-            return next(error);
-        }
-    },
-);
+const hiringCheckout = (pilot) => async (req, res, next) => {
+    try {
+        const organization = await Organization.findById(req.organizationId).select("+hiringBillingCustomerId +hiringBillingSubscriptionId +hiringBillingProvider");
+        if (!organization) return res.status(404).json({ message: "Organization not found" });
+        const limits = hiringLimitsFor(organization);
+        if (PAID_HIRING_PLANS.has(limits.plan) || legacyRequiresPortal(organization, "hiring") || (pilot && limits.plan === "paid_pilot")) return res.status(409).json({ message: "Manage or cancel the current paid plan before starting another checkout" });
+        return res.json(await createPayuCheckout({ product: "hiring", plan: pilot ? "pilot" : req.body.plan, user: req.user, organization, phone: req.body.phone }));
+    } catch (error) { metrics.billingCheckoutTotal.labels("failure").inc(); return next(error); }
+};
+router.post("/hiring/pilot-checkout-session", protect, organizationContext, requireOrganizationRole("owner", "admin"), validate(z.object({ phone: phoneSchema })), hiringCheckout(true));
+router.post("/hiring/checkout-session", protect, organizationContext, requireOrganizationRole("owner", "admin"), validate(z.object({ plan: z.enum(["starter", "growth"]), phone: phoneSchema })), hiringCheckout(false));
 
 router.post(
     "/hiring/portal-session",
@@ -315,7 +189,8 @@ router.post(
     requireOrganizationRole("owner", "admin"),
     async (req, res, next) => {
         try {
-            const organization = await Organization.findById(req.organizationId).select("+hiringBillingCustomerId");
+            const organization = await Organization.findById(req.organizationId).select("+hiringBillingCustomerId +hiringBillingProvider");
+            if (organization?.hiringBillingProvider === "payu") return res.json({ url: `${hiringClientOrigin()}/hire/billing/manage?organizationId=${req.organizationId}` });
             if (!organization?.hiringBillingCustomerId) return res.status(400).json({ message: "No Hiring billing account found for this organization" });
             const session = await getStripe().billingPortal.sessions.create({
                 customer: organization.hiringBillingCustomerId,
@@ -328,4 +203,29 @@ router.post(
     },
 );
 
+const cancelPayu = (prefix) => async (req, res, next) => {
+    try {
+        const Model = prefix === "practice" ? (await import("../models/User.js")).default : Organization;
+        const id = prefix === "practice" ? req.user._id : req.organizationId;
+        const owner = await Model.findById(id).select(`+${prefix}BillingProvider +${prefix}BillingSubscriptionId`);
+        if (owner?.[`${prefix}BillingProvider`] !== "payu" || !owner?.[`${prefix}BillingSubscriptionId`]) return res.status(400).json({ message: "No PayU subscription found" });
+        if (!owner[`${prefix}CancelAtPeriodEnd`]) {
+            const live = await zionRequest("GET", owner[`${prefix}BillingSubscriptionId`]);
+            if (!["Cancelled", "Completed", "Forced_Cancel"].includes(live.status)) await zionRequest("DELETE", owner[`${prefix}BillingSubscriptionId`]);
+        }
+        await Model.updateOne({ _id: id, [`${prefix}BillingSubscriptionId`]: owner[`${prefix}BillingSubscriptionId`] }, { $set: { [`${prefix}CancelAtPeriodEnd`]: true } });
+        return res.json({ canceled: true, accessUntil: owner[`${prefix}CurrentPeriodEnd`] });
+    } catch (error) { return next(error); }
+};
+router.post("/practice/cancel-subscription", protect, cancelPayu("practice"));
+router.post("/hiring/cancel-subscription", protect, organizationContext, requireOrganizationRole("owner", "admin"), cancelPayu("hiring"));
+
+router.post("/payment-status/:txnid", protect, async (req, res, next) => {
+    try {
+        const order = await PaymentOrder.findOne({ txnid: req.params.txnid, user: req.user._id });
+        if (!order) return res.status(404).json({ message: "Payment order not found" });
+        if (order.status !== "paid") await confirmPayuOrder(order.txnid);
+        return res.json({ status: "paid", plan: order.plan });
+    } catch (error) { return next(error); }
+});
 export default router;

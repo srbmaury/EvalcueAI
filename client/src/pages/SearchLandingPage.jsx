@@ -1,8 +1,8 @@
+import PublicSiteFrame from "../components/PublicSiteFrame";
 import { Link as RouterLink, Navigate, useLocation } from "react-router-dom";
 import {
     ArrowForwardRounded,
     CheckCircleOutlineRounded,
-    SchoolOutlined,
 } from "@mui/icons-material";
 import {
     Box,
@@ -39,15 +39,16 @@ export default function SearchLandingPage() {
         })
         : practiceUrl;
     const ctaLabel = page.cta?.label || "Start AI interview practice";
-    const showPricing = page.schema !== "TechArticle";
+    const editorial = ["/about", "/ai-interview-evaluation-methodology"].includes(pathname);
+    const showPricing = page.schema !== "TechArticle" && !editorial;
 
     return (
-        <Box component="article" sx={{ overflow: "hidden" }}>
+        <PublicSiteFrame component="article" sx={{ overflow: "hidden" }}>
             <Box sx={(theme) => ({
                 py: { xs: 7, md: 11 },
-                background: theme.palette.mode === "dark"
-                    ? "#0e0f11"
-                    : "radial-gradient(circle at 50% 0%, rgba(36,81,199,.12), transparent 42%), linear-gradient(180deg,#f8f9fb,#fff)",
+                background: theme.palette.background.paper,
+                borderBottom: "1px solid",
+                borderColor: theme.palette.divider,
             })}>
                 <Container maxWidth="lg">
                     <Grid container spacing={{ xs: 4, md: 7 }} alignItems="center">
@@ -80,7 +81,7 @@ export default function SearchLandingPage() {
                                 >
                                     {page.intro}
                                 </Typography>
-                                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} pt={1}>
+                                {!editorial && <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} pt={1}>
                                     <Button
                                         component="a"
                                         href={ctaUrl}
@@ -98,42 +99,31 @@ export default function SearchLandingPage() {
                                     >
                                         Read the practice guide
                                     </Button>
-                                </Stack>
+                                </Stack>}
                             </Stack>
                         </Grid>
                         <Grid size={{ xs: 12, md: 4 }}>
-                            <Paper variant="outlined" sx={{ p: 3, borderRadius: 4 }}>
-                                <SchoolOutlined color="primary" sx={{ fontSize: 38 }} />
-                                <Typography variant="h5" fontWeight={850} mt={2}>Practice with real interview structure</Typography>
-                                <Stack spacing={1.3} mt={2.5}>
-                                    {[
-                                        "Role and job-description context",
-                                        "Adaptive technical follow-ups",
-                                        "Coding and system-design rounds",
-                                        "Feedback you can review and repeat",
-                                    ].map((item) => (
-                                        <Stack key={item} direction="row" spacing={1} alignItems="flex-start">
-                                            <CheckCircleOutlineRounded color="primary" fontSize="small" sx={{ mt: .2 }} />
-                                            <Typography color="text.secondary">{item}</Typography>
-                                        </Stack>
-                                    ))}
+                            <Box component="nav" aria-label="Article sections" sx={{ borderLeft: "1px solid", borderColor: "divider", pl: 3, py: 1 }}>
+                                <Typography variant="overline">In this guide</Typography>
+                                <Stack spacing={2} mt={2}>
+                                    {page.sections.map((section, index) => <Typography key={section.heading} component="a" href={`#guide-section-${index}`} sx={{ color: "text.secondary", textDecoration: "none", fontSize: ".9rem", lineHeight: 1.5, "&:hover": { color: "primary.main" } }}>{section.heading}</Typography>)}
                                 </Stack>
-                            </Paper>
+                            </Box>
                         </Grid>
                     </Grid>
                 </Container>
             </Box>
 
             <Container maxWidth="md" sx={{ py: { xs: 7, md: 10 } }}>
-                {page.audience && (
-                    <Paper component="section" aria-labelledby="audience-heading" variant="outlined" sx={{ p: { xs: 2.5, md: 3.5 }, borderRadius: 4, mb: { xs: 6, md: 8 } }}>
+                {page.audience && !editorial && (
+                    <Paper component="section" aria-labelledby="audience-heading" variant="outlined" sx={{ py: 3, border: 0, borderBottom: "1px solid", borderColor: "divider", mb: { xs: 5, md: 6 } }}>
                         <Typography id="audience-heading" component="h2" variant="h5" fontWeight={900}>Who it&apos;s for</Typography>
                         <Typography color="text.secondary" sx={{ mt: 1.25, fontSize: "1.05rem", lineHeight: 1.8 }}>{page.audience}</Typography>
                     </Paper>
                 )}
                 <Stack spacing={{ xs: 6, md: 8 }}>
-                    {page.sections.map((section) => (
-                        <Box component="section" key={section.heading}>
+                    {page.sections.map((section, index) => (
+                        <Box component="section" id={`guide-section-${index}`} key={section.heading} sx={{ scrollMarginTop: 100 }}>
                             <Typography component="h2" variant="h3" fontWeight={900} letterSpacing="-.035em">
                                 {section.heading}
                             </Typography>
@@ -143,7 +133,7 @@ export default function SearchLandingPage() {
                             <Grid container spacing={1.5} mt={2.5}>
                                 {section.points.map((point) => (
                                     <Grid size={{ xs: 12, sm: 6 }} key={point}>
-                                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, height: "100%" }}>
+                                        <Paper variant="outlined" sx={{ py: 1.5, height: "100%", border: 0, borderBottom: "1px solid", borderColor: "divider" }}>
                                             <Stack direction="row" spacing={1.1} alignItems="flex-start">
                                                 <CheckCircleOutlineRounded color="primary" fontSize="small" sx={{ mt: .2 }} />
                                                 <Typography fontWeight={700}>{point}</Typography>
@@ -276,19 +266,19 @@ export default function SearchLandingPage() {
                 <Container maxWidth="md">
                     <Stack spacing={2} alignItems="center" textAlign="center">
                         <Typography component="h2" variant="h3" fontWeight={900} letterSpacing="-.035em">
-                            Practice the interview before the real interview.
+                            {editorial ? "Explore EvalcueAI" : page.cta?.surface === "hiring" ? "Build your next technical assessment." : "Put the guide into practice."}
                         </Typography>
                         <Typography color="text.secondary" sx={{ maxWidth: 700, fontSize: "1.05rem", lineHeight: 1.7 }}>
-                            Choose your target role, run an adaptive interview, then use the transcript and feedback to repeat the areas that need more depth.
+                            {editorial ? "Read the product documentation for workflows, evaluation, and responsible use." : page.cta?.surface === "hiring" ? "Define the role, invite candidates, and review their work with your team." : "Run a focused session, review your answers, and work on the gaps."}
                         </Typography>
-                        <Button component="a" href={ctaUrl} variant="contained" size="large" endIcon={<ArrowForwardRounded />}>
-                            {page.cta?.label || "Start practicing"}
+                        <Button component="a" href={editorial ? "/docs" : ctaUrl} variant="contained" size="large" endIcon={<ArrowForwardRounded />}>
+                            {editorial ? "Read the documentation" : page.cta?.label || "Start practicing"}
                         </Button>
                     </Stack>
                 </Container>
             </Box>
 
             <SiteFooter />
-        </Box>
+        </PublicSiteFrame>
     );
 }

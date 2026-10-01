@@ -1,3 +1,4 @@
+import PublicSiteFrame from "../components/PublicSiteFrame";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
@@ -146,10 +147,10 @@ export default function ProductResourcePage({ surface }) {
     const pendingHiringCreate = isHiring && new URLSearchParams(location.search).get("action") === "create";
     if (pendingHiringCreate && user && !organizationLoading && !activeOrganization) {
         return (
-            <Box>
+            <PublicSiteFrame>
                 <HiringOrganizationGate><Box /></HiringOrganizationGate>
                 <SiteFooter />
-            </Box>
+            </PublicSiteFrame>
         );
     }
 
@@ -158,7 +159,7 @@ export default function ProductResourcePage({ surface }) {
     const related = config.related.map((relatedSlug) => resourcePageFor(config.surface, relatedSlug)).filter(Boolean);
 
     return (
-        <Box component="section" sx={{ overflow: "hidden" }}>
+        <PublicSiteFrame component="section" sx={{ overflow: "hidden" }}>
             <Box sx={{ py: { xs: 7, md: 10 }, bgcolor: "action.hover" }}>
                 <Container maxWidth="lg">
                     <Grid container spacing={{ xs: 4, md: 7 }} alignItems="center">
@@ -255,6 +256,6 @@ export default function ProductResourcePage({ surface }) {
             </Container>
 
             <SiteFooter />
-        </Box>
+        </PublicSiteFrame>
     );
 }

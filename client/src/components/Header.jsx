@@ -39,8 +39,8 @@ const Brand = ({ to = "/" }) => (
         variant="h6"
         sx={{ display: "flex", alignItems: "center", gap: 1.15, textDecoration: "none", color: "inherit", fontWeight: 850, letterSpacing: "-.025em" }}
     >
-        <Box component="span" sx={{ width: 34, height: 34, borderRadius: 2.5, display: "grid", placeItems: "center", color: "white", background: "linear-gradient(135deg,#1b3e9c,#2f6be0)", boxShadow: "0 8px 20px rgba(36,81,199,.28)", fontSize: 16 }}>E</Box>
-        <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>EvalcueAI</Box>
+        <Box component="span" sx={{ width: 34, height: 34, borderRadius: 1, display: "grid", placeItems: "center", color: "white", bgcolor: "primary.dark", fontSize: 16 }}>E</Box>
+        <Box component="span">EvalcueAI</Box>
     </Typography>
 );
 
@@ -79,8 +79,8 @@ export default function Header() {
 
     return (
         <>
-            <AppBar position="sticky" color="transparent" elevation={0} sx={{ bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider", color: "text.primary", backdropFilter: "blur(18px)", zIndex: 1200 }}>
-                <Container maxWidth="xl">
+            <AppBar position="sticky" color="transparent" elevation={0} sx={{ bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider", color: "text.primary", zIndex: 1200, "& .MuiButton-root": { borderRadius: "4px", boxShadow: "none", fontWeight: 600 } }}>
+                <Container maxWidth="lg">
                     <Toolbar disableGutters sx={{ minHeight: { xs: 64, md: 72 }, gap: 1 }}>
                         <Brand to={user && isAdmin ? "/admin/overview" : "/"} />
 
@@ -104,6 +104,8 @@ export default function Header() {
                                     </> : <>
                                         <Button component={RouterLink} to="/practice" color="inherit">Practice</Button>
                                         <Button component={RouterLink} to="/hire" color="inherit">Hire</Button>
+                                        <Button component={RouterLink} to="/docs" color="inherit">Docs</Button>
+                                        <Button component={RouterLink} to="/about" color="inherit">About</Button>
                                     </>}
                                     {!loading && !user && <Button component={RouterLink} to="/login" variant="contained">Sign in</Button>}
                                 </Stack>
@@ -163,6 +165,8 @@ export default function Header() {
                                         ] : [
                                             <MenuItem key="practice" component={RouterLink} to="/practice" onClick={closeMobile}>Practice</MenuItem>,
                                             <MenuItem key="hire" component={RouterLink} to="/hire" onClick={closeMobile}>Hire</MenuItem>,
+                                            <MenuItem key="docs" component={RouterLink} to="/docs" onClick={closeMobile}>Docs</MenuItem>,
+                                            <MenuItem key="about" component={RouterLink} to="/about" onClick={closeMobile}>About</MenuItem>,
                                         ]}
                                         {user ? [
                                             <Divider key="account-divider" />,

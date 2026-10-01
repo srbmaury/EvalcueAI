@@ -2,6 +2,7 @@ import { Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Box, CircularProgress } from "@mui/material";
 
+import RouteScrollReset from "./components/RouteScrollReset";
 import Header from "./components/Header";
 import ErrorBoundary from "./components/ErrorBoundary";
 import GuestOnlyRoute from "./components/GuestOnlyRoute";
@@ -41,6 +42,7 @@ const ReviewHistoryPage = lazy(() => import("./pages/ReviewHistoryPage.jsx"));
 const SavedExperiencesPage = lazy(() => import("./pages/SavedExperiencesPage.jsx"));
 const ResumesPage = lazy(() => import("./pages/ResumesPage.jsx"));
 const PricingPage = lazy(() => import("./pages/PricingPage.jsx"));
+const BillingManagementPage = lazy(() => import("./pages/BillingManagementPage.jsx"));
 const BillingSuccessPage = lazy(() => import("./pages/BillingSuccessPage.jsx"));
 const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage.jsx"));
 const AdminJobsPage = lazy(() => import("./pages/AdminJobsPage.jsx"));
@@ -99,6 +101,7 @@ function App() {
         <DeploymentSurfaceGuard>
         <div className="min-h-screen">
             <SearchIndexPolicy />
+            <RouteScrollReset />
             <a href="#main-content" onFocus={() => setShowSkip(true)} onBlur={() => setShowSkip(false)} style={showSkip ? visibleStyle : hiddenStyle}>Skip to main content</a>
             <ProductAwareHeader />
             <main id="main-content">
@@ -152,6 +155,7 @@ function App() {
                 <Route path="/practice/saved-experiences" element={<ProtectedRoute><SavedExperiencesPage /></ProtectedRoute>} />
                 <Route path="/practice/resumes" element={<ProtectedRoute><ResumesPage /></ProtectedRoute>} />
                 <Route path="/practice/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />
+                <Route path="/practice/billing/manage" element={<ProtectedRoute><BillingManagementPage /></ProtectedRoute>} />
                 <Route path="/practice/billing/success" element={<ProtectedRoute><BillingSuccessPage /></ProtectedRoute>} />
                 <Route path="/practice/weekly-plan" element={<ProtectedRoute><WeeklyPlanSessionPage /></ProtectedRoute>} />
                 <Route path="/practice/new" element={<ProtectedRoute><CreateInterviewPage /></ProtectedRoute>} />
@@ -164,6 +168,7 @@ function App() {
                 <Route path="/hire/team" element={<HiringRoute><HiringTeamPage /></HiringRoute>} />
                 <Route path="/hire/pilot" element={<HiringRoute><HiringPilotPage /></HiringRoute>} />
                 <Route path="/hire/fairness" element={<HiringRoute><FairnessReportPage /></HiringRoute>} />
+                <Route path="/hire/billing/manage" element={<HiringRoute><BillingManagementPage /></HiringRoute>} />
                 <Route path="/hire/billing/success" element={<ProtectedRoute><BillingSuccessPage /></ProtectedRoute>} />
                 <Route path="/hire/sso" element={<HiringRoute><SsoSettingsPage /></HiringRoute>} />
                 <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />

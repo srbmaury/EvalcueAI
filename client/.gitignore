@@ -25,3 +25,6 @@ dist-ssr
 
 # Marketing screen recordings (npm run demo:record)
 demo-recordings
+
+# Local demo-account QA report (may include sign-in diagnostics)
+playwright-report-local-demo

@@ -1,3 +1,4 @@
+import PublicSiteFrame from "../components/PublicSiteFrame";
 import { useContext } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
@@ -10,13 +11,12 @@ import {
     ShieldOutlined,
     WorkOutlineRounded,
 } from "@mui/icons-material";
-import { Box, Button, Container, Grid, Paper, Stack, Typography } from "@mui/material";
+import { Box, Button, Container, Grid, Link, Stack, Typography } from "@mui/material";
 import { AuthContext } from "../context/AuthContext";
 import SiteFooter from "../components/SiteFooter";
 import { productHomePath, productLoginPath, productRegisterPath } from "../utils/productRoutes";
 import { resourcePagesForSurface, resourcePathFor } from "../utils/productResourcePages";
 import { setWorkspacePreference } from "../utils/workspacePreference";
-import { deploymentOrigins } from "../utils/deploymentSurface";
 
 const COPY = {
     practice: {
@@ -63,148 +63,105 @@ export default function ProductLandingPage({ surface = "practice" }) {
     const { user } = useContext(AuthContext);
     const config = COPY[surface] || COPY.practice;
     const workspace = surface === "hiring" ? "hiring" : "practice";
-    const ProductIcon = config.icon;
-    const origins = deploymentOrigins();
     const primaryPath = user ? productHomePath(workspace) : productRegisterPath(workspace);
     const secondaryPath = productLoginPath(workspace);
     const featuredResources = resourcePagesForSurface(workspace).slice(0, 3);
 
     const rememberSurface = () => setWorkspacePreference(workspace, user?._id);
 
-    return (
-        <Box component="section" sx={{ overflow: "hidden" }}>
-            <Box sx={(theme) => ({
-                py: { xs: 8, md: 11 },
-                background: surface === "hiring"
-                    ? theme.palette.mode === "dark"
-                        ? "radial-gradient(circle at 50% 0%, rgba(31,156,142,.2), transparent 38%), #081412"
-                        : "radial-gradient(circle at 50% 0%, rgba(31,156,142,.13), transparent 38%), linear-gradient(180deg,#f4fbf9,#fff)"
-                    : theme.palette.mode === "dark"
-                        ? "#0e0f11"
-                        : "radial-gradient(circle at 50% 0%, rgba(36,81,199,.14), transparent 38%), linear-gradient(180deg,#f8f9fb,#fff)",
-            })}>
-                <Container maxWidth="md">
-                    <Stack spacing={2.5} alignItems="center" textAlign="center">
-                        <Box sx={{ width: 52, height: 52, borderRadius: 3, display: "grid", placeItems: "center", bgcolor: "action.selected", color: "primary.main" }}>
-                            <ProductIcon />
-                        </Box>
-                        <Typography variant="overline" color="primary.main" fontWeight={900}>{config.eyebrow}</Typography>
-                        <Typography component="h1" sx={{ fontSize: { xs: "2.7rem", sm: "3.8rem", md: "4.6rem" }, lineHeight: 1, letterSpacing: "-.052em", fontWeight: 850 }}>
-                            {config.headline}
-                        </Typography>
-                        <Typography color="text.secondary" sx={{ fontSize: { xs: "1.05rem", md: "1.2rem" }, lineHeight: 1.65, maxWidth: 720 }}>
-                            {config.subheadline}
-                        </Typography>
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} width={{ xs: "100%", sm: "auto" }} pt={1}>
-                            <Button component={RouterLink} to={primaryPath} onClick={rememberSurface} variant="contained" size="large" endIcon={<ArrowForwardRounded />} sx={{ px: 3.5 }}>
-                                {user ? `Open ${surface === "hiring" ? "Hire" : "Practice"}` : config.primary}
-                            </Button>
-                            {!user && (
-                                <Button component={RouterLink} to={secondaryPath} onClick={rememberSurface} color="inherit" size="large" sx={{ px: 2.5 }}>
-                                    {config.secondary}
-                                </Button>
-                            )}
-                        </Stack>
-                        <Typography variant="body2" color="text.secondary">{config.proof}</Typography>
+    const hiring = workspace === "hiring";
+    const accent = hiring ? "secondary.main" : "primary.main";
+
+    return <PublicSiteFrame>
+        <Container maxWidth="lg">
+            <Grid container spacing={{ xs: 5, md: 8 }} alignItems="center" sx={{ py: { xs: 7, md: 10 } }}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                    <Typography variant="overline">{config.eyebrow}</Typography>
+                    <Typography component="h1" mt={2}>{config.headline}</Typography>
+                    <Typography color="text.secondary" sx={{ fontSize: "1.12rem", lineHeight: 1.8, mt: 3 }}>{config.subheadline}</Typography>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} mt={4}>
+                        <Button component={RouterLink} to={primaryPath} onClick={rememberSurface} variant="contained" color={hiring ? "secondary" : "primary"} size="large" endIcon={<ArrowForwardRounded />}>{user ? `Open ${hiring ? "Hire" : "Practice"}` : config.primary}</Button>
+                        {!user && <Button component={RouterLink} to={secondaryPath} onClick={rememberSurface} variant="outlined" color="inherit" size="large">{config.secondary}</Button>}
                     </Stack>
-                </Container>
-            </Box>
-
-            <Container maxWidth="lg" sx={{ py: { xs: 7, md: 9 } }}>
-                <Stack spacing={1} alignItems="center" textAlign="center" mb={4}>
-                    <Typography variant="overline" color="primary.main" fontWeight={850}>What you get</Typography>
-                    <Typography variant="h3" fontWeight={850} letterSpacing="-.04em">
-                        {surface === "hiring" ? "A focused hiring workflow." : "A focused practice loop."}
-                    </Typography>
-                </Stack>
-                <Grid container spacing={3}>
-                    {config.benefits.map((benefit) => {
-                        const Icon = benefit.icon;
-                        return (
-                            <Grid size={{ xs: 12, md: 4 }} key={benefit.title}>
-                                <Paper variant="outlined" sx={{ p: 3.5, height: "100%", borderRadius: 4 }}>
-                                    <Box sx={{ color: "primary.main", mb: 2 }}><Icon /></Box>
-                                    <Typography variant="h5" fontWeight={800}>{benefit.title}</Typography>
-                                    <Typography color="text.secondary" mt={1} lineHeight={1.7}>{benefit.body}</Typography>
-                                </Paper>
-                            </Grid>
-                        );
-                    })}
+                    <Typography variant="body2" color="text.secondary" lineHeight={1.7} mt={2}>{hiring ? "Your team reviews the evidence and makes the decision." : "Free plan: 3 interviews each month. No card required."}</Typography>
                 </Grid>
-            </Container>
-
-            <Box sx={{ bgcolor: "action.hover", py: { xs: 7, md: 8 } }}>
-                <Container maxWidth="lg">
-                    <Typography variant="overline" color="primary.main" fontWeight={850}>How it works</Typography>
-                    <Grid container spacing={3} mt={1}>
-                        {config.steps.map(([number, title, body]) => (
-                            <Grid size={{ xs: 12, md: 4 }} key={number}>
-                                <Stack spacing={1}>
-                                    <Typography color="primary.main" fontWeight={900}>{number}</Typography>
-                                    <Typography variant="h5" fontWeight={800}>{title}</Typography>
-                                    <Typography color="text.secondary" lineHeight={1.65}>{body}</Typography>
-                                </Stack>
-                            </Grid>
-                        ))}
-                    </Grid>
-                </Container>
-            </Box>
-
-            <Container maxWidth="lg" sx={{ py: { xs: 7, md: 8 } }}>
-                <Stack spacing={1} mb={3}>
-                    <Typography variant="overline" color="primary.main" fontWeight={850}>{surface === "hiring" ? "Hiring resources" : "Practice resources"}</Typography>
-                    <Typography variant="h4" fontWeight={850}>{surface === "hiring" ? "Start from a working assessment template." : "Turn a guide into a practice session."}</Typography>
-                    <Typography color="text.secondary">These pages are interactive entry points into EvalcueAI, not standalone blog posts.</Typography>
-                </Stack>
-                <Grid container spacing={2.5}>
-                    {featuredResources.map((page) => (
-                        <Grid size={{ xs: 12, md: 4 }} key={page.slug}>
-                            <Paper component={RouterLink} to={resourcePathFor(page)} variant="outlined" sx={{ p: 3, display: "block", height: "100%", borderRadius: 4, color: "inherit", textDecoration: "none", "&:hover": { borderColor: "primary.main" } }}>
-                                <Typography variant="h6" fontWeight={850}>{page.title}</Typography>
-                                <Typography variant="body2" color="text.secondary" mt={1} lineHeight={1.6}>{page.description}</Typography>
-                                <Typography color="primary.main" fontWeight={800} mt={2}>Open interactive resource →</Typography>
-                            </Paper>
-                        </Grid>
-                    ))}
-                </Grid>
-            </Container>
-
-            {surface === "hiring" && (
-                <Container maxWidth="lg" sx={{ pt: { xs: 1, md: 2 } }}>
-                    <Paper variant="outlined" sx={{ p: { xs: 3, md: 4 }, borderRadius: 4 }}>
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
-                            <ShieldOutlined color="primary" />
-                            <Box>
-                                <Typography fontWeight={850}>AI organizes evidence. People make employment decisions.</Typography>
-                                <Typography variant="body2" color="text.secondary" mt={.5}>EvalcueAI Hire is designed for structured evidence collection and human review—not fully automated hiring decisions.</Typography>
+                <Grid size={{ xs: 12, md: 6 }}>
+                    <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: "4px", overflow: "hidden" }}>
+                        <Stack direction="row" justifyContent="space-between" gap={2} sx={{ p: 2.5, bgcolor: "action.hover", borderBottom: "1px solid", borderColor: "divider" }}>
+                            <Typography variant="body2" fontWeight={600}>{hiring ? "Backend engineer · Assessment" : "System design · Session review"}</Typography>
+                            <Typography variant="caption" color="text.secondary">Illustrative example</Typography>
+                        </Stack>
+                        <Box sx={{ p: { xs: 2.5, sm: 3.5 } }}>
+                            <Typography variant="overline">{hiring ? "Assessment outline" : "Your target"}</Typography>
+                            <Typography fontWeight={600} mt={1}>{hiring ? "Evaluate implementation and technical reasoning" : "Design a reliable payment service"}</Typography>
+                            <Stack spacing={0} mt={3}>
+                                {(hiring ? [
+                                    ["01", "Coding", "Implement a request handler with safe retries."],
+                                    ["02", "System design", "Explain consistency, scaling, and failure recovery."],
+                                    ["03", "Technical discussion", "Explore the candidate’s decisions through follow-ups."],
+                                ] : [
+                                    ["01", "Requirements", "You identified retries and duplicate-charge prevention."],
+                                    ["02", "Trade-offs", "Explain how concurrent requests share an idempotency key."],
+                                    ["03", "Next practice", "Work through a failure between payment and confirmation."],
+                                ]).map(([number, title, body]) => <Stack key={number} direction="row" spacing={2} sx={{ py: 2, borderTop: "1px solid", borderColor: "divider" }}>
+                                    <Typography variant="caption" color={accent} pt={.4}>{number}</Typography>
+                                    <Box><Typography variant="body2" fontWeight={600}>{title}</Typography><Typography variant="body2" color="text.secondary" mt={.5} lineHeight={1.7}>{body}</Typography></Box>
+                                </Stack>)}
+                            </Stack>
+                            <Box sx={{ mt: 1, p: 2, bgcolor: "action.hover", borderLeft: "2px solid", borderColor: accent }}>
+                                <Typography variant="body2" fontWeight={600}>{hiring ? "Reviewer evidence" : "Feedback grounded in your answers"}</Typography>
+                                <Typography variant="body2" color="text.secondary" mt={.5} lineHeight={1.7}>{hiring ? "Review submitted code, interview responses, and rubric-based feedback before making a decision." : "Revisit the transcript and feedback, then repeat the areas that need more depth."}</Typography>
                             </Box>
-                        </Stack>
-                    </Paper>
-                </Container>
-            )}
-
-            <Container maxWidth="sm" sx={{ py: { xs: 7, md: 9 }, textAlign: "center" }}>
-                <Typography variant="h4" fontWeight={850} letterSpacing="-.03em">
-                    {surface === "hiring" ? "Ready to run a structured screen?" : "Ready for a focused practice session?"}
-                </Typography>
-                <Button component={RouterLink} to={primaryPath} onClick={rememberSurface} variant="contained" size="large" endIcon={<ArrowForwardRounded />} sx={{ mt: 3, px: 3.5 }}>
-                    {user ? `Open ${surface === "hiring" ? "Hire" : "Practice"}` : config.primary}
-                </Button>
+                        </Box>
+                    </Box>
+                </Grid>
+            </Grid>
+            <Box component="section" sx={{ borderTop: "1px solid", borderColor: "divider", py: { xs: 6, md: 8 } }} aria-labelledby="product-benefits">
+                <Typography variant="overline">{hiring ? "For engineering teams" : "For software engineers"}</Typography>
+                <Typography component="h2" id="product-benefits" mt={1}>{hiring ? "A consistent process, from invite to review." : "Prepare, practice, and know what to work on."}</Typography>
+                <Grid container spacing={4} mt={3}>
+                    {config.benefits.map((benefit) => <Grid size={{ xs: 12, md: 4 }} key={benefit.title}>
+                        <Box sx={{ borderTop: "2px solid", borderColor: accent, pt: 2.5 }}>
+                            <Typography component="h3">{benefit.title}</Typography>
+                            <Typography color="text.secondary" lineHeight={1.8} mt={1.5}>{benefit.body}</Typography>
+                        </Box>
+                    </Grid>)}
+                </Grid>
+            </Box>
+        </Container>
+        <Box component="section" sx={{ bgcolor: "action.hover", py: { xs: 6, md: 8 } }} aria-labelledby="product-workflow">
+            <Container maxWidth="lg">
+                <Typography variant="overline">How it works</Typography>
+                <Typography component="h2" id="product-workflow" mt={1}>{hiring ? "From the role to the evidence." : "Make every session count."}</Typography>
+                <Grid container spacing={4} mt={3}>
+                    {config.steps.map(([number, title, body]) => <Grid size={{ xs: 12, md: 4 }} key={number}>
+                        <Typography variant="caption" color={accent}>{number}</Typography>
+                        <Typography component="h3" mt={1}>{title}</Typography>
+                        <Typography color="text.secondary" lineHeight={1.8} mt={1}>{body}</Typography>
+                    </Grid>)}
+                </Grid>
             </Container>
-
-            <Container maxWidth="lg" sx={{ pb: { xs: 6, md: 8 } }}>
-                <Paper variant="outlined" sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 3 }}>
-                    <Typography component="h2" variant="h6" fontWeight={850} mb={1}>Explore EvalcueAI</Typography>
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                        <Button component="a" href={`${origins.landing || "https://evalcueai.com"}/`}>Main website and interview guides</Button>
-                        <Button component="a" href={`${origins.practice || "https://practice.evalcueai.com"}/practice`}>AI interview practice</Button>
-                        <Button component="a" href={`${origins.hiring || "https://hiring.evalcueai.com"}/hire`}>Structured technical hiring</Button>
-                        <Button component="a" href={`${origins.landing || "https://evalcueai.com"}/docs`}>Product documentation</Button>
-                    </Stack>
-                </Paper>
-            </Container>
-
-            <SiteFooter />
         </Box>
-    );
+        <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
+            <Grid container spacing={5}>
+                <Grid size={{ xs: 12, md: 4 }}>
+                    <Typography variant="overline">{hiring ? "Assessment resources" : "Practice resources"}</Typography>
+                    <Typography component="h2" mt={1}>{hiring ? "Start with a role-specific template." : "Choose the round you want to improve."}</Typography>
+                    <Typography color="text.secondary" lineHeight={1.8} mt={2}>{hiring ? "Use a resource as a starting point, then adapt it to the role and your team’s rubric." : "Read the guide and carry its context into a focused interview session."}</Typography>
+                </Grid>
+                <Grid size={{ xs: 12, md: 8 }}>
+                    {featuredResources.map((page) => <Box component={RouterLink} to={resourcePathFor(page)} key={page.slug} sx={{ display: "flex", gap: 3, justifyContent: "space-between", py: 2.5, borderBottom: "1px solid", borderColor: "divider", color: "inherit", textDecoration: "none", "&:first-of-type": { pt: 0 }, "&:hover h3": { color: accent } }}>
+                        <Box><Typography component="h3">{page.title}</Typography><Typography color="text.secondary" mt={1} lineHeight={1.7}>{page.description}</Typography></Box>
+                        <ArrowForwardRounded sx={{ fontSize: 20, flexShrink: 0, color: accent, mt: .5 }} />
+                    </Box>)}
+                </Grid>
+            </Grid>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={3} justifyContent="space-between" alignItems={{ md: "center" }} sx={{ mt: { xs: 6, md: 8 }, pt: 5, borderTop: "1px solid", borderColor: "divider" }}>
+                <Box><Typography component="h2">{hiring ? "Build your next technical assessment." : "Begin your next practice session."}</Typography><Typography color="text.secondary" mt={1}>{hiring ? "Keep the process structured and the final judgment with your team." : "Bring your target role. Leave with a clearer next step."}</Typography></Box>
+                <Button component={RouterLink} to={primaryPath} onClick={rememberSurface} variant="contained" color={hiring ? "secondary" : "primary"} size="large" endIcon={<ArrowForwardRounded />} sx={{ flexShrink: 0 }}>{user ? `Open ${hiring ? "Hire" : "Practice"}` : config.primary}</Button>
+            </Stack>
+            <Link component={RouterLink} to="/docs" underline="hover" color="text.secondary" sx={{ display: "inline-block", mt: 3 }}>Read the product documentation →</Link>
+        </Container>
+        <SiteFooter />
+    </PublicSiteFrame>;
 }

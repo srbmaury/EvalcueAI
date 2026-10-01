@@ -34,6 +34,7 @@ import jobsRoutes from "./routes/jobsRoutes.js";
 import productFeedbackRoutes from "./routes/productFeedbackRoutes.js";
 import billingRoutes from "./routes/billingRoutes.js";
 import recommendationRoutes from "./routes/recommendationRoutes.js";
+import payuRoutes from "./routes/payuRoutes.js";
 import billingWebhookRoutes from "./routes/billingWebhookRoutes.js";
 import productEventRoutes from "./routes/productEventRoutes.js";
 import assessmentRoutes from "./routes/assessmentRoutes.js";
@@ -46,6 +47,7 @@ const app = express();
 
 // Middleware
 app.set("trust proxy", 1); // required for secure cookies behind proxies
+app.use("/api/billing/payu", payuRoutes);
 app.use("/api/billing/webhook", express.raw({ type: "application/json", limit: "1mb" }), billingWebhookRoutes);
 app.use(express.json({ limit: "700kb" }));
 app.use("/api/email-webhooks", emailWebhookRoutes);
@@ -338,7 +340,7 @@ app.get("/health/readiness", async (req, res) => {
     metrics.componentReady.labels("mongo").set(mongoReady ? 1 : 0);
     metrics.componentReady.labels("redis").set(redisStatus === "up" || redisStatus === "disabled" ? 1 : 0);
     metrics.componentReady.labels("email").set(process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL || process.env.NODE_ENV === "test" ? 1 : 0);
-    metrics.componentReady.labels("stripe").set(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET && process.env.STRIPE_PRO_PRICE_ID ? 1 : 0);
+    metrics.componentReady.labels("payu").set(process.env.PAYU_MERCHANT_KEY && process.env.PAYU_MERCHANT_SALT && process.env.PAYU_ZION_ENABLED === "true" ? 1 : 0);
     // The code runner is reported but does not fail readiness: an outage disables code execution, not the API.
     const codeRunner = process.env.ENABLE_CODE_EXEC === "true" ? ((await availableRuntimeIds()).length ? "up" : "down") : "disabled";
     const allOk = mongoReady && (redisStatus === "up" || redisStatus === "disabled");

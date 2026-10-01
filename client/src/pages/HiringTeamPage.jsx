@@ -1,3 +1,4 @@
+import useBillingPhone from "../hooks/useBillingPhone";
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import { Alert, Box, Button, Chip, Container, Divider, FormControl, InputLabel, LinearProgress, MenuItem, Paper, Select, Stack, TextField, Typography } from "@mui/material";
@@ -6,8 +7,10 @@ import { OrganizationContext } from "../context/OrganizationContext";
 import { assignableHiringRolesFor, canManageHiringMember, HIRING_ROLE_LABELS, hiringHomeForRole, hiringPermissionsFor } from "../utils/hiringPermissions";
 import ConfirmActionDialog from "../components/ConfirmActionDialog";
 import { describeError } from "../utils/errorFormatter";
+import { publicSalesEmail } from "../utils/publicContact";
 
 export default function HiringTeamPage() {
+    const { requestBillingPhone, billingPhoneDialog } = useBillingPhone();
     const { activeOrganization, currentRole, organizations, loading: organizationLoading, selectOrganization, createOrganization, refreshOrganizations } = useContext(OrganizationContext);
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -139,6 +142,11 @@ export default function HiringTeamPage() {
         try {
             setBillingActionLoading(true);
             setError("");
+            if (endpoint.includes("checkout")) {
+                const phone = await requestBillingPhone();
+                if (!phone) { setBillingActionLoading(false); return; }
+                body = { ...body, phone };
+            }
             const { data } = await api.post(endpoint, body);
             if (!data?.url) throw new Error("Missing billing URL");
             window.location.assign(data.url);
@@ -213,6 +221,7 @@ export default function HiringTeamPage() {
 
     return (
         <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
+            {billingPhoneDialog}
             <Stack spacing={4}>
                 <Box>
                     <Typography variant="overline" color="primary.main" fontWeight={850}>Hiring</Typography>
@@ -286,7 +295,7 @@ export default function HiringTeamPage() {
                 {canManageOrganization && (
                     <Paper component="form" variant="outlined" sx={{ p: 3, borderRadius: 4 }} onSubmit={addMember}>
                         <Typography variant="h5" fontWeight={800}>Add existing EvalcueAI user</Typography>
-                        <Typography color="text.secondary" mt={.5}>For now, the person must already have an EvalcueAI account. Email invitations can be added later.</Typography>
+                        <Typography color="text.secondary" mt={.5}>Enter the email of an existing EvalcueAI account and choose their role in this organization.</Typography>
                         <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} mt={2}>
                             <TextField label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required fullWidth />
                             <FormControl sx={{ minWidth: 190 }}>
@@ -320,7 +329,7 @@ export default function HiringTeamPage() {
                                 const checkoutAvailable = billing.billingAvailable?.[plan] && !needsBillingPortal;
                                 return <Paper key={plan} variant="outlined" sx={{ p: 2, flex: 1, borderColor: current ? "primary.main" : "divider" }}><Typography fontWeight={800}>{planLabel(plan)}</Typography><Typography variant="h6" mt={.5}>{limit} candidate interviews / month</Typography>{formatPrice(plan) && <Typography color="text.secondary">{formatPrice(plan)}</Typography>}<Button sx={{ mt: 1.5 }} fullWidth variant={plan === "growth" ? "contained" : "outlined"} disabled={!billing.canManageBilling || current || billingActionLoading || !checkoutAvailable} onClick={() => billingRedirect("/billing/hiring/checkout-session", { plan })}>{current ? "Current plan" : needsBillingPortal ? "Resolve existing billing" : billing.billingAvailable?.[plan] ? `Choose ${planLabel(plan)}` : "Checkout not configured"}</Button></Paper>;
                             })}
-                            <Paper variant="outlined" sx={{ p: 2, flex: 1 }}><Typography fontWeight={800}>Enterprise</Typography><Typography variant="h6" mt={.5}>Custom capacity</Typography><Typography color="text.secondary">Custom capacity, OIDC work SSO, API access, and retention controls for enterprise hiring teams.</Typography><Button sx={{ mt: 1.5 }} fullWidth variant="outlined" disabled>Contact sales</Button></Paper>
+                            <Paper variant="outlined" sx={{ p: 2, flex: 1 }}><Typography fontWeight={800}>Enterprise</Typography><Typography variant="h6" mt={.5}>Custom capacity</Typography><Typography color="text.secondary">Custom capacity, OIDC work SSO, API access, and retention controls for enterprise hiring teams.</Typography><Button sx={{ mt: 1.5 }} fullWidth variant="outlined" href={`mailto:${publicSalesEmail}?subject=EvalcueAI%20Hire%20Enterprise`}>Contact sales</Button></Paper>
                         </Stack>
                         {!billing.canManageBilling && <Alert severity="info">Only organization Owners and Admins can change Hiring billing. Your role can still see shared usage.</Alert>}
                     </Stack>}

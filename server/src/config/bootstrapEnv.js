@@ -33,9 +33,8 @@ export const normalizeEnvironment = (env = process.env) => {
         if (host) env.REDIS_URL = `redis://${host}:${port}`;
     }
 
-    // app.js historically exposed a Stripe readiness gauge through the old
-    // STRIPE_PRO_PRICE_ID name. Keep that gauge accurate while the billing
-    // product uses separate Practice and Hiring price IDs.
+    // Preserve the old price alias for legacy Stripe subscription handling.
+    // New checkout and billing readiness use the PayU configuration.
     if (!env.STRIPE_PRO_PRICE_ID && CURRENT_STRIPE_PRICE_KEYS.every((key) => Boolean(env[key]))) {
         env.STRIPE_PRO_PRICE_ID = env.STRIPE_PRACTICE_PRO_PRICE_ID;
     }

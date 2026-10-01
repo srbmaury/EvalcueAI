@@ -161,9 +161,9 @@ const LoginPage = () => {
             });
             googleDivRef.current.innerHTML = "";
             window.google.accounts.id.renderButton(googleDivRef.current, {
-                theme: "filled_blue",
+                theme: "outline",
                 size: "large",
-                shape: "pill",
+                shape: "rectangular",
                 text: "signin_with",
             });
         } catch (error) {
@@ -199,7 +199,7 @@ const LoginPage = () => {
                     </FormControl>
                     {errors.password === "Email not verified" && <Stack spacing={1}><Typography variant="body2" color="text.secondary">Didn’t receive the verification email?</Typography><Button size="small" variant="text" onClick={async () => { try { const r = await resendVerification(email); setErrors((p) => ({ ...p, password: r?.message || "Verification email sent" })); } catch (e) { console.error(e); } }}>Resend verification</Button></Stack>}
                     <Captcha ref={captchaRef} enabled={Boolean(publicConfig?.captcha?.loginEnabled)} onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
-                    <Button type="submit" variant="contained" size="large" startIcon={<LoginIcon />} disabled={submitting || ssoSubmitting} sx={{ py: 1.25, borderRadius: 2, textTransform: "none", fontWeight: 700 }}>{submitting ? "Signing in..." : "Sign in"}</Button>
+                    <Button type="submit" variant="contained" size="large" startIcon={<LoginIcon />} disabled={submitting || ssoSubmitting} sx={{ py: 1.25, borderRadius: 1, textTransform: "none", fontWeight: 600 }}>{submitting ? "Signing in..." : "Sign in"}</Button>
                 </Stack>
             </Box>
             <Typography align="center" color="text.secondary" sx={{ mt: { xs: 3, md: 2 } }}>Don’t have an account? <Link component={RouterLink} to={registerPath} state={requested ? { from: requested } : undefined} underline="always">Register</Link></Typography>

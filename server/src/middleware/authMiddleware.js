@@ -12,7 +12,7 @@ const protect = async (req, res, next) => {
         }
         const token = authHeader.slice(7).trim();
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id).select("_id name email role provider preferredProgrammingLanguage interviewerVoicePreference practiceGoal targetRole weeklyPracticeTarget reminderEnabled reminderDay reminderTime reminderTimezone practicePlan practiceSubscriptionStatus tokenVersion isVerified +practiceBillingCustomerId");
+        const user = await User.findById(decoded.id).select("_id name email role provider preferredProgrammingLanguage interviewerVoicePreference practiceGoal targetRole weeklyPracticeTarget reminderEnabled reminderDay reminderTime reminderTimezone practicePlan practiceSubscriptionStatus tokenVersion isVerified +practiceBillingCustomerId +practiceBillingProvider practiceCurrentPeriodEnd practiceCancelAtPeriodEnd");
         if (!user) { metrics.authorizationDeniedTotal.labels("user_missing", normalizeRoute(req)).inc(); return res.status(401).json({ message: "User not found" }); }
         // Reject access tokens invalidated by security-sensitive account changes,
         // such as a password change or password reset.

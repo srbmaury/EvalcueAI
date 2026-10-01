@@ -30,7 +30,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
-import { PersonAddAlt1 as PersonAddIcon, Visibility, VisibilityOff } from "@mui/icons-material";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
 
 const RegisterPage = () => {
     const { register, googleLogin, resendVerification } = useContext(AuthContext);
@@ -178,7 +178,7 @@ const RegisterPage = () => {
                 itp_support: true,
             });
             googleDivRef.current.innerHTML = "";
-            window.google.accounts.id.renderButton(googleDivRef.current, { theme: "filled_blue", size: "large", shape: "pill", text: "signup_with" });
+            window.google.accounts.id.renderButton(googleDivRef.current, { theme: "outline", size: "large", shape: "rectangular", text: "signup_with" });
         } catch (error) {
             console.warn("Google button init failed", error);
         }
@@ -191,16 +191,16 @@ const RegisterPage = () => {
             surface={authSurface}
             eyebrow={`Get started with ${productName}`}
             title="Create your account"
-            subtitle={requestedWorkspace === "hiring" ? "Start an organization-owned hiring workspace for assessments, candidates, reports, and team access." : requestedWorkspace === "practice" ? "Create your private interview-preparation workspace and start practicing against your target role." : "Create one account, then use the Practice or Hire product you need."}
+            subtitle={requestedWorkspace === "hiring" ? "Create your account to set up a team and invite candidates." : requestedWorkspace === "practice" ? "Start practicing technical interviews for your target role." : "Create one account, then use the Practice or Hire product you need."}
         >
             <Box component="form" noValidate onSubmit={handleSubmit}>
-                <Stack spacing={{ xs: 2.25, md: 1.35 }}>
+                <Stack spacing={2.25}>
                     {googleClientId && <Stack spacing={1} alignItems="center"><div ref={googleDivRef} />{isEmbeddedBrowser() && <Typography variant="caption" color="text.secondary" align="center">Google sign-up may not display in in-app browsers. If the Google window is blank, open EvalcueAI in Chrome or Safari, or create your account with email.</Typography>}</Stack>}
                     {googleClientId && <Divider><Typography variant="caption" color="text.secondary">or sign up with email</Typography></Divider>}
                     <FormControl fullWidth><TextField id="name" label="Name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Jane Doe" autoComplete="name" error={!!errors.name} helperText={errors.name || undefined} size="medium" /></FormControl>
                     <FormControl fullWidth><TextField id="email" label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="name@example.com" autoComplete="email" error={!!errors.email} helperText={errors.email || undefined} size="medium" /></FormControl>
                     <FormControl fullWidth>
-                        <TextField id="password" label="Password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" autoComplete="new-password" error={!!errors.password} size="medium" InputProps={{ endAdornment: <InputAdornment position="end"><IconButton aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((s) => !s)} edge="end">{showPassword ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment> }} />
+                        <TextField id="password" label="Password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required helperText="8+ characters, with uppercase, lowercase, a number, and a symbol." placeholder="••••••••" autoComplete="new-password" error={!!errors.password} size="medium" InputProps={{ endAdornment: <InputAdornment position="end"><IconButton aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((s) => !s)} edge="end">{showPassword ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment> }} />
                         {errors.password && <FormHelperText error>{errors.password}</FormHelperText>}
                         {password && <Stack direction="row" flexWrap="wrap" columnGap={1.5} rowGap={0.25} mt={0.5}>{[
                             { label: "8+ characters", ok: password.length >= 8 },
@@ -211,8 +211,8 @@ const RegisterPage = () => {
                         ].map(({ label, ok }) => <Typography key={label} variant="caption" color={ok ? "success.main" : "text.disabled"}>{ok ? "✓" : "○"} {label}</Typography>)}</Stack>}
                     </FormControl>
                     <Captcha ref={captchaRef} enabled={Boolean(publicConfig?.captcha?.registerEnabled)} onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
-                    <FormControlLabel control={<Checkbox checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />} label={<Typography variant="body2">I agree to the <Link component={RouterLink} to="/terms">Terms</Link> and acknowledge the <Link component={RouterLink} to="/privacy">Privacy Notice</Link>.</Typography>} />
-                    <Button type="submit" variant="contained" size="large" startIcon={<PersonAddIcon />} disabled={submitting || !acceptedTerms} sx={{ py: 1.25, borderRadius: 2, textTransform: "none", fontWeight: 700 }}>{submitting ? "Creating account..." : requestedWorkspace === "hiring" ? "Create hiring account" : requestedWorkspace === "practice" ? "Create practice account" : "Create account"}</Button>
+                    <FormControlLabel control={<Checkbox checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />} label={<Typography variant="body2">I agree to the <Link component={RouterLink} to="/terms" target="_blank" rel="noopener">Terms</Link> and acknowledge the <Link component={RouterLink} to="/privacy" target="_blank" rel="noopener">Privacy Notice</Link>.</Typography>} />
+                    <Button type="submit" variant="contained" color={requestedWorkspace === "hiring" ? "secondary" : "primary"} size="large" disabled={submitting || !acceptedTerms} sx={{ py: 1.25, borderRadius: "4px", textTransform: "none", fontWeight: 700 }}>{submitting ? "Creating account..." : requestedWorkspace === "hiring" ? "Create hiring account" : requestedWorkspace === "practice" ? "Create practice account" : "Create account"}</Button>
                     {submittedEmail && <Stack spacing={1} alignItems="center"><Typography variant="body2" color="text.secondary">Didn’t get the email? Check spam or resend.</Typography><Button variant="text" onClick={async () => { try { const r = await resendVerification(submittedEmail); notify(r?.message || "Verification email re-sent", "success"); } catch (e) { notify(describeError(e, "Could not resend verification email."), "error"); } }}>Resend verification</Button><Button component={RouterLink} to={loginPath} state={authState} size="small">Continue to sign in</Button></Stack>}
                 </Stack>
             </Box>
@@ -226,7 +226,7 @@ const RegisterPage = () => {
                     <Button variant="contained" disabled={completingGoogle} onClick={() => { setAcceptedTerms(true); completeGoogleSignup(pendingGoogleCredential); }}>{completingGoogle ? "Creating account..." : "Agree and continue"}</Button>
                 </DialogActions>
             </Dialog>
-            <Typography align="center" color="text.secondary" sx={{ mt: { xs: 4, md: 2 } }}>Already have an account? <Link component={RouterLink} to={loginPath} state={authState} underline="always">Login</Link></Typography>
+            <Typography align="center" color="text.secondary" sx={{ mt: { xs: 4, md: 2 } }}>Already have an account? <Link component={RouterLink} to={loginPath} state={authState} underline="hover">Sign in</Link></Typography>
         </AuthShell>
     );
 };
