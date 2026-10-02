@@ -21,8 +21,9 @@ const replaceOnce = (html, search, replacement, label) => {
     return html.slice(0, index) + replacement + html.slice(index + search.length);
 };
 
-export const renderSeoHead = ({ title, description, canonicalUrl, ogType = "website", siteName, structuredData }) => {
+export const renderSeoHead = ({ title, description, canonicalUrl, ogType = "website", siteName, structuredData, imagePath = "/og-image.png" }) => {
     const text = (value) => escapeHtml(value);
+    const imageUrl = new URL(imagePath, canonicalUrl).href;
     // "<" in JSON-LD would let page data close the script element.
     const jsonLd = JSON.stringify(structuredData).replace(/</g, "\\u003c");
     return [
@@ -37,9 +38,14 @@ export const renderSeoHead = ({ title, description, canonicalUrl, ogType = "webs
         `<meta property="og:url" content="${text(canonicalUrl)}" />`,
         `<meta property="og:site_name" content="${text(siteName)}" />`,
         '<meta property="og:locale" content="en_US" />',
+        `<meta property="og:image" content="${text(imageUrl)}" />`,
+        '<meta property="og:image:width" content="1200" />',
+        '<meta property="og:image:height" content="630" />',
+        `<meta property="og:image:alt" content="${text(siteName)}: AI technical interviews for software engineers" />`,
         '<meta name="twitter:card" content="summary_large_image" />',
         `<meta name="twitter:title" content="${text(title)}" />`,
         `<meta name="twitter:description" content="${text(description)}" />`,
+        `<meta name="twitter:image" content="${text(imageUrl)}" />`,
         `<script type="application/ld+json">${jsonLd}</script>`,
         SEO_HEAD_END,
     ].join("\n    ");

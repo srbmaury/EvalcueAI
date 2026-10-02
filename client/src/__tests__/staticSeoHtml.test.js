@@ -27,6 +27,9 @@ describe("static SEO html", () => {
         expect(html).toContain('<meta name="description" content="Practice &quot;real&quot; interviews" />');
         expect(html).toContain('<link rel="canonical" href="https://evalcueai.com/system-design" />');
         expect(html).toContain('<meta property="og:type" content="article" />');
+        expect(html).toContain('<meta property="og:image" content="https://evalcueai.com/og-image.png" />');
+        expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
+        expect(html).toContain('<meta name="twitter:image" content="https://evalcueai.com/og-image.png" />');
         expect(html).toContain('<div id="root"><main>Guide</main></div>');
         expect(html).toContain('<meta charset="UTF-8" />');
     });

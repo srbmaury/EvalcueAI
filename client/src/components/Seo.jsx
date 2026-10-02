@@ -22,7 +22,7 @@ const absoluteUrl = (path = "/") => {
     return new URL(path || "/", `${origin}/`).href;
 };
 
-export default function Seo({ title, description, canonicalPath = "/", structuredData, imagePath = "", type = "website" }) {
+export default function Seo({ title, description, canonicalPath = "/", structuredData, imagePath = "/og-image.png", type = "website" }) {
     useEffect(() => {
         const previousTitle = document.title;
         document.title = title;
