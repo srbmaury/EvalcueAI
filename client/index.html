@@ -20,42 +20,24 @@
       }
       html[data-theme="dark"] #root > [data-static-seo] { color: #e6e7ea; }
       #root > [data-static-seo] a { color: inherit; }
+      #root > [data-static-seo] > header a { display: inline-flex; align-items: center; gap: 8px; font-weight: 650; text-decoration: none; }
+      #root > [data-static-seo] > footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid currentColor; font-size: 14px; opacity: 0.75; }
       @keyframes evalcue-static-reveal { to { opacity: 1; } }
     </style>
     <noscript><style>#root > [data-static-seo] { opacity: 1; animation: none; }</style></noscript>
-    <script>
-      (() => {
-        const valid = (value) => value === "dark" || value === "light";
-        let mode = "";
-        try {
-          const prefix = "evalcue_theme=";
-          const cookie = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
-          if (cookie) mode = decodeURIComponent(cookie.slice(prefix.length));
-        } catch { /* Cookies may be unavailable. */ }
-        if (!valid(mode)) {
-          try { mode = localStorage.getItem("ia:theme") || ""; } catch { /* Storage may be unavailable. */ }
-        }
-        if (!valid(mode)) mode = "light";
-        const root = document.documentElement;
-        root.classList.toggle("dark", mode === "dark");
-        root.dataset.theme = mode;
-        root.style.colorScheme = mode;
-        root.style.backgroundColor = mode === "dark" ? "#0e0f11" : "#fafbff";
-        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", mode === "dark" ? "#0e0f11" : "#ffffff");
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
     <!-- seo-head:start -->
-    <meta name="description" content="EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, debugging, and technical interviews with adaptive AI follow-ups." />
+    <meta name="description" content="EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, and technical interviews with adaptive AI follow-ups." />
     <meta name="robots" content="index,follow" />
-    <meta property="og:title" content="EvalcueAI | AI Coding, System Design & Debugging Interviews for Engineers" />
-    <meta property="og:description" content="EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, debugging, and technical interviews with adaptive AI follow-ups." />
+    <meta property="og:title" content="EvalcueAI | AI Coding, System Design & Technical Interviews for Engineers" />
+    <meta property="og:description" content="EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, and technical interviews with adaptive AI follow-ups." />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="EvalcueAI" />
     <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="EvalcueAI | AI Coding, System Design & Debugging Interviews for Engineers" />
+    <meta name="twitter:title" content="EvalcueAI | AI Coding, System Design & Technical Interviews for Engineers" />
     <meta name="twitter:description" content="Adaptive software engineering interview practice and structured technical hiring with coding, system design, and evidence-led review." />
-    <title>EvalcueAI | AI Coding, System Design & Debugging Interviews for Engineers</title>
+    <title>EvalcueAI | AI Coding, System Design & Technical Interviews for Engineers</title>
     <!-- seo-head:end -->
   </head>
   <body>

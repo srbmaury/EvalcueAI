@@ -6,12 +6,13 @@ import { AuthContext } from "../context/AuthContext";
 import SiteFooter from "../components/SiteFooter";
 import PublicSiteFrame from "../components/PublicSiteFrame";
 import { setWorkspacePreference } from "../utils/workspacePreference";
+import { DEBUGGING_ASSESSMENTS_ENABLED } from "../utils/featureFlags";
 
 const guides = [
     ["01", "Coding interviews", "Practice implementation, explain your approach, and respond to follow-up questions.", "/coding-interview-practice"],
     ["02", "System design", "Work through requirements, architecture, and the trade-offs behind your decisions.", "/system-design-interview-practice"],
-    ["03", "Debugging", "Investigate a failing system and show how you isolate and resolve the problem.", "/debugging-interview-practice"],
-    ["04", "Technical discussion", "Go deeper on backend engineering, project experience, and technical judgment.", "/technical-interview-practice"],
+    ...(DEBUGGING_ASSESSMENTS_ENABLED ? [["03", "Debugging", "Investigate a failing system and show how you isolate and resolve the problem.", "/debugging-interview-practice"]] : []),
+    [DEBUGGING_ASSESSMENTS_ENABLED ? "04" : "03", "Technical discussion", "Go deeper on backend engineering, project experience, and technical judgment.", "/technical-interview-practice"],
 ];
 
 export default function LandingPage() {
@@ -57,7 +58,7 @@ export default function LandingPage() {
                 </Grid>
             </Grid>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 1, sm: 4 }} sx={{ py: 2.5, borderTop: "1px solid", borderBottom: "1px solid", borderColor: "divider" }}>
-                {["Coding, design, debugging & discussion", "Follow-ups shaped by your answers", "Hiring decisions reviewed by people"].map((text) => <Typography key={text} variant="body2" color="text.secondary">{text}</Typography>)}
+                {[DEBUGGING_ASSESSMENTS_ENABLED ? "Coding, design, debugging & discussion" : "Coding, design & technical discussion", "Follow-ups shaped by your answers", "Hiring decisions reviewed by people"].map((text) => <Typography key={text} variant="body2" color="text.secondary">{text}</Typography>)}
             </Stack>
             <Box component="section" sx={{ py: { xs: 7, md: 10 } }} aria-labelledby="products-heading">
                 <Typography variant="overline">Two ways to use EvalcueAI</Typography>

@@ -1,7 +1,8 @@
+import "./buildEnv.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, transformWithEsbuild } from "vite";
 import react from "@vitejs/plugin-react";
 import {
     PRODUCT_RESOURCE_PAGES,
@@ -9,6 +10,7 @@ import {
     resourcePathsForSurface,
 } from "./src/utils/productResourcePages.js";
 import { applyStaticSeoHtml, escapeHtml, renderSeoHead } from "./src/utils/staticSeoHtml.js";
+import { debuggingCopy } from "./src/utils/featureFlags.js";
 import {
     SEARCH_LANDING_PAGES,
     searchLandingPaths,
@@ -19,7 +21,10 @@ import {
     BRAND_POSITIONING,
     BRAND_TAGLINE,
     BRAND_URLS,
+    BUSINESS_LEGAL_NAME,
     HIRING_PLAN_SUMMARY,
+    HOME_DESCRIPTION,
+    HOME_TITLE,
     INTERVIEW_TYPES,
     PRACTICE_PLANS,
     breadcrumbSchema,
@@ -90,22 +95,22 @@ const resourcePageForRoute = (route) => PRODUCT_RESOURCE_PAGES.find((page) => re
 
 const STATIC_PRODUCT_COPY = {
     "/": {
-        title: "EvalcueAI | AI Coding, System Design & Debugging Interviews for Engineers",
-        description: "EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, debugging, and technical interviews with adaptive AI follow-ups.",
+        title: HOME_TITLE,
+        description: HOME_DESCRIPTION,
         heading: "AI interview practice and structured technical hiring for software engineers",
-        intro: "Practice realistic coding, system-design, debugging, and technical interviews with adaptive AI follow-ups, or build evidence-focused engineering assessments for your hiring team.",
+        intro: `Practice realistic coding, system-design, ${debuggingCopy("debugging, ")}and technical interviews with adaptive AI follow-ups, or build evidence-focused engineering assessments for your hiring team.`,
     },
     "/practice": {
         title: "AI Technical Interview Practice for Software Engineers | EvalcueAI",
         description: "Practice role-specific software engineering interviews with adaptive follow-ups, coding rounds, system design, resume context, and evidence-backed feedback.",
         heading: "AI technical interview practice for software engineers",
-        intro: "Run role-specific mock interviews across technical discussion, coding, system design, debugging, and project depth, then review the evidence and feedback from each session.",
+        intro: `Run role-specific mock interviews across technical discussion, coding, system design, ${debuggingCopy("debugging, ")}and project depth, then review the evidence and feedback from each session.`,
     },
     "/hire": {
         title: "Structured Technical Hiring & AI Candidate Assessments | EvalcueAI",
         description: "Create structured engineering assessments, invite candidates, run adaptive technical interviews, and review evidence-rich scorecards with human-controlled hiring decisions.",
         heading: "Structured technical hiring for software engineering teams",
-        intro: "Create role-specific technical assessments across discussion, coding, system design, and debugging while keeping candidate evidence review and employment decisions human-controlled.",
+        intro: `Create role-specific technical assessments across discussion, coding, ${debuggingCopy("system design, and debugging", "and system design")} while keeping candidate evidence review and employment decisions human-controlled.`,
     },
 };
 
@@ -136,7 +141,7 @@ const staticConfigForRoute = (route) => {
 };
 
 const renderSearchPageMarkup = (page, practiceOrigin = APP_SURFACE_ORIGINS.practice, hiringOrigin = APP_SURFACE_ORIGINS.hiring) => `
-<main data-static-seo="search-landing">
+<main data-static-page="search-landing">
   <nav aria-label="Breadcrumb"><a href="${APP_SURFACE_ORIGINS.landing}/">${BRAND_NAME}</a></nav>
   <p>${escapeHtml(page.eyebrow)}</p>
   <h1>${escapeHtml(page.title)}</h1>
@@ -184,7 +189,7 @@ const renderSearchPageMarkup = (page, practiceOrigin = APP_SURFACE_ORIGINS.pract
 </main>`;
 
 const renderResourcePageMarkup = (page) => `
-<main data-static-seo="product-resource">
+<main data-static-page="product-resource">
   <nav aria-label="Breadcrumb"><a href="${APP_SURFACE_ORIGINS.landing}/">Home</a> › <a href="${page.surface === "hiring" ? APP_SURFACE_ORIGINS.hiring : APP_SURFACE_ORIGINS.practice}/${page.surface === "hiring" ? "hire" : "practice"}">EvalcueAI ${page.surface === "hiring" ? "Hire" : "Practice"}</a></nav>
   <p>${escapeHtml(page.eyebrow)}</p>
   <h1>${escapeHtml(page.title)}</h1>
@@ -220,7 +225,7 @@ const renderProductMarkup = (route, config, surface) => {
             : PRODUCT_RESOURCE_PAGES.filter((page) => page.surface === "hiring").map((page) => [resourcePathFor(page), page.title]);
 
     return `
-<main data-static-seo="product">
+<main data-static-page="product">
   <h1>${escapeHtml(config.heading)}</h1>
   <p>${escapeHtml(config.intro)}</p>
   <section>
@@ -236,12 +241,22 @@ const renderProductMarkup = (route, config, surface) => {
 </main>`;
 };
 
-const renderStaticMarkup = (route, config, surfaceOrigins = {}) => {
+const renderPageMarkup = (route, config, surfaceOrigins) => {
     if (config.searchPage) return renderSearchPageMarkup(config.searchPage, surfaceOrigins.practice, surfaceOrigins.hiring);
     if (config.resourcePage) return renderResourcePageMarkup(config.resourcePage);
     const surface = route === "/practice" ? "practice" : route === "/hire" ? "hiring" : "landing";
     return renderProductMarkup(route, config, surface);
 };
+
+const renderStaticMarkup = (route, config, surfaceOrigins = {}) => `
+<div data-static-seo>
+  <header><a href="${APP_SURFACE_ORIGINS.landing}/"><img src="/favicon.svg" alt="${BRAND_NAME} logo" width="32" height="32" /> ${BRAND_NAME}</a></header>
+  ${renderPageMarkup(route, config, surfaceOrigins)}
+  <footer>
+    <p><a href="${APP_SURFACE_ORIGINS.landing}/about">About</a> · <a href="${APP_SURFACE_ORIGINS.landing}/privacy">Privacy</a> · <a href="${APP_SURFACE_ORIGINS.landing}/terms">Terms</a></p>
+    <p>&copy; ${new Date().getFullYear()} ${BRAND_NAME} · Operated by ${escapeHtml(BUSINESS_LEGAL_NAME)}</p>
+  </footer>
+</div>`;
 
 const structuredDataForStaticRoute = (route, config, canonicalUrl) => {
     const graph = [organizationSchema()];
@@ -346,12 +361,24 @@ const writeStaticRoute = async (outDir, route, html) => {
     await writeFile(path.join(routeDir, "index.html"), html);
 };
 
+// Shipped HTML carries no developer comments (including the seo-head markers) and minified inline CSS.
+const finalizeHtml = async (html) => {
+    let output = html.replace(/<!--[\s\S]*?-->\s*/g, "");
+    for (const [block, css] of [...output.matchAll(/<style>([\s\S]*?)<\/style>/g)]) {
+        const { code } = await transformWithEsbuild(css, "inline.css", { loader: "css", minify: true });
+        output = output.replace(block, `<style>${code.trim()}</style>`);
+    }
+    return output;
+};
+
 const seoFilesPlugin = (origin, routes, surfaceOrigins = {}, appSurface = null) => ({
     name: "evalcue-seo-files",
     async closeBundle() {
-        if (!origin) return;
         const outDir = path.resolve(process.cwd(), "dist");
-        await mkdir(outDir, { recursive: true });
+        const baseHtml = await readFile(path.join(outDir, "index.html"), "utf8");
+        // The SPA fallback; a prerendered "/" route overwrites it below.
+        await writeFile(path.join(outDir, "index.html"), await finalizeHtml(baseHtml));
+        if (!origin) return;
 
         // appSurface comes from loadEnv, so a surface set in client/.env works as well as a CI env var.
         const deploymentSurface = appSurface || "landing";
@@ -370,14 +397,13 @@ const seoFilesPlugin = (origin, routes, surfaceOrigins = {}, appSurface = null) 
             "",
         ].join("\n");
 
-        const baseHtml = await readFile(path.join(outDir, "index.html"), "utf8");
         const staticRouteWrites = routes
             .map((route) => [route, staticConfigForRoute(route)])
             .filter(([, config]) => Boolean(config))
-            .map(([route, config]) => writeStaticRoute(
+            .map(async ([route, config]) => writeStaticRoute(
                 outDir,
                 route,
-                applyStaticRouteHtml(baseHtml, route, origin, config, surfaceOrigins, deploymentSurface),
+                await finalizeHtml(applyStaticRouteHtml(baseHtml, route, origin, config, surfaceOrigins, deploymentSurface)),
             ));
 
         await Promise.all([
