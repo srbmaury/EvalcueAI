@@ -7,6 +7,7 @@ import { generateFollowUp, MAX_FOLLOW_UPS } from "../utils/generateQuestions/fol
 import { isValidSystemDesignDiagram, summarizeSystemDesignDiagram } from "../utils/systemDesignDiagram.js";
 import { normalizeEmail } from "../utils/identity.js";
 import metrics from "../metrics/index.js";
+import { currentFollowUpFields, followUpList, pendingFollowUpFor } from "../services/followUps.js";
 import {
     initializeAdaptiveInterviewState,
     evaluateAdaptiveAnswer,
@@ -27,23 +28,6 @@ const findAttempt = async (assessmentId, attemptId, rawToken) => rawToken
 const followupLabel = (assessment) => assessment == null ? "unknown" : assessment.followUpsEnabled ? "enabled" : "disabled";
 const observeCandidateAction = (action, outcome, assessment) => { try { metrics.candidateAssessmentActionsTotal.labels(action, outcome, followupLabel(assessment)).inc(); } catch {} };
 
-const followUpList = (item) => Array.isArray(item?.followUps) ? item.followUps : [];
-const pendingFollowUpFor = (item) => [...followUpList(item)].reverse().find((followUp) => followUp?.question && !followUp?.answer) || null;
-const ensureFollowUpHistory = (item) => {
-    if (!item) return [];
-    if (!Array.isArray(item.followUps)) item.followUps = [];
-    if (!item.followUps.length && item.followUpQuestion) {
-        item.followUps.push({ question: item.followUpQuestion, answer: item.followUpAnswer || "", answeredAt: item.followUpAnswer ? new Date() : undefined });
-    }
-    return item.followUps;
-};
-const syncLegacyFollowUpFields = (item) => {
-    const history = ensureFollowUpHistory(item);
-    const pending = pendingFollowUpFor(item);
-    const current = pending || history.at(-1);
-    item.followUpQuestion = current?.question || "";
-    item.followUpAnswer = pending ? "" : current?.answer || "";
-};
 const baseAnswer = (item) => [item.answer, item.diagramSummary, item.spokenExplanation ? `Spoken explanation:\n${item.spokenExplanation}` : ""].filter(Boolean).join("\n\n");
 const combinedAnswer = (item) => [
     baseAnswer(item),
@@ -69,7 +53,6 @@ export const publicAttempt = (attempt) => ({
         questions: round.questions.map((question) => {
             const history = followUpList(question);
             const pending = pendingFollowUpFor(question);
-            const current = pending || history.at(-1);
             return {
                 _id: question._id,
                 text: question.text,
@@ -78,8 +61,7 @@ export const publicAttempt = (attempt) => ({
                 diagramData: question.diagramData,
                 diagramSummary: question.diagramSummary,
                 followUps: history.map((followUp) => ({ question: followUp.question, answer: followUp.answer || "" })),
-                followUpQuestion: current?.question || question.followUpQuestion || "",
-                followUpAnswer: pending ? "" : current?.answer || question.followUpAnswer || "",
+                ...currentFollowUpFields(question),
                 followUpNumber: pending ? history.length : 0,
                 remainingFollowUps: Math.max(0, MAX_FOLLOW_UPS - history.length),
             };
@@ -241,18 +223,17 @@ const nextRequiredQuestion = (assessmentRound, attemptRound) => {
 };
 
 const decideNextAdaptiveFollowUp = async ({ assessment, round, item, attempt }) => {
-    const history = ensureFollowUpHistory(item);
+    const history = item.followUps;
     const pending = pendingFollowUpFor(item);
-    if (pending) { syncLegacyFollowUpFields(item); return pending; }
-    if (history.length >= MAX_FOLLOW_UPS) { syncLegacyFollowUpFields(item); return null; }
+    if (pending) return pending;
+    if (history.length >= MAX_FOLLOW_UPS) return null;
     const decision = await generateFollowUp({
         questionText: item.text, userAnswer: baseAnswer(item), followUps: history, jobRole: assessment.jobRole,
         roundName: round.name, systemDesign: round.deliveryMode === "system-design", competencies: item.competencies || [], sourceClaim: item.sourceClaim || "",
         candidateBackground: attempt?.candidateIntro || "",
     });
-    if (!decision?.shouldAsk || !decision.followUp) { syncLegacyFollowUpFields(item); return null; }
+    if (!decision?.shouldAsk || !decision.followUp) return null;
     history.push({ question: decision.followUp, answer: "", reason: decision.reason || "", focus: decision.focus || "" });
-    syncLegacyFollowUpFields(item);
     return pendingFollowUpFor(item);
 };
 
@@ -320,7 +301,6 @@ export const saveAdaptiveCandidateAnswer = async (req, res, next) => {
         const round = attempt.rounds?.[roundIndex];
         const item = round?.questions?.[questionIndex];
         if (!item) { observeCandidateAction("answer", "invalid_question", assessment); return res.status(400).json({ message: "Invalid question" }); }
-        ensureFollowUpHistory(item);
         if (answer !== undefined) item.answer = answer.toString().trim().slice(0, 20000);
         if (spokenExplanation !== undefined) item.spokenExplanation = spokenExplanation.toString().trim().slice(0, 5000);
         if (diagramData !== undefined) {
@@ -337,7 +317,6 @@ export const saveAdaptiveCandidateAnswer = async (req, res, next) => {
                 pending.answer = followUpAnswer.toString().trim().slice(0, 5000);
                 if (!pending.answer) return res.status(400).json({ message: "Follow-up answer required" });
                 pending.answeredAt = new Date();
-                syncLegacyFollowUpFields(item);
                 const nextFollowUp = assessment.followUpsEnabled ? await decideNextAdaptiveFollowUp({ assessment, round, item, attempt }) : null;
                 if (!nextFollowUp && round.adaptiveState?.enabled) await advanceAdaptiveRound({ assessment, attempt, roundIndex, questionIndex });
             } else if (item.answer) {
@@ -348,22 +327,16 @@ export const saveAdaptiveCandidateAnswer = async (req, res, next) => {
             if (followUpAnswer !== undefined) {
                 const value = followUpAnswer.toString().trim().slice(0, 5000);
                 if (!value) return res.status(400).json({ message: "Follow-up answer required" });
-                const history = ensureFollowUpHistory(item);
                 const pending = pendingFollowUpFor(item);
-                if (pending) { pending.answer = value; pending.answeredAt = new Date(); }
-                else if (item.followUpQuestion) history.push({ question: item.followUpQuestion, answer: value, answeredAt: new Date() });
-                item.followUpAnswer = value;
-                syncLegacyFollowUpFields(item);
+                if (!pending) return res.status(409).json({ message: "No follow-up is waiting for an answer" });
+                pending.answer = value;
+                pending.answeredAt = new Date();
             }
-            if (assessment.followUpsEnabled && item.answer && !item.followUpQuestion) {
+            if (assessment.followUpsEnabled && item.answer && !item.followUps.length) {
                 try {
                     const decision = await generateFollowUp({ questionText: item.text, userAnswer: baseAnswer(item), jobRole: assessment.jobRole, roundName: round.name, systemDesign: round.deliveryMode === "system-design", competencies: item.competencies || [], candidateBackground: attempt.candidateIntro || "" });
                     if (decision?.shouldAsk && decision.followUp) {
-                        ensureFollowUpHistory(item).push({ question: decision.followUp, answer: "", reason: decision.reason || "", focus: decision.focus || "" });
-                        syncLegacyFollowUpFields(item);
-                    } else {
-                        item.followUpQuestion = "";
-                        item.followUpAnswer = "";
+                        item.followUps.push({ question: decision.followUp, answer: "", reason: decision.reason || "", focus: decision.focus || "" });
                     }
                 } catch { /* save the original response even if follow-up generation fails */ }
             }

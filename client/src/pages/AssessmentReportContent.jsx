@@ -40,11 +40,7 @@ function CompetencySummary({ attempt, compact = false }) {
     return <Box sx={{ mt: compact ? 1 : 2 }}><Typography variant={compact ? "caption" : "subtitle2"} color="text.secondary" fontWeight={750}>Competency evidence</Typography><Stack direction="row" gap={.75} flexWrap="wrap" mt={.75}>{scores.map((item) => <Chip key={item.name} size="small" variant="outlined" color={item.score >= 7 ? "success" : item.score != null && item.score < 5 ? "warning" : "default"} label={`${item.name}: ${item.score == null ? "—" : `${item.score}/10`} · ${item.evidence} answer${item.evidence === 1 ? "" : "s"}`} />)}</Stack></Box>;
 }
 
-const followUpExchanges = (question) => question.followUps?.length
-    ? question.followUps
-    : question.followUpQuestion
-        ? [{ question: question.followUpQuestion, answer: question.followUpAnswer || "" }]
-        : [];
+const followUpExchanges = (question) => question.followUps || [];
 
 const quoteCsvCell = (value) => {
     let text = String(value ?? "");
@@ -60,7 +56,7 @@ function FollowUpEvidence({ question }) {
     return <Stack spacing={1.25} sx={{ mt: 2, pl: 2, borderLeft: "3px solid", borderColor: "primary.light" }}>{exchanges.map((exchange, index) => <Box key={`${index}-${exchange.question}`}><Typography fontWeight={700}>AI follow-up {exchanges.length > 1 ? `${index + 1}` : ""}: {exchange.question}</Typography><Typography sx={{ whiteSpace: "pre-wrap", mt: .5 }}>{exchange.answer || "Not answered"}</Typography></Box>)}</Stack>;
 }
 
-export default function AssessmentReportPage() {
+export default function AssessmentReportContent() {
     const { assessmentId } = useParams(); const location = useLocation(); const navigate = useNavigate(); const notify = useNotify(); const { currentRole } = useContext(OrganizationContext); const { canManageAssessments, canViewAssessments, canExportCandidateData } = hiringPermissionsFor(currentRole); const [data, setData] = useState(null); const [error, setError] = useState(""); const [loading, setLoading] = useState(true);
     const [query, setQuery] = useState(""); const [status, setStatus] = useState("all");
     const [inviteText, setInviteText] = useState(""); const [reviews, setReviews] = useState({}); const [duplicating, setDuplicating] = useState(false);

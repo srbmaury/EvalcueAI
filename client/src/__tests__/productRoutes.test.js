@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-    canonicalProductPath,
     productHomePath,
     productLoginPath,
     productRegisterPath,
@@ -9,34 +8,20 @@ import {
 } from "../utils/productRoutes";
 
 describe("productRoutes", () => {
-    it("recognizes canonical and legacy practice routes", () => {
+    it("recognizes practice routes", () => {
         expect(surfaceForPath("/practice/dashboard")).toBe("practice");
-        expect(surfaceForPath("/dashboard")).toBe("practice");
-        expect(surfaceForPath("/interviews/abc")).toBe("practice");
+        expect(surfaceForPath("/practice/interviews/abc")).toBe("practice");
     });
 
-    it("recognizes canonical and legacy hiring routes", () => {
+    it("recognizes hiring routes", () => {
         expect(surfaceForPath("/hire/assessments")).toBe("hiring");
-        expect(surfaceForPath("/assessments/abc")).toBe("hiring");
-        expect(surfaceForPath("/hiring/team")).toBe("hiring");
+        expect(surfaceForPath("/hire/team")).toBe("hiring");
     });
 
-    it("keeps public candidate assessment links neutral", () => {
+    it("keeps public candidate assessment links and retired paths neutral", () => {
         expect(surfaceForPath("/assessment/token")).toBeNull();
-        expect(canonicalProductPath("/assessment/token")).toBe("/assessment/token");
-    });
-
-    it("canonicalizes legacy product URLs", () => {
-        expect(canonicalProductPath("/dashboard")).toBe("/practice/dashboard");
-        expect(canonicalProductPath("/create-interview")).toBe("/practice/new");
-        expect(canonicalProductPath("/interviews/abc")).toBe("/practice/interviews/abc");
-        expect(canonicalProductPath("/assessments/abc")).toBe("/hire/assessments/abc");
-        expect(canonicalProductPath("/hiring/team")).toBe("/hire/team");
-    });
-
-    it("does not rewrite canonical routes", () => {
-        expect(canonicalProductPath("/practice/progress")).toBe("/practice/progress");
-        expect(canonicalProductPath("/hire/team")).toBe("/hire/team");
+        expect(surfaceForPath("/dashboard")).toBeNull();
+        expect(surfaceForPath("/hiring/team")).toBeNull();
     });
 
     it("returns product-specific auth and home destinations", () => {

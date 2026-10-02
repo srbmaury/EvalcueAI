@@ -1,24 +1,9 @@
-import crypto from "crypto";
 import Assessment from "../models/Assessment.js";
 import CandidateAttempt from "../models/CandidateAttempt.js";
-import Organization from "../models/Organization.js";
-import { reserveCandidateInterview, releaseOrganizationUsage, releaseAttemptReservation } from "../services/organizationUsage.js";
+import { releaseAttemptReservation } from "../services/organizationUsage.js";
 import { generateQuestionsForRound, improveAssessmentQuestion } from "../utils/generateQuestions.js";
-import { generateFollowUp } from "../utils/generateQuestions/followUp.js";
 import metrics from "../metrics/index.js";
-import runCode from "./runCodeController.js";
-import { transcribe } from "./sttController.js";
-import { getQueue } from "../queues/index.js";
-import { createJobId } from "../queues/jobIds.js";
-import candidateAssessmentProcessor from "../queues/workers/candidateAssessment.js";
-import { sendMail } from "../utils/mailer.js";
-import { isValidSystemDesignDiagram, summarizeSystemDesignDiagram } from "../utils/systemDesignDiagram.js";
-import { practiceClientOrigin } from "../config/clientOrigins.js";
 
-const tokenHash = (value) => crypto.createHash("sha256").update(value).digest("hex");
-const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
-const followupLabel = (assessment) => assessment == null ? "unknown" : assessment.followUpsEnabled ? "enabled" : "disabled";
-const observeCandidateAction = (action, outcome, assessment) => { try { metrics.candidateAssessmentActionsTotal.labels(action, outcome, followupLabel(assessment)).inc(); } catch {} };
 const publicAssessment = (assessment, organizationName = "") => ({
     title: assessment.title,
     organizationName,
@@ -37,98 +22,6 @@ const publicAssessment = (assessment, organizationName = "") => ({
     },
     rounds: assessment.rounds.map((round) => ({ name: round.name, description: round.description, deliveryMode: round.deliveryMode || "conversational", questionCount: round.questions.length })),
 });
-const publicAttempt = (attempt) => ({
-    _id: attempt._id,
-    candidateName: attempt.candidateName,
-    status: attempt.status,
-    startedAt: attempt.startedAt,
-    submittedAt: attempt.submittedAt,
-    rounds: attempt.rounds.map((round) => ({
-        _id: round._id,
-        name: round.name,
-        description: round.description,
-        deliveryMode: round.deliveryMode || "conversational",
-        questions: round.questions.map((question) => ({
-            _id: question._id,
-            text: question.text,
-            answer: question.answer,
-            spokenExplanation: question.spokenExplanation,
-            diagramData: question.diagramData,
-            diagramSummary: question.diagramSummary,
-            followUpQuestion: question.followUpQuestion,
-            followUpAnswer: question.followUpAnswer,
-        })),
-    })),
-});
-const findPublicAssessment = (shareToken) => Assessment.findOne({ shareToken, status: "active", $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] });
-const findAttempt = async (assessmentId, attemptId, rawToken) => {
-    if (!rawToken) return null;
-    return CandidateAttempt.findOne({ _id: attemptId, assessment: assessmentId, accessTokenHash: tokenHash(rawToken) }).select("+accessTokenHash");
-};
-
-const authorizeCandidateTool = async (req, res) => {
-    const assessment = await findPublicAssessment(req.params.shareToken);
-    if (!assessment) { res.status(404).json({ message: "Assessment unavailable" }); return null; }
-    const attempt = await findAttempt(assessment._id, req.params.attemptId, req.get("x-attempt-token"));
-    if (!attempt || attempt.status !== "started") { res.status(401).json({ message: "Attempt unavailable" }); return null; }
-    return attempt;
-};
-
-export const protectCandidateTool = async (req, res, next) => {
-    try {
-        const attempt = await authorizeCandidateTool(req, res);
-        if (!attempt) return;
-        req.candidateAttempt = attempt;
-        return next();
-    } catch (error) { return next(error); }
-};
-
-export const runCandidateCode = async (req, res, next) => {
-    try {
-        if (!req.candidateAttempt && !await authorizeCandidateTool(req, res)) return;
-        return runCode(req, res);
-    } catch (error) { return next(error); }
-};
-
-export const transcribeCandidateAudio = async (req, res, next) => {
-    try {
-        if (!req.candidateAttempt && !await authorizeCandidateTool(req, res)) return;
-        return transcribe(req, res, next);
-    } catch (error) { return next(error); }
-};
-
-export const createAssessment = async (req, res, next) => {
-    try {
-        const { title, jobRole, jobDescription, followUpsEnabled = true, askCandidateIntro = true, inviteOnly = false, candidateInstructions = "", contactEmail = "", durationMinutes = 30, opensAt, expiresAt, timezone = "UTC", rounds, integrity, rubric = [], templateName = "", status = "draft" } = req.body;
-        if (status === "scheduled" && (!opensAt || new Date(opensAt) <= new Date())) return res.status(400).json({ message: "Choose a future opening time before scheduling." });
-        if (expiresAt && opensAt && new Date(expiresAt) <= new Date(opensAt)) return res.status(400).json({ message: "The submission deadline must be after the opening time." });
-        const generatedRounds = [];
-        const excludeTexts = [];
-        for (const input of rounds) {
-            const count = Math.min(Math.max(Number(input.questionCount) || 3, 1), 10);
-            const manualTexts = (input.questions || []).map((item) => typeof item === "string" ? item : item?.text).map((item) => (item || "").toString().trim()).filter(Boolean).slice(0, count);
-            let generated = [];
-            if (manualTexts.length < count) try {
-                generated = await generateQuestionsForRound({
-                    company: req.organization?.name || "", jobRole, jobDescription, resumeText: "", roundName: input.name,
-                    roundDescription: [input.description, input.aiPrompt ? `Interviewer generation request: ${input.aiPrompt}` : ""].filter(Boolean).join("\n"),
-                    deliveryMode: input.deliveryMode || "conversational", count: count - manualTexts.length, excludeTexts: [...excludeTexts, ...manualTexts],
-                });
-            } catch { /* use deterministic fallback below */ }
-            const texts = [...manualTexts, ...(Array.isArray(generated) ? generated : []).map((item) => typeof item === "string" ? item : item?.text).map((item) => (item || "").toString().trim()).filter(Boolean)].slice(0, count);
-            while (texts.length < count) texts.push(`Describe how you would approach ${input.name} challenge ${texts.length + 1} for a ${jobRole}.`);
-            excludeTexts.push(...texts);
-            generatedRounds.push({ name: input.name, description: input.description || "", deliveryMode: input.deliveryMode || "conversational", questions: texts.map((text, index) => ({ text, weight: input.questions?.[index]?.weight || 1, competencies: input.questions?.[index]?.competencies || [], knockout: Boolean(input.questions?.[index]?.knockout) })) });
-        }
-        const assessment = await Assessment.create({
-            organization: req.organizationId, createdBy: req.user._id, title, jobRole, jobDescription, followUpsEnabled, askCandidateIntro, inviteOnly,
-            candidateInstructions, contactEmail, durationMinutes, opensAt: opensAt || undefined, expiresAt: expiresAt || undefined, timezone, rounds: generatedRounds, integrity, rubric, templateName,
-            status, publishedAt: status === "active" ? new Date() : undefined, shareToken: crypto.randomBytes(24).toString("base64url"),
-        });
-        try { metrics.assessmentsTotal.labels("create", "success").inc(); metrics.assessmentQuestions.observe(generatedRounds.reduce((sum, round) => sum + round.questions.length, 0)); } catch {}
-        return res.status(201).json(assessment);
-    } catch (error) { try { metrics.assessmentsTotal.labels("create", "failure").inc(); } catch {} return next(error); }
-};
 
 export const generateAssessmentQuestions = async (req, res, next) => {
     try {
@@ -227,137 +120,11 @@ export const getAssessmentReport = async (req, res, next) => {
     } catch (error) { return next(error); }
 };
 
-export const updateAssessment = async (req, res, next) => {
-    try {
-        const assessment = await Assessment.findOne({ _id: req.params.assessmentId, organization: req.organizationId });
-        if (!assessment) return res.status(404).json({ message: "Assessment not found" });
-        const attempts = await CandidateAttempt.countDocuments({ assessment: assessment._id });
-        if (req.body.status) {
-            const transitions = { draft: ["scheduled", "active", "archived"], scheduled: ["draft", "active", "closed", "archived"], active: ["closed", "archived"], closed: ["active", "archived"], archived: [] };
-            if (!transitions[assessment.status]?.includes(req.body.status)) return res.status(409).json({ message: `Assessment cannot move from ${assessment.status} to ${req.body.status}.` });
-            if (["scheduled", "active"].includes(req.body.status)) {
-                if (!assessment.rounds?.length || assessment.rounds.some((round) => !round.questions?.length)) return res.status(400).json({ message: "Add at least one question to every round before publishing." });
-                if (assessment.expiresAt && assessment.expiresAt <= new Date()) return res.status(400).json({ message: "Choose a future submission deadline before publishing." });
-                if (req.body.status === "scheduled" && (!assessment.opensAt || assessment.opensAt <= new Date())) return res.status(400).json({ message: "Choose a future opening time before scheduling." });
-                if (assessment.expiresAt && assessment.opensAt && assessment.expiresAt <= assessment.opensAt) return res.status(400).json({ message: "The submission deadline must be after the opening time." });
-                if (req.body.status === "active") assessment.publishedAt ||= new Date();
-            }
-            assessment.status = req.body.status;
-            if (req.body.status === "archived") assessment.archivedAt = new Date();
-        } else {
-            if (assessment.status !== "draft" || attempts > 0) return res.status(409).json({ message: "Only unused draft assessments can be edited. Create a new version instead." });
-            const editable = ["title", "jobRole", "jobDescription", "followUpsEnabled", "askCandidateIntro", "inviteOnly", "candidateInstructions", "contactEmail", "durationMinutes", "opensAt", "expiresAt", "timezone", "integrity", "rubric", "templateName", "rounds"];
-            for (const key of editable) if (req.body[key] !== undefined) assessment[key] = req.body[key] || (key === "expiresAt" ? undefined : req.body[key]);
-        }
-        await assessment.save();
-        try { metrics.assessmentsTotal.labels("status_update", "success").inc(); } catch {}
-        return res.json(assessment);
-    } catch (error) { try { metrics.assessmentsTotal.labels("status_update", "failure").inc(); } catch {} return next(error); }
-};
-
-export const getPublicAssessment = async (req, res, next) => {
-    try {
-        const assessment = await findPublicAssessment(req.params.shareToken);
-        if (!assessment) { observeCandidateAction("view", "unavailable", null); return res.status(404).json({ message: "Assessment unavailable" }); }
-        const invitation = req.query.invite ? assessment.invitations?.id(req.query.invite) : null;
-        if (assessment.inviteOnly && (!invitation || invitation.status === "revoked")) {
-            return res.status(403).json({ message: "This assessment is invitation-only. Open the invitation link sent to your email." });
-        }
-        if (invitation && ["invited", "sent", "delivered"].includes(invitation.status)) { invitation.status = "opened"; invitation.openedAt = new Date(); await assessment.save(); }
-        const organization = await Organization.findById(assessment.organization).select("name").lean();
-        observeCandidateAction("view", "success", assessment);
-        return res.json(publicAssessment(assessment, organization?.name || ""));
-    } catch (error) { return next(error); }
-};
-
 export const previewAssessment = async (req, res, next) => {
     try {
         const assessment = await Assessment.findOne({ _id: req.params.assessmentId, organization: req.organizationId });
         if (!assessment) return res.status(404).json({ message: "Assessment not found" });
         return res.json({ ...publicAssessment(assessment, req.organization?.name || ""), status: assessment.status, rounds: assessment.rounds.map((round) => ({ name: round.name, description: round.description, deliveryMode: round.deliveryMode || "conversational", questionCount: round.questions.length, questions: round.questions.map((question) => ({ text: question.text })) })) });
-    } catch (error) { return next(error); }
-};
-
-export const startCandidateAttempt = async (req, res, next) => {
-    let usageReservation = null;
-    let attemptSaved = false;
-    try {
-        const assessment = await findPublicAssessment(req.params.shareToken);
-        if (!assessment) { observeCandidateAction("start", "unavailable", null); return res.status(404).json({ message: "Assessment unavailable" }); }
-        const candidateEmail = req.body.email.toLowerCase().trim();
-        if (assessment.integrity?.enabled && req.body.integrityConsent !== true) return res.status(400).json({ message: "Consent to the configured integrity signals is required before starting this assessment." });
-        const activeInvitation = req.body.invitationId ? assessment.invitations?.id(req.body.invitationId) : null;
-        const validInvitation = activeInvitation && activeInvitation.status !== "revoked" && activeInvitation.email === candidateEmail ? activeInvitation : null;
-        if (assessment.inviteOnly && !validInvitation) return res.status(403).json({ message: "This assessment is invitation-only. Open the invitation link sent to your email and use that invited email address." });
-        const existing = await CandidateAttempt.findOne({ assessment: assessment._id, candidateEmail });
-        if (existing) { observeCandidateAction("start", "duplicate", assessment); return res.status(409).json({ message: existing.status === "submitted" ? "This email has already submitted an attempt" : "An attempt for this email is already in progress. Continue from the browser where it was started or contact the recruiting team." }); }
-
-        const usage = await reserveCandidateInterview(assessment.organization);
-        if (!usage.ok) {
-            observeCandidateAction("start", "capacity", assessment);
-            return res.status(429).json({
-                message: "This assessment is temporarily unavailable because the hiring team has reached its candidate interview capacity. Contact the recruiting team if you need help.",
-                code: "HIRING_CAPACITY_REACHED",
-            });
-        }
-        usageReservation = usage.reservation;
-
-        const rawToken = crypto.randomBytes(32).toString("base64url");
-        const rounds = assessment.rounds.map((round) => ({ name: round.name, description: round.description, deliveryMode: round.deliveryMode || "conversational", questions: round.questions.map((question) => ({ text: question.text, weight: question.weight, competencies: question.competencies, knockout: question.knockout })) }));
-        const attempt = new CandidateAttempt({ assessment: assessment._id, candidateEmail });
-        attempt.candidateName = req.body.name.trim(); attempt.accessTokenHash = tokenHash(rawToken); attempt.rounds = rounds; attempt.status = "started"; attempt.startedAt = new Date(); attempt.privacyConsentAt = new Date();
-        if (assessment.integrity?.enabled && req.body.integrityConsent) attempt.integrityConsentAt = new Date();
-        const invitation = validInvitation;
-        if (invitation) invitation.status = "started";
-        await attempt.save();
-        attemptSaved = true;
-        if (invitation) {
-            try { await assessment.save(); } catch (error) { console.warn("Could not update invitation start status", error?.message || error); }
-        }
-        observeCandidateAction("start", "success", assessment);
-        return res.status(201).json({ attemptToken: rawToken, attempt: publicAttempt(attempt) });
-    } catch (error) {
-        if (usageReservation && !attemptSaved) await releaseOrganizationUsage(usageReservation);
-        observeCandidateAction("start", "failure", null);
-        return next(error);
-    }
-};
-
-export const recordIntegrityEvent = async (req, res, next) => {
-    try {
-        const assessment = await findPublicAssessment(req.params.shareToken);
-        if (!assessment?.integrity?.enabled) return res.status(204).end();
-        const attempt = await findAttempt(assessment._id, req.params.attemptId, req.get("x-attempt-token"));
-        if (!attempt || attempt.status !== "started") return res.status(401).json({ message: "Attempt unavailable" });
-        if (attempt.integrityEvents.length >= 500) return res.status(202).json({ recorded: false });
-        attempt.integrityEvents.push({ type: req.body.type, at: new Date(), metadata: req.body.metadata || {} });
-        await attempt.save();
-        return res.status(201).json({ recorded: true });
-    } catch (error) { return next(error); }
-};
-
-export const inviteCandidates = async (req, res, next) => {
-    try {
-        const assessment = await Assessment.findOne({ _id: req.params.assessmentId, organization: req.organizationId });
-        if (!assessment) return res.status(404).json({ message: "Assessment not found" });
-        if (!["draft", "scheduled", "active"].includes(assessment.status)) return res.status(409).json({ message: "Invitations cannot be changed for this assessment." });
-        const appUrl = practiceClientOrigin();
-        const link = `${appUrl}/assessment/${assessment.shareToken}`;
-        const results = [];
-        for (const entry of req.body.candidates) {
-            const email = entry.email.toLowerCase().trim();
-            let invitation = assessment.invitations.find((item) => item.email === email);
-            if (!invitation) { assessment.invitations.push({ email, name: entry.name || "", status: assessment.status === "active" ? "sent" : "queued", invitedAt: new Date(), nextAttemptAt: new Date() }); invitation = assessment.invitations.at(-1); }
-            else { invitation.status = assessment.status === "active" ? "sent" : "queued"; invitation.revokedAt = undefined; invitation.nextAttemptAt = new Date(); }
-            if (assessment.status !== "active") { results.push({ email, sent: false, queued: true }); continue; }
-            const candidateLink = `${link}?invite=${invitation._id}`;
-            try {
-                const info = await sendMail({ to: email, subject: `Invitation: ${assessment.title}`, text: `Hi ${entry.name || "there"},\n\nYou have been invited to complete ${assessment.title} for ${assessment.jobRole}.\n\nOpen assessment: ${candidateLink}\n\nDeadline: ${assessment.expiresAt ? assessment.expiresAt.toLocaleString() : "No fixed deadline"}.`, html: `<p>Hi ${escapeHtml(entry.name || "there")},</p><p>You have been invited to complete <strong>${escapeHtml(assessment.title)}</strong> for ${escapeHtml(assessment.jobRole)}.</p><p><a href="${escapeHtml(candidateLink)}">Start assessment</a></p><p>Deadline: ${assessment.expiresAt ? escapeHtml(assessment.expiresAt.toLocaleString()) : "No fixed deadline"}.</p>` });
-                invitation.status = "sent"; invitation.lastSentAt = new Date(); invitation.attempts += 1; invitation.providerMessageId = info?.messageId || ""; invitation.lastError = ""; results.push({ email, sent: true });
-            } catch (deliveryError) { invitation.status = "failed"; invitation.attempts += 1; invitation.nextAttemptAt = new Date(Date.now() + Math.min(60, 2 ** invitation.attempts) * 60_000); invitation.lastError = String(deliveryError?.message || deliveryError).slice(0, 500); results.push({ email, sent: false }); }
-        }
-        await assessment.save();
-        return res.json({ invitations: assessment.invitations, results });
     } catch (error) { return next(error); }
 };
 
@@ -422,62 +189,3 @@ export const duplicateAssessment = async (req, res, next) => {
     } catch (error) { return next(error); }
 };
 
-export const saveCandidateAnswer = async (req, res, next) => {
-    try {
-        const assessment = await findPublicAssessment(req.params.shareToken);
-        if (!assessment) { observeCandidateAction("answer", "unavailable", null); return res.status(404).json({ message: "Assessment unavailable" }); }
-        const attempt = await findAttempt(assessment._id, req.params.attemptId, req.get("x-attempt-token"));
-        if (!attempt || attempt.status !== "started") { observeCandidateAction("answer", "unauthorized", assessment); return res.status(401).json({ message: "Attempt unavailable" }); }
-        const { roundIndex, questionIndex, answer, spokenExplanation, followUpAnswer, diagramData } = req.body;
-        const item = attempt.rounds?.[roundIndex]?.questions?.[questionIndex];
-        if (!item) { observeCandidateAction("answer", "invalid_question", assessment); return res.status(400).json({ message: "Invalid question" }); }
-        if (answer !== undefined) item.answer = answer.toString().trim().slice(0, 20000);
-        if (spokenExplanation !== undefined) item.spokenExplanation = spokenExplanation.toString().trim().slice(0, 5000);
-        if (diagramData !== undefined) {
-            if (!isValidSystemDesignDiagram(diagramData)) return res.status(400).json({ message: "Invalid or overly complex system-design diagram" });
-            item.diagramData = diagramData.slice(0, 500000);
-            item.diagramSummary = summarizeSystemDesignDiagram(item.diagramData);
-        }
-        if (followUpAnswer !== undefined) item.followUpAnswer = followUpAnswer.toString().trim().slice(0, 5000);
-        if (assessment.followUpsEnabled && item.answer && !item.followUpQuestion) {
-            try {
-                const diagramContext = item.diagramSummary || summarizeSystemDesignDiagram(item.diagramData);
-                item.followUpQuestion = await generateFollowUp({ questionText: item.text, userAnswer: [item.answer, item.spokenExplanation && `Spoken explanation:\n${item.spokenExplanation}`, diagramContext].filter(Boolean).join("\n\n"), jobRole: assessment.jobRole, roundName: attempt.rounds[roundIndex].name, systemDesign: attempt.rounds[roundIndex].deliveryMode === "system-design" }) || "";
-            } catch { /* The original answer remains valid when the AI provider is unavailable. */ }
-        }
-        await attempt.save();
-        observeCandidateAction("answer", "success", assessment);
-        return res.json({ attempt: publicAttempt(attempt) });
-    } catch (error) { observeCandidateAction("answer", "failure", null); return next(error); }
-};
-
-export const submitCandidateAttempt = async (req, res, next) => {
-    try {
-        const assessment = await findPublicAssessment(req.params.shareToken);
-        if (!assessment) { observeCandidateAction("submit", "unavailable", null); return res.status(404).json({ message: "Assessment unavailable" }); }
-        const authorized = await findAttempt(assessment._id, req.params.attemptId, req.get("x-attempt-token"));
-        if (!authorized) { observeCandidateAction("submit", "unauthorized", assessment); return res.status(401).json({ message: "Attempt unavailable" }); }
-        if (authorized.status === "evaluating") return res.status(202).json({ submitted: true, status: "evaluating", message: "Your assessment is being evaluated." });
-        if (authorized.status === "submitted") return res.json({ submitted: true, status: "submitted", message: "Your assessment has already been submitted." });
-        if (authorized.status !== "started" && authorized.status !== "evaluation_failed") return res.status(409).json({ message: "Attempt cannot be submitted" });
-        const attempt = authorized;
-        const unanswered = attempt.rounds.flatMap((round) => round.questions).some((item) => !item.answer || (item.followUpQuestion && !item.followUpAnswer));
-        if (unanswered) { observeCandidateAction("submit", "incomplete", assessment); return res.status(400).json({ message: "Answer every question and follow-up before submitting" }); }
-        const evaluationStartedAt = new Date();
-        const claimed = await CandidateAttempt.findOneAndUpdate({ _id: attempt._id, status: { $in: ["started", "evaluation_failed"] } }, { $set: { status: "evaluating", evaluationError: "", evaluationStartedAt } }, { new: true });
-        if (!claimed) return res.status(202).json({ submitted: true, status: "evaluating", message: "Your assessment is already being evaluated." });
-        if (process.env.NODE_ENV === "test") {
-            await candidateAssessmentProcessor({ data: { attemptId: String(attempt._id) }, updateProgress: () => {} });
-            return res.json({ submitted: true, status: "submitted", message: "Your assessment has been submitted to the interviewer." });
-        }
-        const queue = await getQueue("candidate-assessment");
-        if (!queue) {
-            await CandidateAttempt.updateOne({ _id: attempt._id, status: "evaluating" }, { $set: { status: "evaluation_failed", evaluationError: "Evaluation service unavailable" } });
-            return res.status(503).json({ message: "Evaluation is temporarily unavailable. Please try again." });
-        }
-        const jobId = createJobId("candidate-assessment", { attemptId: String(attempt._id), evaluationStartedAt: claimed.evaluationStartedAt.toISOString() });
-        await queue.add("evaluate", { attemptId: String(attempt._id) }, { jobId, removeOnComplete: { age: 86400, count: 1000 }, removeOnFail: { age: 604800, count: 1000 } });
-        observeCandidateAction("submit", "accepted", assessment);
-        return res.status(202).json({ submitted: true, status: "evaluating", message: "Your assessment was submitted and is being evaluated." });
-    } catch (error) { observeCandidateAction("submit", "failure", null); return next(error); }
-};

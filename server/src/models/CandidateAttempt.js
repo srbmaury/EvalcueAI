@@ -39,8 +39,6 @@ const attemptQuestionSchema = new mongoose.Schema({
     diagramSummary: { type: String, maxlength: 10000, default: "" },
     discussionTurns: { type: [discussionTurnSchema], default: [], validate: (value) => value.length <= 80 },
     followUps: { type: [attemptFollowUpSchema], default: [], validate: (value) => value.length <= 3 },
-    followUpQuestion: { type: String, maxlength: 1000, default: "" },
-    followUpAnswer: { type: String, maxlength: 5000, default: "" },
     feedbackComment: { type: String, maxlength: 2500, default: "" },
     suggestions: [{ type: String, maxlength: 300 }],
     score: { type: Number, min: 0, max: 10 },

@@ -6,7 +6,7 @@ describe("resolveAuthRedirectPath", () => {
         expect(resolveAuthRedirectPath("/practice/dashboard")).toBe("/practice/login");
         expect(resolveAuthRedirectPath("/practice/interviews/123")).toBe("/practice/login");
         expect(resolveAuthRedirectPath("/hire/assessments")).toBe("/hire/login");
-        expect(resolveAuthRedirectPath("/assessments/123")).toBe("/hire/login");
+        expect(resolveAuthRedirectPath("/hire/assessments/123")).toBe("/hire/login");
     });
 
     it("keeps generic login for unscoped routes", () => {

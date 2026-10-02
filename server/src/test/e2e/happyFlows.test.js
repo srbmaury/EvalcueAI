@@ -8,7 +8,6 @@ import Resume from "../../models/Resume.js";
 import ResumeReview from "../../models/ResumeReview.js";
 import SavedExperience from "../../models/SavedExperience.js";
 import ProductFeedback from "../../models/ProductFeedback.js";
-import BillingEvent from "../../models/BillingEvent.js";
 import PracticeUsageCounter from "../../models/PracticeUsageCounter.js";
 import ReminderDelivery from "../../models/ReminderDelivery.js";
 import ProductEvent from "../../models/ProductEvent.js";
@@ -24,7 +23,6 @@ import { currentMonth, PRACTICE_PLAN_LIMITS } from "../../services/practiceEntit
 import { HIRING_PLAN_LIMITS } from "../../services/hiringEntitlements.js";
 import { finalizeCandidateInterview } from "../../services/organizationUsage.js";
 import { deliverDuePracticeReminders } from "../../services/practiceReminders.js";
-import Stripe from "stripe";
 import Question from "../../models/Question.js";
 import connectDB from "../../config/db.js";
 import { signAccessToken } from "../../utils/tokens.js";
@@ -244,20 +242,6 @@ describe("Launch-critical full product journey E2E", () => {
         expect(adminFeedback.body.items.some((item) => item._id === String(productFeedback._id))).toBe(true);
         const reviewedFeedback = await agent.patch(`/api/admin/feedback/${productFeedback._id}`).set(otherAuth).set("origin", origin).set("referer", `${origin}/`).send({ status: "reviewed" }).expect(200);
         expect(reviewedFeedback.body.status).toBe("reviewed");
-
-        // Stripe webhooks reject bad signatures and process each signed event only once.
-        const webhookSecret = "whsec_meaningful_test_secret";
-        const previousWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-        process.env.STRIPE_WEBHOOK_SECRET = webhookSecret;
-        const webhookPayload = JSON.stringify({ id: "evt_idempotency_test", object: "event", type: "customer.updated", data: { object: { id: "cus_test" } } });
-        await agent.post("/api/billing/webhook").set("content-type", "application/json").set("stripe-signature", "bad-signature").send(webhookPayload).expect(400);
-        const stripe = new Stripe("sk_test_dummy");
-        const signature = stripe.webhooks.generateTestHeaderString({ payload: webhookPayload, secret: webhookSecret });
-        await agent.post("/api/billing/webhook").set("content-type", "application/json").set("stripe-signature", signature).send(webhookPayload).expect(200);
-        const replay = await agent.post("/api/billing/webhook").set("content-type", "application/json").set("stripe-signature", signature).send(webhookPayload).expect(200);
-        expect(replay.body.duplicate).toBe(true);
-        expect(await BillingEvent.countDocuments({ eventId: "evt_idempotency_test" })).toBe(1);
-        process.env.STRIPE_WEBHOOK_SECRET = previousWebhookSecret;
 
         // Account responses use an allowlist and never expose credential material.
         await User.updateOne({ _id: me._id }, { $set: { resetPasswordToken: "sensitive-hash", resetPasswordExpires: new Date(Date.now() + 60000) } });

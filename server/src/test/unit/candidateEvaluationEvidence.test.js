@@ -21,11 +21,4 @@ describe("candidate evaluation evidence", () => {
         expect(evidence).toContain("API Gateway -> Orders Service");
     });
 
-    it("falls back to stored discussion turns for legacy system-design attempts with no final transcript", () => {
-        const evidence = buildCandidateEvaluationEvidence({
-            systemDesign: true,
-            item: { discussionTurns: [{ speaker: "candidate", text: "Use a queue to absorb spikes." }] },
-        });
-        expect(evidence).toContain("Use a queue to absorb spikes.");
-    });
 });

@@ -124,6 +124,7 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
 
         {debugging.responseMode === "code_fix" && <Alert severity="info">Candidates can run recruiter tests and see only the display name plus pass/fail status. Test files themselves remain private.</Alert>}
         {debugging.responseMode === "findings" && <Alert severity="info">Candidates receive the project read-only and add findings against specific project files. This mode has no test files or code execution.</Alert>}
+        {!validation && !validationError && <Alert severity="warning">Not validated yet. Validate this assignment before publishing; any edit to the instructions, settings, or files clears the previous validation.</Alert>}
         {validation?.valid && <Alert severity="success">{validation.message || "Assignment validated. The project can be published."}</Alert>}
         {(validationError || validation?.valid === false) && <Alert severity="error">{validationError || validation.message || "Assignment validation failed."}</Alert>}
     </Stack>;

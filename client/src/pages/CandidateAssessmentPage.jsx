@@ -28,9 +28,10 @@ import { candidateTranscriptionConfig } from "../utils/hiringVoicePolicy";
 import { describeError } from "../utils/errorFormatter";
 import { buildTranscriptionHint, replaceLastOccurrence } from "../utils/speechTranscription";
 
-const readSavedAttempt = (key) => { try { return JSON.parse(window.localStorage?.getItem(key) || "null"); } catch { return null; } };
-const writeSavedAttempt = (key, value) => { try { window.localStorage?.setItem(key, JSON.stringify(value)); } catch { /* local recovery is best effort */ } };
-const removeSavedAttempt = (key) => { try { window.localStorage?.removeItem(key); } catch { /* no-op */ } };
+// Attempts are tab-scoped so a shared device never resumes another person's attempt.
+const readSavedAttempt = (key) => { try { return JSON.parse(window.sessionStorage?.getItem(key) || "null"); } catch { return null; } };
+const writeSavedAttempt = (key, value) => { try { window.sessionStorage?.setItem(key, JSON.stringify(value)); } catch { /* local recovery is best effort */ } };
+const removeSavedAttempt = (key) => { try { window.sessionStorage?.removeItem(key); } catch { /* no-op */ } };
 
 const formatTime = (seconds) => {
     const safe = Math.max(0, Math.floor(seconds));

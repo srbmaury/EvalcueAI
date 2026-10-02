@@ -134,7 +134,7 @@ export const loginUser = async (req, res, next) => {
         res.json({ token, user: { _id: user._id, name: user.name, email: user.email } });
         try { await clearLoginFailures(email); } catch {}
         try { metrics.authLoginAttemptsTotal.labels("local", "success").inc(); } catch {}
-        try { await AuditLog.create({ user: user._id, action: "auth.login", ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
+        try { await AuditLog.create({ outcome: "success", user: user._id, action: "auth.login", ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
     } catch (error) {
         return next(error instanceof Error ? error : new Error(String(error)));
     }
@@ -148,7 +148,7 @@ export const logoutUser = async (req, res, next) => {
     clearRefreshCookie(res);
     res.status(200).json({ message: "Logged out successfully" });
     try { metrics.authLogoutTotal.inc(); } catch {}
-    try { AuditLog.create({ user: req.user?._id, action: "auth.logout", ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }).catch(() => {}); } catch {}
+    try { AuditLog.create({ outcome: "success", user: req.user?._id, action: "auth.logout", ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }).catch(() => {}); } catch {}
 };
 
 export const refreshAccessToken = async (req, res, next) => {
@@ -274,7 +274,7 @@ export const googleSignIn = async (req, res, next) => {
         const { raw, expiresAt } = await issueRefreshToken(user._id, { userAgent: req.get("user-agent"), ip: req.ip });
         setRefreshCookie(res, raw, expiresAt);
         try { metrics.authLoginAttemptsTotal.labels("google", "success").inc(); } catch {}
-        try { await AuditLog.create({ user: user._id, action: "auth.google_login", ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
+        try { await AuditLog.create({ outcome: "success", user: user._id, action: "auth.google_login", ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
         return res.json({ token, user: { _id: user._id, name: user.name, email: user.email } });
     } catch (err) {
         try { metrics.authLoginAttemptsTotal.labels("google", "failure").inc(); } catch {}
@@ -452,7 +452,7 @@ export const forgotPassword = async (req, res, next) => {
         `;
         try { await sendMail({ to: email, subject, html, text: undefined }); } catch (e) { console.warn("Reset email send failed:", e?.message || e); }
         try { metrics.authResetTotal.labels("forgot", "success").inc(); } catch {}
-        try { await AuditLog.create({ user: user?._id, action: "auth.forgot", ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
+        try { await AuditLog.create({ outcome: "success", user: user?._id, action: "auth.forgot", ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
         return res.json({ message: "If the email exists, a reset link has been sent" });
     } catch (err) {
         try { metrics.authResetTotal.labels("forgot", "failure").inc(); } catch {}
@@ -476,7 +476,7 @@ export const resetPassword = async (req, res, next) => {
         await bumpTokenVersion(user._id);
         await revokeAllRefreshTokens(user._id);
         try { metrics.authResetTotal.labels("reset", "success").inc(); } catch {}
-        try { await AuditLog.create({ user: user._id, action: "auth.reset", ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
+        try { await AuditLog.create({ outcome: "success", user: user._id, action: "auth.reset", ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
         return res.json({ message: "Password has been reset" });
     } catch (err) {
         try { metrics.authResetTotal.labels("reset", "failure").inc(); } catch {}

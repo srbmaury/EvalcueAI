@@ -19,7 +19,7 @@ router.get("/", protect, async (req, res, next) => {
         const actions = (goalCopy[req.user.practiceGoal] || goalCopy.confidence).map((title, index) => ({
             id: `${req.user.practiceGoal || "confidence"}-${index}`,
             title,
-            href: index === 1 && hasIncomplete ? `/interviews/${last._id}` : index === 2 ? "/progress" : "/create-interview",
+            href: index === 1 && hasIncomplete ? `/practice/interviews/${last._id}` : index === 2 ? "/practice/progress" : "/practice/new",
             reason: index === 1 && hasIncomplete ? "Continue your latest unfinished session while the context is fresh." : index === 2 ? `Your weekly plan prepares ${req.user.weeklyPracticeTarget || 3} tailored practice session${(req.user.weeklyPracticeTarget || 3) === 1 ? "" : "s"}.` : req.user.targetRole ? `Create focused practice for your ${req.user.targetRole} target.` : "Set a target role through a focused practice session.",
         }));
         res.json({ goal: req.user.practiceGoal || "confidence", targetRole: req.user.targetRole || "", weeklyTarget: req.user.weeklyPracticeTarget || 3, hasIncomplete, actions });

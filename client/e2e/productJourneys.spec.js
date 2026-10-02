@@ -67,7 +67,7 @@ test("login returns the user to the protected screen they requested", async ({ p
     await page.route("**/api/auth/profile", (route) => json(route, { _id: "user-1", name: "Test User", email: "test@example.com", role: "user", practicePlan: "free" }));
     await page.route("**/api/billing/practice/entitlements", (route) => json(route, { plan: "free", limits: { interviews: 3, resumeReviews: 3 }, used: { interviews: 0, resumeReviews: 0 }, planLimits: {}, prices: {}, billingAvailable: {} }));
 
-    await page.goto("/pricing");
+    await page.goto("/practice/pricing");
     await expect(page).toHaveURL(/\/practice\/login$/);
     await page.getByLabel("Email").fill("test@example.com");
     await page.locator("input#password").fill("StrongPass1!");

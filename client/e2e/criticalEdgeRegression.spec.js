@@ -72,7 +72,6 @@ const hiringEntitlements = (overrides = {}) => ({
     billingAvailable: { starter: true, growth: true },
     canManageBilling: true,
     hasBillingAccount: false,
-    requiresBillingPortal: false,
     ...overrides,
 });
 
@@ -320,12 +319,11 @@ test("Hiring billing shows configured quotas and sends the selected plan to chec
     await expect.poll(() => checkoutBodies).toEqual([{ plan: "starter", phone: "9876543210" }, { plan: "growth", phone: "9876543210" }]);
 });
 
-test("Hiring billing blocks a second checkout when the existing subscription requires the portal", async ({ page }) => {
+test("Hiring billing blocks a second checkout while a paid plan is active", async ({ page }) => {
     const entitlements = hiringEntitlements({
         plan: "starter",
-        subscriptionStatus: "past_due",
+        subscriptionStatus: "active",
         hasBillingAccount: true,
-        requiresBillingPortal: true,
         limits: { candidateInterviews: 25 },
     });
     await mockHiringSession(page, { entitlements });
@@ -334,10 +332,8 @@ test("Hiring billing blocks a second checkout when the existing subscription req
 
     await page.goto("/hire/team");
 
-    await expect(page.getByText(/already has a Hiring subscription that needs attention/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Current plan" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Resolve existing billing" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Manage billing" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Manage billing" })).toHaveAttribute("href", /\/hire\/billing\/manage\?organizationId=/);
     expect(checkoutCalls).toBe(0);
 });
 

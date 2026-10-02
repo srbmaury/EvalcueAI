@@ -1,15 +1,8 @@
 import dotenv from "dotenv";
 
 // Tests configure their own environment (src/test/setupEnv.js) and must not pick up a developer's .env:
-// it points at real Redis, AI providers, email and Stripe, and makes local runs differ from CI.
+// it points at real Redis, AI providers, email and PayU, and makes local runs differ from CI.
 if (process.env.NODE_ENV !== "test") dotenv.config();
-
-const CURRENT_STRIPE_PRICE_KEYS = [
-    "STRIPE_PRACTICE_PRO_PRICE_ID",
-    "STRIPE_HIRING_PILOT_PRICE_ID",
-    "STRIPE_HIRING_STARTER_PRICE_ID",
-    "STRIPE_HIRING_GROWTH_PRICE_ID",
-];
 
 export const normalizeEnvironment = (env = process.env) => {
     if (env.NODE_ENV === "production" && !env.COOKIE_SAMESITE) {
@@ -31,12 +24,6 @@ export const normalizeEnvironment = (env = process.env) => {
         const host = String(env.REDIS_HOST).trim();
         const port = String(env.REDIS_PORT || "6379").trim() || "6379";
         if (host) env.REDIS_URL = `redis://${host}:${port}`;
-    }
-
-    // Preserve the old price alias for legacy Stripe subscription handling.
-    // New checkout and billing readiness use the PayU configuration.
-    if (!env.STRIPE_PRO_PRICE_ID && CURRENT_STRIPE_PRICE_KEYS.every((key) => Boolean(env[key]))) {
-        env.STRIPE_PRO_PRICE_ID = env.STRIPE_PRACTICE_PRO_PRICE_ID;
     }
 
     return env;

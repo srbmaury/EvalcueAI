@@ -128,15 +128,11 @@ const userSchema = new mongoose.Schema(
         lastReminderKey: { type: String, default: "", select: false },
         practicePlan: { type: String, enum: ["free", "pro"], default: "free", index: true },
         practiceSubscriptionStatus: { type: String, enum: ["inactive", "incomplete", "incomplete_expired", "trialing", "active", "past_due", "canceled", "unpaid", "paused"], default: "inactive" },
-        practiceBillingProvider: { type: String, enum: ["none", "stripe", "payu"], default: "none", select: false },
+        practiceBillingProvider: { type: String, enum: ["none", "payu"], default: "none", select: false },
         practiceBillingCustomerId: { type: String, default: "", select: false },
         practiceBillingSubscriptionId: { type: String, default: "", select: false },
         practiceCancelAtPeriodEnd: { type: Boolean, default: false },
         practiceCurrentPeriodEnd: { type: Date, default: null },
-        // When a subscription sync last applied, by the Stripe event's own creation time
-        // (not our processing time) — guards against an out-of-order/retried webhook
-        // overwriting a newer subscription state with a stale one.
-        practiceBillingSyncedEventAt: { type: Date, default: null, select: false },
         // Trial eligibility is user-level anti-abuse state only. Hiring billing and usage remain organization-owned.
         hiringTrialClaimed: { type: Boolean, default: false, select: false },
         tokenVersion: {

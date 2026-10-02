@@ -129,15 +129,17 @@ const normalizeLoadedRound = (round) => ({
     questions: (round.questions || []).map((question) => ({ ...question, text: question.text || "", required: Boolean(question.required) })),
 });
 
-const debuggingRoundStructurallyReady = (round) => {
-    if (round?.deliveryMode !== "debugging") return true;
-    const instruction = round.questions?.[0]?.text?.trim();
+const debuggingRoundMissing = (round) => {
+    if (round?.deliveryMode !== "debugging") return [];
     const files = Array.isArray(round.debugging?.files) ? round.debugging.files : [];
-    const hasSource = files.some((file) => file?.kind === "source" && file?.path?.trim());
-    if (!instruction || !hasSource) return false;
-    if (round.debugging?.responseMode === "findings") return true;
-    return files.some((file) => ["visible_test", "hidden_test"].includes(file?.kind) && file?.path?.trim());
+    const missing = [];
+    if (!round.questions?.[0]?.text?.trim()) missing.push("assignment instructions");
+    if (!files.some((file) => file?.kind === "source" && file?.path?.trim())) missing.push("a source file");
+    if (round.debugging?.responseMode !== "findings" && !files.some((file) => ["visible_test", "hidden_test"].includes(file?.kind) && file?.path?.trim())) missing.push("a file marked Hidden test");
+    return missing;
 };
+
+const debuggingRoundStructurallyReady = (round) => debuggingRoundMissing(round).length === 0;
 
 export default function AssessmentBuilderPage() {
     const navigate = useNavigate();
@@ -299,8 +301,20 @@ export default function AssessmentBuilderPage() {
         return true;
     }, [activeStep, form]);
 
-    const debuggingReadyToPublish = useMemo(() => form.rounds.every((round, index) =>
-        round.deliveryMode !== "debugging" || debuggingValidations[index]?.valid === true), [debuggingValidations, form.rounds]);
+    const stepBlocker = useMemo(() => {
+        if (activeStep !== 2 || stepValid) return "";
+        const blocked = form.rounds.map((round, index) => {
+            const missing = round.deliveryMode === "debugging" ? debuggingRoundMissing(round) : round.questions.some((question) => question.text?.trim()) ? [] : ["at least one question"];
+            return missing.length ? `Round ${index + 1} needs ${missing.length > 1 ? `${missing.slice(0, -1).join(", ")} and ${missing.at(-1)}` : missing[0]}` : "";
+        }).filter(Boolean);
+        return blocked.length ? `${blocked.join(". ")}.` : "";
+    }, [activeStep, form.rounds, stepValid]);
+
+    const unvalidatedDebuggingRounds = useMemo(() => form.rounds
+        .map((round, index) => ({ round, index }))
+        .filter(({ round, index }) => round.deliveryMode === "debugging" && debuggingValidations[index]?.valid !== true), [debuggingValidations, form.rounds]);
+    const debuggingReadyToPublish = unvalidatedDebuggingRounds.length === 0;
+    const unvalidatedRoundLabel = unvalidatedDebuggingRounds.map(({ round, index }) => `Round ${index + 1}${round.name ? ` (${round.name})` : ""}`).join(", ");
 
     const generateQuestions = async (roundIndex) => {
         const round = form.rounds[roundIndex];
@@ -438,7 +452,7 @@ export default function AssessmentBuilderPage() {
     if (!permissions.canManageAssessments) return <Navigate to="/hire/assessments" replace />;
 
     return (
-        <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
+        <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
             <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={2} mb={3}>
                 <Box>
                     <Button component={RouterLink} to="/hire/assessments#assessment-list" startIcon={<KeyboardArrowLeftRounded />} color="inherit" sx={{ mb: 1 }}>Back to assessments</Button>
@@ -460,7 +474,7 @@ export default function AssessmentBuilderPage() {
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
             <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 8 }}>
+                <Grid size={{ xs: 12, md: 8, lg: 9 }}>
                     <Paper variant="outlined" sx={{ p: { xs: 2.25, sm: 3 }, borderRadius: 3 }}>
                         {activeStep === 0 && <Stack spacing={2.25}>
                             <Box><Typography variant="overline" color="primary.main" fontWeight={850}>Step 1 of 4</Typography><Typography variant="h5" fontWeight={850}>What are you hiring for?</Typography><Typography color="text.secondary" variant="body2" mt={.5}>A clear role definition gives the question generator and reviewers the right context.</Typography></Box>
@@ -530,7 +544,7 @@ export default function AssessmentBuilderPage() {
 
                         {activeStep === 3 && <Stack spacing={2.25}>
                             <Box><Typography variant="overline" color="primary.main" fontWeight={850}>Step 4 of 4</Typography><Typography variant="h5" fontWeight={850}>Review and launch</Typography><Typography color="text.secondary" variant="body2" mt={.5}>Candidate-facing details first. Security, scheduling, and invitations stay optional until you need them.</Typography></Box>
-                            {!debuggingReadyToPublish && <Alert severity="warning">Validate every debugging assignment before publishing or scheduling. Draft saving remains available.</Alert>}
+                            {!debuggingReadyToPublish && <Alert severity="warning" action={<Button color="inherit" size="small" onClick={() => setActiveStep(2)}>Validate now</Button>}>{unvalidatedRoundLabel} {unvalidatedDebuggingRounds.length === 1 ? "needs" : "need"} validation before you can publish or schedule. Validation resets whenever the assignment is edited. Draft saving remains available.</Alert>}
                             <TextField multiline minRows={3} label="Candidate instructions" helperText="What should candidates know before they begin?" value={form.candidateInstructions} onChange={(event) => setField("candidateInstructions", event.target.value)} />
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}><TextField fullWidth type="email" label="Support email" value={form.contactEmail} onChange={(event) => setField("contactEmail", event.target.value)} /><TextField fullWidth type="number" label="Estimated duration (minutes)" value={form.durationMinutes} onChange={(event) => setField("durationMinutes", Number(event.target.value) || 30)} inputProps={{ min: 5, max: 240 }} /></Stack>
                             <FormControlLabel control={<Checkbox checked={form.followUpsEnabled} onChange={(event) => setField("followUpsEnabled", event.target.checked)} />} label="Allow contextual AI follow-up questions" />
@@ -548,6 +562,8 @@ export default function AssessmentBuilderPage() {
                         </Stack>}
 
                         <Divider sx={{ my: 3 }} />
+                        {stepBlocker && <Typography variant="body2" color="warning.main" textAlign={{ sm: "right" }} mb={1.5}>{stepBlocker}</Typography>}
+                        {activeStep === steps.length - 1 && !debuggingReadyToPublish && <Typography variant="body2" color="warning.main" textAlign={{ sm: "right" }} mb={1.5}>Publishing is locked until {unvalidatedRoundLabel} {unvalidatedDebuggingRounds.length === 1 ? "is" : "are"} validated. <Button size="small" sx={{ verticalAlign: "baseline", p: 0, minWidth: 0 }} onClick={() => setActiveStep(2)}>Go to validation</Button></Typography>}
                         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} gap={1}>
                             <Stack direction="row" gap={1}>
                                 <Button disabled={activeStep === 0 || saving} startIcon={<KeyboardArrowLeftRounded />} onClick={() => { setError(""); setActiveStep((step) => Math.max(0, step - 1)); }}>Back</Button>
@@ -558,13 +574,13 @@ export default function AssessmentBuilderPage() {
                     </Paper>
                 </Grid>
 
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid size={{ xs: 12, md: 4, lg: 3 }}>
                     <Paper variant="outlined" sx={{ p: 2.25, borderRadius: 3, position: { md: "sticky" }, top: { md: 96 } }}>
                         <Typography variant="overline" color="primary.main" fontWeight={850}>Assessment summary</Typography>
                         <Typography variant="h6" fontWeight={850} mt={.5}>{form.title || "Untitled assessment"}</Typography>
                         <Typography variant="body2" color="text.secondary">{form.jobRole || "Add a role to get started"}</Typography>
                         <Divider sx={{ my: 2 }} />
-                        <Stack spacing={1.5}>{form.rounds.map((round, index) => <Box key={index}><Typography fontWeight={750}>{index + 1}. {round.name}</Typography><Typography variant="caption" color="text.secondary">{experienceNames[round.deliveryMode]} · {round.questions.filter((question) => question.text?.trim()).length} reviewed question{round.questions.filter((question) => question.text?.trim()).length === 1 ? "" : "s"}</Typography></Box>)}</Stack>
+                        <Stack spacing={1.5}>{form.rounds.map((round, index) => <Box key={index}><Typography fontWeight={750}>{index + 1}. {round.name}</Typography><Typography variant="caption" color="text.secondary">{experienceNames[round.deliveryMode]} · {round.questions.filter((question) => question.text?.trim()).length} reviewed question{round.questions.filter((question) => question.text?.trim()).length === 1 ? "" : "s"}</Typography>{round.deliveryMode === "debugging" && <Box mt={.5}><Chip size="small" variant="outlined" color={debuggingValidations[index]?.valid ? "success" : "warning"} label={debuggingValidations[index]?.valid ? "Validated" : "Needs validation"} /></Box>}</Box>)}</Stack>
                         <Divider sx={{ my: 2 }} />
                         <Stack direction="row" gap={1} flexWrap="wrap"><Chip size="small" label={`${form.durationMinutes || 30} min`} /><Chip size="small" label={form.inviteOnly ? "Invite only" : "Shareable link"} /><Chip size="small" label={form.followUpsEnabled ? "AI follow-ups on" : "AI follow-ups off"} /></Stack>
                     </Paper>

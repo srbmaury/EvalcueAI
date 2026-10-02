@@ -4,7 +4,7 @@ import path from "node:path";
 
 const source = [
     fs.readFileSync(path.resolve("src/pages/AssessmentReportPage.jsx"), "utf8"),
-    fs.readFileSync(path.resolve("src/pages/AssessmentReportPageLegacy.jsx"), "utf8"),
+    fs.readFileSync(path.resolve("src/pages/AssessmentReportContent.jsx"), "utf8"),
 ].join("\n");
 
 describe("hiring assessment report wiring", () => {

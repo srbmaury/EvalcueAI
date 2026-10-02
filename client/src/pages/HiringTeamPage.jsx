@@ -165,7 +165,6 @@ export default function HiringTeamPage() {
     };
 
     const planLabel = (plan) => ({ none: "No plan", trial: "Trial", starter: "Starter", growth: "Growth", enterprise: "Enterprise" }[plan] || plan);
-    const needsBillingPortal = Boolean(billing?.requiresBillingPortal);
 
     const createAnotherOrganization = async (event) => {
         event.preventDefault();
@@ -313,22 +312,21 @@ export default function HiringTeamPage() {
                     <Typography variant="h5" fontWeight={800}>Plan & billing</Typography>
                     <Typography color="text.secondary" mt={.5}>Hiring billing belongs to {activeOrganization?.name}. Every member uses the same organization capacity; personal Practice plans do not affect it.</Typography>
                     {billingLoading ? <Typography color="text.secondary" mt={2}>Loading Hiring usage…</Typography> : billing && <Stack spacing={2.5} mt={2.5}>
-                        {needsBillingPortal && <Alert severity="warning" action={billing.canManageBilling ? <Button color="inherit" size="small" disabled={billingActionLoading} onClick={() => billingRedirect("/billing/hiring/portal-session")}>Manage billing</Button> : null}>This organization already has a Hiring subscription that needs attention. Resolve it in billing before starting another checkout.</Alert>}
                         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={2} alignItems={{ md: "center" }}>
                             <Box>
                                 <Stack direction="row" spacing={1} alignItems="center"><Typography variant="h6" fontWeight={800}>{planLabel(billing.plan)} Hiring</Typography><Chip size="small" label={billing.periodType === "lifetime" ? "Lifetime trial credits" : "Monthly capacity"} /></Stack>
                                 <Typography variant="body2" color="text.secondary" mt={.5}>{billing.used.candidateInterviews} of {billing.limits.candidateInterviews} candidate interviews used{billing.reserved?.candidateInterviews ? ` · ${billing.reserved.candidateInterviews} in progress` : ""}{billing.periodType === "month" ? ` in ${billing.period}` : ""}.</Typography>
                             </Box>
-                            {billing.canManageBilling && billing.hasBillingAccount && (["starter", "growth", "enterprise"].includes(billing.plan) || needsBillingPortal) && <Button variant="outlined" disabled={billingActionLoading} onClick={() => billingRedirect("/billing/hiring/portal-session")}>Manage billing</Button>}
+                            {billing.canManageBilling && billing.hasBillingAccount && ["starter", "growth", "enterprise"].includes(billing.plan) && <Button variant="outlined" component={RouterLink} to={`/hire/billing/manage?organizationId=${billing.organization._id}`}>Manage billing</Button>}
                         </Stack>
                         <LinearProgress variant="determinate" value={billing.limits.candidateInterviews > 0 ? Math.min(100, (billing.used.candidateInterviews / billing.limits.candidateInterviews) * 100) : 100} sx={{ height: 8, borderRadius: 99 }} />
-                        {!billing.billingAvailable?.starter && !billing.billingAvailable?.growth && !needsBillingPortal && <Alert severity="info">Online subscription payments are not available yet. Contact support to arrange a Hiring plan. Your current access is unchanged.</Alert>}
+                        {!billing.billingAvailable?.starter && !billing.billingAvailable?.growth && <Alert severity="info">Online subscription payments are not available yet. Contact support to arrange a Hiring plan. Your current access is unchanged.</Alert>}
                         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                             {["starter", "growth"].map((plan) => {
                                 const limit = billing.planLimits?.[plan]?.candidateInterviews;
                                 const current = billing.plan === plan;
-                                const checkoutAvailable = billing.billingAvailable?.[plan] && !needsBillingPortal;
-                                return <Paper key={plan} variant="outlined" sx={{ p: 2, flex: 1, borderColor: current ? "primary.main" : "divider" }}><Typography fontWeight={800}>{planLabel(plan)}</Typography><Typography variant="h6" mt={.5}>{limit} candidate interviews / month</Typography>{formatPrice(plan) && <Typography color="text.secondary">{formatPrice(plan)}</Typography>}<Button sx={{ mt: 1.5 }} fullWidth variant={plan === "growth" ? "contained" : "outlined"} disabled={!billing.canManageBilling || current || billingActionLoading || !checkoutAvailable} onClick={() => billingRedirect("/billing/hiring/checkout-session", { plan })}>{current ? "Current plan" : needsBillingPortal ? "Resolve existing billing" : billing.billingAvailable?.[plan] ? `Choose ${planLabel(plan)}` : "Payments unavailable"}</Button></Paper>;
+                                const checkoutAvailable = billing.billingAvailable?.[plan];
+                                return <Paper key={plan} variant="outlined" sx={{ p: 2, flex: 1, borderColor: current ? "primary.main" : "divider" }}><Typography fontWeight={800}>{planLabel(plan)}</Typography><Typography variant="h6" mt={.5}>{limit} candidate interviews / month</Typography>{formatPrice(plan) && <Typography color="text.secondary">{formatPrice(plan)}</Typography>}<Button sx={{ mt: 1.5 }} fullWidth variant={plan === "growth" ? "contained" : "outlined"} disabled={!billing.canManageBilling || current || billingActionLoading || !checkoutAvailable} onClick={() => billingRedirect("/billing/hiring/checkout-session", { plan })}>{current ? "Current plan" : billing.billingAvailable?.[plan] ? `Choose ${planLabel(plan)}` : "Payments unavailable"}</Button></Paper>;
                             })}
                             <Paper variant="outlined" sx={{ p: 2, flex: 1 }}><Typography fontWeight={800}>Enterprise</Typography><Typography variant="h6" mt={.5}>Custom capacity</Typography><Typography color="text.secondary">Custom capacity, OIDC work SSO, API access, and retention controls for enterprise hiring teams.</Typography><Button sx={{ mt: 1.5 }} fullWidth variant="outlined" href={`mailto:${publicSalesEmail}?subject=EvalcueAI%20Hire%20Enterprise`}>Contact sales</Button></Paper>
                         </Stack>

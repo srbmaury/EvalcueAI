@@ -52,7 +52,7 @@ export default function HiringPilotPage() {
     const pilot = billing?.pilotOffer || { candidateInterviews: 15, validDays: 30 };
     const paidSubscription = ["starter", "growth", "enterprise"].includes(billing?.plan);
     const activePilot = billing?.plan === "paid_pilot";
-    const canCheckout = Boolean(billing?.canManageBilling && billing?.billingAvailable?.pilot && price && !billing?.requiresBillingPortal && !paidSubscription && !activePilot);
+    const canCheckout = Boolean(billing?.canManageBilling && billing?.billingAvailable?.pilot && price && !paidSubscription && !activePilot);
 
     return (
         <Container maxWidth="sm" sx={{ py: { xs: 4, md: 7 } }}>
@@ -88,7 +88,7 @@ export default function HiringPilotPage() {
                             disabled={!canCheckout || checkoutLoading}
                             onClick={startCheckout}
                         >
-                            {checkoutLoading ? "Opening secure checkout…" : activePilot ? "Pilot already active" : paidSubscription ? `${labelForPlan(billing.plan)} already active` : billing?.requiresBillingPortal ? "Resolve existing billing first" : billing?.billingAvailable?.pilot && priceLabel ? `Start pilot for ${priceLabel}` : "Pilot checkout not configured"}
+                            {checkoutLoading ? "Opening secure checkout…" : activePilot ? "Pilot already active" : paidSubscription ? `${labelForPlan(billing.plan)} already active` : billing?.billingAvailable?.pilot && priceLabel ? `Start pilot for ${priceLabel}` : "Pilot checkout not configured"}
                         </Button>
                         {!billing?.canManageBilling && <Alert severity="info" sx={{ mt: 2 }}>Only an organization Owner or Admin can purchase the Launch Pilot.</Alert>}
                     </CardContent>

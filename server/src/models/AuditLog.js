@@ -12,7 +12,7 @@ const AuditLogSchema = new mongoose.Schema(
         method: { type: String },
         path: { type: String },
         statusCode: { type: Number },
-        outcome: { type: String, enum: ["success", "failure"] },
+        outcome: { type: String, enum: ["success", "failure"], required: true },
         durationMs: { type: Number },
         metadata: { type: Object },
     },

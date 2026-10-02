@@ -34,17 +34,6 @@ export const issueRefreshToken = async (userId, metadata = {}) => {
     return { raw: next.raw, expiresAt: next.expiresAt };
 };
 
-export const validateRefreshToken = async (raw) => {
-    const tokenHash = hashOpaqueToken(raw);
-    const record = await RefreshToken.findOne({ tokenHash }).lean();
-    if (!record) return null;
-    if (record.expiresAt < new Date()) {
-        await RefreshToken.deleteOne({ _id: record._id });
-        return null;
-    }
-    return record.user;
-};
-
 export const rotateRefreshToken = async (raw, metadata = {}) => {
     if (!raw) return null;
     const now = new Date();

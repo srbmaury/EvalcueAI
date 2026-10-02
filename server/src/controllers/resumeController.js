@@ -8,7 +8,7 @@ import { assertPdfMagic } from "../utils/magicBytes.js";
 import metrics from "../metrics/index.js";
 import { generateJSON } from "../utils/generateQuestions/aiClient.js";
 import { rankResumesForJob } from "../services/resumeMatcher.js";
-import { publicResume, resumeStorageUrl, verifyResumeFileToken } from "../services/resumeAccess.js";
+import { publicResume, resumeStorageUrl } from "../services/resumeAccess.js";
 import { optionalAntivirusScan } from "../utils/avScan.js";
 
 // Align with multer filter (PDF only) and use single source of truth for max bytes
@@ -175,16 +175,6 @@ export const deleteResume = async (req, res, next) => {
 };
 
 // View resume
-export const viewResume = async (req, res, next) => {
-    try {
-        const resume = await Resume.findOne({ _id: req.params.id, user: req.user._id });
-        if (!resume) return res.status(404).json({ message: "Resume not found" });
-        res.json(publicResume(req, resume));
-    } catch (error) {
-        console.error("View resume error:", error);
-        return next(error instanceof Error ? error : new Error(String(error)));
-    }
-};
 
 // Stream PDF inline for authenticated preview
 export const previewResume = async (req, res, next) => {
@@ -197,20 +187,6 @@ export const previewResume = async (req, res, next) => {
         return streamResume(res, resume, "inline");
     } catch (error) {
         console.error("Preview resume error:", error);
-        return next(error instanceof Error ? error : new Error(String(error)));
-    }
-};
-
-// Short-lived signed link used by browser downloads that cannot attach the
-// in-memory Bearer token. The file is still proxied; Cloudinary URLs stay private.
-export const downloadResumeFile = async (req, res, next) => {
-    try {
-        const resume = await Resume.findById(req.params.id);
-        if (!resume || !verifyResumeFileToken(resume, req.query.expires, req.query.signature)) {
-            return res.status(404).json({ message: "Resume link unavailable" });
-        }
-        return streamResume(res, resume, "attachment");
-    } catch (error) {
         return next(error instanceof Error ? error : new Error(String(error)));
     }
 };

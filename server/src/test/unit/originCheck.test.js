@@ -12,18 +12,15 @@ const request = (overrides = {}) => ({
 describe("originCheck middleware", () => {
     const previousEnv = process.env.NODE_ENV;
     const previousAllowed = process.env.ALLOWED_ORIGINS;
-    const previousClient = process.env.CLIENT_ORIGIN;
 
     afterEach(() => {
         process.env.NODE_ENV = previousEnv;
         process.env.ALLOWED_ORIGINS = previousAllowed;
-        process.env.CLIENT_ORIGIN = previousClient;
         delete process.env.ORIGIN_CHECK_ENFORCE;
     });
 
     const useAllowedOrigin = (origin) => {
         process.env.ALLOWED_ORIGINS = origin;
-        process.env.CLIENT_ORIGIN = origin;
     };
 
     it("does not enforce outside production unless explicitly requested", () => {
