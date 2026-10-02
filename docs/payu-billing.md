@@ -1,10 +1,10 @@
-# PayU billing setup and migration
+# PayU billing setup
 
-New checkouts use PayU India. Monthly plans use hosted recurring consent followed by a Zion subscription. Hiring Pilot is a single payment. Existing Stripe subscriptions keep their legacy portal and webhook until the customer explicitly migrates; Stripe mandates cannot be transferred silently.
+Checkouts use PayU India. Monthly plans use hosted recurring consent followed by a Zion subscription. Hiring Pilot is a single payment.
 
 ## Configuration
 
-Populate the PayU fields in `server/.env.example` through your secret manager. Amounts are integer paise (₹1 = 100 paise), and monthly plan IDs must match the approved Zion catalog. Do not turn on production checkout until the prices have been approved, PayU has enabled Zion, and its bearer token is available and monitored for expiry. The callback origin is the public HTTPS API origin, without a path. The shared service catalog supplies the original approved Stripe amounts: Practice Pro ₹699/month, Hire Pilot ₹2,999 once, Starter ₹9,999/month, and Growth ₹29,999/month. Explicit amount environment variables override these defaults. The public `/plans` page and unauthenticated `/api/billing/catalog` endpoint expose pricing without requiring an account; checkout uses the same server catalog.
+Populate the PayU fields in `server/.env.example` through your secret manager. Amounts are integer paise (₹1 = 100 paise), and monthly plan IDs must match the approved Zion catalog. Do not turn on production checkout until the prices have been approved, PayU has enabled Zion, and its bearer token is available and monitored for expiry. The callback origin is the public HTTPS API origin, without a path. The shared service catalog supplies the default amounts: Practice Pro ₹699/month, Hire Pilot ₹2,999 once, Starter ₹9,999/month, and Growth ₹29,999/month. Explicit amount environment variables override these defaults. The public `/plans` page and unauthenticated `/api/billing/catalog` endpoint expose pricing without requiring an account; checkout uses the same server catalog.
 
 Configure payment callbacks/webhooks at `/api/billing/payu/return` and `/api/billing/payu/webhook`. Configure Zion events at `/api/billing/payu/zion-webhook`. Payment callbacks require the PayU reverse hash and matching order details; activation also requires server-side payment verification. Zion notifications are only hints: the server fetches the authoritative subscription state. A 15-minute reconciliation job recovers missed notifications. Monthly mandates run for up to five years, with 59 renewal invoices after the first consent payment.
 

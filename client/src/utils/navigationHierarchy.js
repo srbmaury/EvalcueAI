@@ -1,7 +1,5 @@
 const ROOT_PATHS = new Set([
     "/",
-    "/interview-practice",
-    "/technical-hiring",
     "/login",
     "/register",
     "/verify-email",

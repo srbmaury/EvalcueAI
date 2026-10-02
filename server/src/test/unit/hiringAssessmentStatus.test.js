@@ -6,7 +6,7 @@ import {
 } from "../../utils/hiringAssessmentUpdatePolicy.js";
 
 describe("hiring assessment update policy", () => {
-    it("recognizes a legacy draft payload with content as a content update", () => {
+    it("recognizes a draft payload with content as a content update", () => {
         expect(hasEditableAssessmentContent({ status: "draft", title: "New title" })).toBe(true);
         expect(hasEditableAssessmentContent({ status: "draft" })).toBe(false);
     });

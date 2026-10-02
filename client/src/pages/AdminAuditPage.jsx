@@ -78,15 +78,14 @@ export default function AdminAuditPage() {
         {error && <Alert severity="error" action={<Button color="inherit" onClick={load}>Retry</Button>}>{error}</Alert>}
         {loading ? <Stack spacing={1.5}>{[1, 2, 3, 4].map((item) => <Skeleton key={item} variant="rounded" height={110} />)}</Stack> : !items.length ? <Alert severity="info">No audit events match these filters.</Alert> : <Stack spacing={1.5}>
             {items.map((item) => {
-                const legacy = !item.outcome;
-                const succeeded = legacy || item.outcome === "success";
+                const succeeded = item.outcome === "success";
                 const detailsOpen = expanded === item._id;
                 return <Card key={item._id} variant="outlined"><CardContent>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1.5}>
                         <Box minWidth={0}>
                             <Stack direction="row" useFlexGap flexWrap="wrap" alignItems="center" gap={1}>
                                 <Typography component="h3" fontWeight={800}>{actionLabels[item.action] || item.action?.replaceAll(".", " ")}</Typography>
-                                <Chip size="small" label={legacy ? "Legacy" : succeeded ? "Succeeded" : "Failed"} color={legacy ? "default" : succeeded ? "success" : "error"} variant="outlined" />
+                                <Chip size="small" label={succeeded ? "Succeeded" : "Failed"} color={succeeded ? "success" : "error"} variant="outlined" />
                                 {item.statusCode && <Chip size="small" label={`HTTP ${item.statusCode}`} variant="outlined" />}
                             </Stack>
                             <Typography variant="body2" color="text.secondary" mt={.5} sx={{ overflowWrap: "anywhere" }}>

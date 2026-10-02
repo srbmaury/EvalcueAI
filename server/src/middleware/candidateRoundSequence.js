@@ -1,14 +1,10 @@
 import crypto from "crypto";
 import Assessment from "../models/Assessment.js";
 import CandidateAttempt from "../models/CandidateAttempt.js";
+import { hasPendingFollowUp } from "../services/followUps.js";
 
 const tokenHash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 
-const hasPendingFollowUp = (question) => {
-    const history = Array.isArray(question?.followUps) ? question.followUps : [];
-    if (history.some((followUp) => followUp?.question && !followUp?.answer)) return true;
-    return Boolean(question?.followUpQuestion && !question?.followUpAnswer);
-};
 
 export const candidateRoundComplete = (round) => {
     if (!round) return false;

@@ -15,10 +15,6 @@ export const publicResume = (req, resume) => {
     return raw;
 };
 
-// Kept as a fail-closed compatibility export for older controller code. Signed
-// query-string resume links are no longer generated or routed.
-export const verifyResumeFileToken = () => false;
-
 export const resumeStorageUrl = (resume) => {
     if (resume?.deliveryType === "authenticated" && resume?.publicId) {
         return cloudinary.url(resume.publicId, {

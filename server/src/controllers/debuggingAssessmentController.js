@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import Assessment from "../models/Assessment.js";
 import CandidateAttempt from "../models/CandidateAttempt.js";
-import Organization from "../models/Organization.js";
 import { generateQuestionsForRound } from "../utils/generateQuestions.js";
 import {
     applyDebuggingOverlay,
@@ -64,48 +63,10 @@ export const safeDebuggingConfig = (round) => {
     };
 };
 
-const safePublicAssessment = (assessment, organizationName = "") => ({
-    title: assessment.title,
-    organizationName,
-    jobRole: assessment.jobRole,
-    candidateInstructions: assessment.candidateInstructions,
-    contactEmail: assessment.contactEmail,
-    durationMinutes: assessment.durationMinutes,
-    followUpsEnabled: assessment.followUpsEnabled,
-    inviteOnly: assessment.inviteOnly,
-    expiresAt: assessment.expiresAt,
-    timezone: assessment.timezone || "UTC",
-    integrity: assessment.integrity || { enabled: false },
-    capabilities: {
-        codeExecution: process.env.ENABLE_CODE_EXEC === "true",
-        transcription: process.env.ENABLE_STT === "true",
-        debuggingAssessments: debuggingAssessmentsEnabled(),
-    },
-    rounds: assessment.rounds.map((round) => ({
-        name: round.name,
-        description: round.description,
-        deliveryMode: round.deliveryMode || "conversational",
-        questionCount: round.questions.length,
-        ...(round.deliveryMode === "debugging" ? { debugging: safeDebuggingConfig(round) } : {}),
-    })),
-});
-
 const findPublicAssessment = (shareToken) => Assessment.findOne({ shareToken, status: "active", $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] });
 const findAttempt = async (assessmentId, attemptId, rawToken) => {
     if (!rawToken) return null;
     return CandidateAttempt.findOne({ _id: attemptId, assessment: assessmentId, accessTokenHash: tokenHash(rawToken) }).select("+accessTokenHash");
-};
-
-export const getPublicAssessmentWithDebugging = async (req, res, next) => {
-    try {
-        const assessment = await findPublicAssessment(req.params.shareToken);
-        if (!assessment) return res.status(404).json({ message: "Assessment unavailable" });
-        const invitation = req.query.invite ? assessment.invitations?.id(req.query.invite) : null;
-        if (assessment.inviteOnly && (!invitation || invitation.status === "revoked")) return res.status(403).json({ message: "This assessment is invitation-only. Open the invitation link sent to your email." });
-        if (invitation && ["invited", "sent", "delivered"].includes(invitation.status)) { invitation.status = "opened"; invitation.openedAt = new Date(); await assessment.save(); }
-        const organization = await Organization.findById(assessment.organization).select("name").lean();
-        return res.json(safePublicAssessment(assessment, organization?.name || ""));
-    } catch (error) { return next(error); }
 };
 
 const normalizeQuestion = (item) => ({ text: item.text.trim(), weight: Number(item.weight) || 1, competencies: Array.isArray(item.competencies) ? item.competencies : [], knockout: Boolean(item.knockout), required: Boolean(item.required) });

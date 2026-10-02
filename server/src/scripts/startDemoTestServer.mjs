@@ -2,9 +2,9 @@
 import { readFile } from 'node:fs/promises';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
-Object.assign(process.env,{NODE_ENV:'test',JWT_SECRET:'isolated-demo-qa-secret-not-for-production',CLIENT_ORIGIN:'http://127.0.0.1:5175',ALLOWED_ORIGINS:'http://127.0.0.1:5175',SERVER_ORIGIN:'http://127.0.0.1:5501',API_RATE_LIMIT_MAX:'10000',AUTH_RATE_LIMIT_MAX:'1000',COOKIE_SECURE:'false',COOKIE_SAMESITE:'lax',LOG_LEVEL:'silent'});
+Object.assign(process.env,{NODE_ENV:'test',JWT_SECRET:'isolated-demo-qa-secret-not-for-production',PRACTICE_CLIENT_ORIGIN:'http://127.0.0.1:5175',HIRING_CLIENT_ORIGIN:'http://127.0.0.1:5175',ALLOWED_ORIGINS:'http://127.0.0.1:5175',SERVER_ORIGIN:'http://127.0.0.1:5501',API_RATE_LIMIT_MAX:'10000',AUTH_RATE_LIMIT_MAX:'1000',COOKIE_SECURE:'false',COOKIE_SAMESITE:'lax',LOG_LEVEL:'silent'});
 // Keep test runs from calling externally configured mail, AI, billing, storage or telemetry services.
-for (const key of Object.keys(process.env)) if (/^(OPENAI_|GEMINI_|BREVO_|STRIPE_|PAYU_|REDIS_|CLOUDINARY_|SENTRY_|OTEL_|TAVILY_)/.test(key)) delete process.env[key];
+for (const key of Object.keys(process.env)) if (/^(OPENAI_|GEMINI_|BREVO_|PAYU_|REDIS_|CLOUDINARY_|SENTRY_|OTEL_|TAVILY_)/.test(key)) delete process.env[key];
 const {default:app}=await import('../app.js');
 const {default:User}=await import('../models/User.js');
 const {default:Organization}=await import('../models/Organization.js');

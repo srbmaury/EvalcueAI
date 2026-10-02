@@ -224,7 +224,6 @@ router.post(
                 grantedBy: req.user._id,
                 source: "admin",
                 note: req.body.note,
-                stripeCheckoutSessionId: "",
             };
             await organization.save();
             return res.status(201).json({
@@ -257,7 +256,6 @@ router.delete(
                 grantedBy: null,
                 source: "none",
                 note: "",
-                stripeCheckoutSessionId: "",
             };
             await organization.save();
             return res.json({ message: "Hiring grant revoked" });

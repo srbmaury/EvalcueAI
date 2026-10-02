@@ -8,31 +8,6 @@ const METRIC = "candidateInterviews";
 const DEFAULT_RESERVATION_TTL_MS = Math.max(Number(process.env.CANDIDATE_RESERVATION_TTL_MS || 6 * 60 * 60 * 1000), 60 * 60 * 1000);
 const reservationIdFrom = (reservation) => reservation?.reservationId || reservation?._id || reservation || null;
 
-export const organizationHiringUsage = async (organizationOrId) => {
-    const organization = typeof organizationOrId === "object" && organizationOrId?._id
-        ? organizationOrId
-        : await Organization.findById(organizationOrId);
-    if (!organization) return null;
-    const limits = hiringLimitsFor(organization);
-    const period = hiringUsagePeriod(organization);
-    const counter = await OrganizationUsageCounter.findOne({
-        organization: organization._id,
-        metric: METRIC,
-        period: period.key,
-    }).lean();
-    const used = counter?.used || 0;
-    const reserved = counter?.reserved || 0;
-    return {
-        organization,
-        plan: limits.plan,
-        limit: limits.candidateInterviews,
-        used,
-        reserved,
-        remaining: Math.max(limits.candidateInterviews - used - reserved, 0),
-        period,
-    };
-};
-
 export const reserveCandidateInterview = async (organizationId, attemptId, { ttlMs = DEFAULT_RESERVATION_TTL_MS } = {}) => {
     if (!attemptId) throw new Error("Candidate attempt id is required for usage reservation");
     const existingReservation = await CandidateUsageReservation.findOne({ attempt: attemptId }).lean();

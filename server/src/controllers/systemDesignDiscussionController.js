@@ -5,6 +5,7 @@ import Interview from "../models/Interview.js";
 import Round from "../models/Round.js";
 import { generateSystemDesignInterjection } from "../services/systemDesignInterviewer.js";
 import { isValidSystemDesignDiagram, summarizeSystemDesignDiagram } from "../utils/systemDesignDiagram.js";
+import { currentFollowUpFields, followUpList, pendingFollowUpFor } from "../services/followUps.js";
 
 const tokenHash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const isSystemDesignRound = (round) => round?.deliveryMode === "system-design"
@@ -78,9 +79,8 @@ const publicAttempt = (attempt) => ({
         maxQuestions: Number(round.adaptiveState?.maxQuestions) || round.questions.length,
         questionsAsked: Number(round.adaptiveState?.questionsAsked) || round.questions.filter((question) => question.answer).length,
         questions: round.questions.map((question) => {
-            const history = Array.isArray(question.followUps) ? question.followUps : [];
-            const pending = [...history].reverse().find((followUp) => followUp?.question && !followUp?.answer);
-            const current = pending || history.at(-1);
+            const history = followUpList(question);
+            const pending = pendingFollowUpFor(question);
             return {
                 _id: question._id,
                 text: question.text,
@@ -90,8 +90,7 @@ const publicAttempt = (attempt) => ({
                 diagramSummary: question.diagramSummary,
                 discussionTurns: (question.discussionTurns || []).map((turn) => ({ speaker: turn.speaker, text: turn.text, kind: turn.kind || "", at: turn.at })),
                 followUps: history.map((followUp) => ({ question: followUp.question, answer: followUp.answer || "" })),
-                followUpQuestion: current?.question || question.followUpQuestion || "",
-                followUpAnswer: pending ? "" : current?.answer || question.followUpAnswer || "",
+                ...currentFollowUpFields(question),
                 followUpNumber: pending ? history.length : 0,
                 remainingFollowUps: Math.max(0, 3 - history.length),
             };
@@ -205,8 +204,6 @@ export const checkpointCandidateSystemDesign = async (req, res, next) => {
             item.diagramSummary = diagram.summary;
         }
         item.followUps = [];
-        item.followUpQuestion = "";
-        item.followUpAnswer = "";
 
         const decision = await generateSystemDesignInterjection({
             problem: item.text,
@@ -242,8 +239,6 @@ export const saveCandidateSystemDesign = async (req, res, next) => {
         item.diagramData = diagram.data;
         item.diagramSummary = diagram.summary;
         item.followUps = [];
-        item.followUpQuestion = "";
-        item.followUpAnswer = "";
         await attempt.save();
         return res.json({ attempt: publicAttempt(attempt) });
     } catch (error) {

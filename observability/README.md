@@ -29,7 +29,6 @@ The server exports Prometheus metrics at `/metrics` and pushes OTLP metrics when
 | Hire evaluations in flight | `assessment_evaluations_in_flight` |
 | Reminder delivery | `sum(increase(reminder_deliveries_total[24h])) by (outcome) or vector(0)` |
 | Reminder p95 lag | `histogram_quantile(0.95, sum(rate(reminder_delivery_lag_seconds_bucket[24h])) by (le))` |
-| Stripe webhooks | `sum(increase(billing_webhooks_total[24h])) by (event, outcome) or vector(0)` |
 | Funnel | `sum(increase(product_events_total[7d])) by (event, plan) or vector(0)` |
 | Interview grounding | `sum(increase(interview_grounding_total[24h])) by (outcome) or vector(0)` |
 | Grounding p95 latency | `histogram_quantile(0.95, sum(rate(interview_grounding_duration_seconds_bucket[1h])) by (le))` |
@@ -66,7 +65,7 @@ Keep the launch setup small and operationally useful:
 - Hire evaluation latency: p95 successful evaluation duration exceeds 5 minutes for 10 minutes after at least 5 completed evaluations.
 - Dead-letter job: any increase in `queue_jobs_total{outcome="dead_letter"}` over 15 minutes.
 - Reminder failure: failure ratio exceeds 10% over 1 hour, with at least 5 attempts.
-- Billing failure: any processing failure for a Stripe webhook over 10 minutes.
+- Billing failure: any increase in `billing_checkout_total{outcome="failure"}` over 10 minutes.
 - AI degradation: failure ratio exceeds 20% over 15 minutes, with at least 10 requests.
 - Authentication spike: invalid or blocked login attempts exceed 30 over 10 minutes.
 - Candidate funnel degradation: assessment start or submit failures exceed 10% over 30 minutes, with at least 10 actions.

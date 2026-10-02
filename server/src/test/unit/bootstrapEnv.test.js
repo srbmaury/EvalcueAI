@@ -25,18 +25,4 @@ describe("runtime environment normalization", () => {
         expect(explicitUrl.REDIS_URL).toBe("rediss://example.invalid:6379");
     });
 
-    it("bridges the legacy Stripe readiness flag only when the current catalog is complete", () => {
-        const complete = {
-            STRIPE_PRACTICE_PRO_PRICE_ID: "price_practice",
-            STRIPE_HIRING_PILOT_PRICE_ID: "price_pilot",
-            STRIPE_HIRING_STARTER_PRICE_ID: "price_starter",
-            STRIPE_HIRING_GROWTH_PRICE_ID: "price_growth",
-        };
-        normalizeEnvironment(complete);
-        expect(complete.STRIPE_PRO_PRICE_ID).toBe("price_practice");
-
-        const incomplete = { STRIPE_PRACTICE_PRO_PRICE_ID: "price_practice" };
-        normalizeEnvironment(incomplete);
-        expect(incomplete.STRIPE_PRO_PRICE_ID).toBeUndefined();
-    });
 });

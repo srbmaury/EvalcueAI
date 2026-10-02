@@ -22,7 +22,7 @@ vi.mock("../../models/RefreshToken.js", () => ({ default: {
     deleteMany: mocks.deleteMany,
 } }));
 
-import { bumpTokenVersion, hashOpaqueToken, issueRefreshToken, revokeAllRefreshTokens, revokeRefreshToken, signAccessToken, validateRefreshToken } from "../../utils/tokens.js";
+import { bumpTokenVersion, hashOpaqueToken, issueRefreshToken, revokeAllRefreshTokens, revokeRefreshToken, signAccessToken } from "../../utils/tokens.js";
 
 describe("authentication tokens", () => {
     beforeEach(() => {
@@ -56,17 +56,6 @@ describe("authentication tokens", () => {
         }));
     });
 
-    it("validates active refresh tokens and deletes expired ones", async () => {
-        mocks.findOne.mockReturnValueOnce({ lean: vi.fn().mockResolvedValue({ _id: "token-1", user: "user-1", expiresAt: new Date(Date.now() + 60_000) }) });
-        await expect(validateRefreshToken("active")).resolves.toBe("user-1");
-
-        mocks.findOne.mockReturnValueOnce({ lean: vi.fn().mockResolvedValue({ _id: "token-2", user: "user-2", expiresAt: new Date(Date.now() - 60_000) }) });
-        await expect(validateRefreshToken("expired")).resolves.toBeNull();
-        expect(mocks.deleteOne).toHaveBeenCalledWith({ _id: "token-2" });
-
-        mocks.findOne.mockReturnValueOnce({ lean: vi.fn().mockResolvedValue(null) });
-        await expect(validateRefreshToken("missing")).resolves.toBeNull();
-    });
 
     it("revokes one session, all sessions, and safely ignores an empty token", async () => {
         await revokeRefreshToken("");

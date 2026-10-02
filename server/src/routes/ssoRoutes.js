@@ -53,26 +53,10 @@ const findSsoOrganizationForEmail = async (email, includeSecret = false) => {
     const domain = emailDomain(email);
     if (!domain) return null;
     const claim = await SsoDomainClaim.findOne({ domain }).lean();
-    if (claim) {
-        let query = Organization.findOne({ _id: claim.organization, "sso.enabled": true, "sso.domains": domain });
-        if (includeSecret) query = query.select("+sso.clientSecretEncrypted");
-        return query;
-    }
-
-    // Compatibility for a configuration created before domain claims existed.
-    // The first lookup claims the domain, and the unique claim prevents races.
-    let legacyQuery = Organization.findOne({ "sso.enabled": true, "sso.domains": domain });
-    if (includeSecret) legacyQuery = legacyQuery.select("+sso.clientSecretEncrypted");
-    const organization = await legacyQuery;
-    if (!organization) return null;
-    try {
-        await SsoDomainClaim.create({ domain, organization: organization._id });
-        return organization;
-    } catch (error) {
-        if (error?.code !== 11000) throw error;
-        const winner = await SsoDomainClaim.findOne({ domain }).lean();
-        return winner && String(winner.organization) === String(organization._id) ? organization : null;
-    }
+    if (!claim) return null;
+    let query = Organization.findOne({ _id: claim.organization, "sso.enabled": true, "sso.domains": domain });
+    if (includeSecret) query = query.select("+sso.clientSecretEncrypted");
+    return query;
 };
 
 const provisionSsoAccess = async ({ organization, metadata, claims, email }) => {
@@ -208,7 +192,7 @@ router.get("/callback", async (req, res) => {
         attempt.exchangeCodeHash = hashSsoToken(exchangeCode);
         attempt.expiresAt = new Date(Date.now() + 2 * 60 * 1000);
         await attempt.save();
-        try { await AuditLog.create({ user: access.user._id, action: "auth.sso_authenticated", entityType: "Organization", entityId: organization._id, ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
+        try { await AuditLog.create({ outcome: "success", user: access.user._id, action: "auth.sso_authenticated", entityType: "Organization", entityId: organization._id, ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
         return res.redirect(`${clientOrigin()}/sso/callback?exchange=${encodeURIComponent(exchangeCode)}&organization=${organization._id}`);
     } catch (error) {
         console.warn("OIDC callback failed:", error?.message || error);
@@ -234,7 +218,7 @@ router.post("/exchange", validate(exchangeSchema), async (req, res, next) => {
         const token = signAccessToken(user._id, user.tokenVersion);
         const { raw, expiresAt } = await issueRefreshToken(user._id, { userAgent: req.get("user-agent"), ip: req.ip });
         setRefreshCookie(res, raw, expiresAt);
-        try { await AuditLog.create({ user: user._id, action: "auth.sso_login", entityType: "Organization", entityId: attempt.organization, ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
+        try { await AuditLog.create({ outcome: "success", user: user._id, action: "auth.sso_login", entityType: "Organization", entityId: attempt.organization, ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
         return res.json({ token, organizationId: attempt.organization, user: { _id: user._id, name: user.name, email: user.email } });
     } catch (error) { return next(error); }
 });
@@ -302,7 +286,7 @@ router.put("/settings", protect, organizationContext, requireOrganizationRole("o
         } finally {
             await session.endSession();
         }
-        try { await AuditLog.create({ user: req.user._id, action: "organization.sso_update", entityType: "Organization", entityId: organization._id, ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
+        try { await AuditLog.create({ outcome: "success", user: req.user._id, action: "organization.sso_update", entityType: "Organization", entityId: organization._id, ip: req.ip, userAgent: req.get("user-agent"), requestId: req.id }); } catch {}
         return res.json({ message: "SSO settings saved", enabled: organization.sso.enabled });
     } catch (error) {
         if (error instanceof SsoAccessError || error?.code === 11000) return res.status(409).json({ message: "One of these domains is already claimed by another organization" });

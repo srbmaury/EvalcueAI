@@ -10,6 +10,7 @@ import getRedisClient from "./config/redis.js";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import metrics from "./metrics/index.js";
+import { allowedOrigins as allowedOriginsFromEnv } from "./config/clientOrigins.js";
 import requestId from "./middleware/requestId.js";
 import errorHandler from "./middleware/errorHandler.js";
 import httpLogger from "./middleware/logger.js";
@@ -35,7 +36,6 @@ import productFeedbackRoutes from "./routes/productFeedbackRoutes.js";
 import billingRoutes from "./routes/billingRoutes.js";
 import recommendationRoutes from "./routes/recommendationRoutes.js";
 import payuRoutes from "./routes/payuRoutes.js";
-import billingWebhookRoutes from "./routes/billingWebhookRoutes.js";
 import productEventRoutes from "./routes/productEventRoutes.js";
 import assessmentRoutes from "./routes/assessmentRoutes.js";
 import emailWebhookRoutes from "./routes/emailWebhookRoutes.js";
@@ -48,31 +48,11 @@ const app = express();
 // Middleware
 app.set("trust proxy", 1); // required for secure cookies behind proxies
 app.use("/api/billing/payu", payuRoutes);
-app.use("/api/billing/webhook", express.raw({ type: "application/json", limit: "1mb" }), billingWebhookRoutes);
 app.use(express.json({ limit: "700kb" }));
 app.use("/api/email-webhooks", emailWebhookRoutes);
 app.use(cookieParser());
-const isLocalhostOrigin = (origin) => {
-    try {
-        const { hostname, protocol } = new URL(origin);
-        if (protocol !== "http:") return false;
-        return hostname === "localhost" || hostname === "127.0.0.1";
-    } catch {
-        return false;
-    }
-};
 
-const allowedOrigins = (() => {
-    const list = (process.env.ALLOWED_ORIGINS || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-    if (list.length > 0) return list;
-    return [
-        process.env.CLIENT_ORIGIN || "http://localhost:5173",
-        process.env.SERVER_ORIGIN || "http://localhost:5000",
-    ];
-})();
+const allowedOrigins = allowedOriginsFromEnv();
 
 const corsOptions =
     process.env.NODE_ENV === "production"

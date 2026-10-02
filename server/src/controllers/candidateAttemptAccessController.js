@@ -10,13 +10,13 @@ import { getQueue } from "../queues/index.js";
 import { createJobId } from "../queues/jobIds.js";
 import candidateAssessmentProcessor from "../queues/workers/candidateAssessment.js";
 import { debuggingAssessmentsEnabled, safeDebuggingConfig } from "./debuggingAssessmentController.js";
+import { hasPendingFollowUp } from "../services/followUps.js";
 
 const tokenHash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const followupLabel = (assessment) => assessment == null ? "unknown" : assessment.followUpsEnabled ? "enabled" : "disabled";
 const observeCandidateAction = (action, outcome, assessment) => { try { metrics.candidateAssessmentActionsTotal.labels(action, outcome, followupLabel(assessment)).inc(); } catch {} };
 
 const unexpired = () => ({ $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] });
-const findStartableAssessment = (shareToken) => Assessment.findOne({ shareToken, status: "active", ...unexpired() });
 const findContinuableAssessment = (shareToken) => Assessment.findOne({ shareToken, status: { $in: ["active", "closed"] }, ...unexpired() });
 const findAttempt = async (assessmentId, attemptId, rawToken) => {
     if (!rawToken) return null;
@@ -138,7 +138,7 @@ export const submitCandidateAttempt = async (req, res, next) => {
         if (authorized.status === "submitted") return res.json({ submitted: true, status: "submitted", message: "Your assessment has already been submitted." });
         if (authorized.status !== "started" && authorized.status !== "evaluation_failed") return res.status(409).json({ message: "Attempt cannot be submitted" });
 
-        const unanswered = authorized.rounds.flatMap((round) => round.questions).some((item) => !item.answer || (item.followUpQuestion && !item.followUpAnswer));
+        const unanswered = authorized.rounds.flatMap((round) => round.questions).some((item) => !item.answer || hasPendingFollowUp(item));
         if (unanswered) { observeCandidateAction("submit", "incomplete", assessment); return res.status(400).json({ message: "Answer every question and follow-up before submitting" }); }
 
         if (!authorized.usageFinalizedAt && authorized.usageReservationId) {
@@ -175,4 +175,3 @@ export const submitCandidateAttempt = async (req, res, next) => {
     } catch (error) { observeCandidateAction("submit", "failure", null); return next(error); }
 };
 
-export const isAssessmentStartable = findStartableAssessment;

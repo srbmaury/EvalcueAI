@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { publicResume, verifyResumeFileToken } from "../../services/resumeAccess.js";
+import { publicResume } from "../../services/resumeAccess.js";
 
 describe("resume delivery access", () => {
     it("replaces storage details with an authenticated application path", () => {
@@ -22,8 +22,4 @@ describe("resume delivery access", () => {
         expect(safe.extractedText).toBeUndefined();
     });
 
-    it("fails closed for retired signed resume tokens", () => {
-        const resume = { _id: "507f1f77bcf86cd799439011", user: "507f191e810c19729de860ea" };
-        expect(verifyResumeFileToken(resume, Math.floor(Date.now() / 1000) + 60, "legacy-signature")).toBe(false);
-    });
 });

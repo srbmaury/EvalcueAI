@@ -39,10 +39,9 @@ const hiringGrantSchema = new mongoose.Schema(
         expiresAt: { type: Date, default: null },
         grantId: { type: String, trim: true, default: "", maxlength: 200 },
         grantedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-        source: { type: String, enum: ["admin", "stripe", "payu", "none"], default: "none" },
+        source: { type: String, enum: ["admin", "payu", "none"], default: "none" },
         note: { type: String, trim: true, default: "", maxlength: 500 },
         paymentOrderId: { type: String, default: "", maxlength: 100 },
-        stripeCheckoutSessionId: { type: String, trim: true, default: "", maxlength: 200 },
     },
     { _id: false }
 );
@@ -81,7 +80,7 @@ const organizationSchema = new mongoose.Schema(
         hiringGrant: { type: hiringGrantSchema, default: () => ({}) },
         hiringBillingProvider: {
             type: String,
-            enum: ["none", "stripe", "payu"],
+            enum: ["none", "payu"],
             default: "none",
             select: false,
         },
@@ -100,14 +99,6 @@ const organizationSchema = new mongoose.Schema(
             type: Date,
             default: null,
         },
-        // When a subscription sync last applied, by the Stripe event's own creation time
-        // (not our processing time) — guards against an out-of-order/retried webhook
-        // overwriting a newer subscription state with a stale one.
-        hiringBillingSyncedEventAt: {
-            type: Date,
-            default: null,
-            select: false,
-        },
         sso: { type: ssoSchema, default: () => ({}) },
     },
     { timestamps: true }
@@ -116,7 +107,6 @@ const organizationSchema = new mongoose.Schema(
 organizationSchema.index({ createdBy: 1, createdAt: -1 });
 organizationSchema.index({ hiringBillingCustomerId: 1 }, { sparse: true });
 organizationSchema.index({ "hiringGrant.grantId": 1 }, { sparse: true });
-organizationSchema.index({ "hiringGrant.stripeCheckoutSessionId": 1 }, { sparse: true });
 organizationSchema.index({ "sso.domains": 1, "sso.enabled": 1 });
 
 export default mongoose.model("Organization", organizationSchema);

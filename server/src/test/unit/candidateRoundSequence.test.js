@@ -26,12 +26,12 @@ describe("candidate round sequencing", () => {
 
         expect(candidateRoundComplete({
             deliveryMode: "online-assessment",
-            questions: [{ answer: "solution", followUpQuestion: "Complexity?", followUpAnswer: "" }],
+            questions: [{ answer: "solution", followUps: [{ question: "Complexity?", answer: "" }] }],
         })).toBe(false);
 
         expect(candidateRoundComplete({
             deliveryMode: "online-assessment",
-            questions: [{ answer: "solution", followUpQuestion: "Complexity?", followUpAnswer: "O(n)" }],
+            questions: [{ answer: "solution", followUps: [{ question: "Complexity?", answer: "O(n)" }] }],
         })).toBe(true);
     });
 

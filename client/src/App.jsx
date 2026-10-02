@@ -7,7 +7,6 @@ import Header from "./components/Header";
 import ErrorBoundary from "./components/ErrorBoundary";
 import GuestOnlyRoute from "./components/GuestOnlyRoute";
 import SearchIndexPolicy from "./components/SearchIndexPolicy";
-import CanonicalProductRedirect from "./components/CanonicalProductRedirect";
 import DeploymentSurfaceGuard from "./components/DeploymentSurfaceGuard";
 import { PRACTICE_LIMIT_EVENT } from "./utils/appEvents";
 
@@ -129,8 +128,6 @@ function App() {
                 <Route path="/system-design/:slug" element={<SearchLandingPage />} />
                 <Route path="/interview-questions" element={<SearchLandingPage />} />
                 <Route path="/interview-questions/:slug" element={<SearchLandingPage />} />
-                <Route path="/interview-practice" element={<CanonicalProductRedirect />} />
-                <Route path="/technical-hiring" element={<CanonicalProductRedirect />} />
                 <Route path="/practice/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
                 <Route path="/practice/register" element={<GuestOnlyRoute><RegisterPage /></GuestOnlyRoute>} />
                 <Route path="/hire/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
@@ -180,24 +177,6 @@ function App() {
                 <Route path="/admin/feedback" element={<ProtectedRoute><AdminRoute><AdminFeedbackPage /></AdminRoute></ProtectedRoute>} />
                 <Route path="/admin/audit" element={<ProtectedRoute><AdminRoute><AdminAuditPage /></AdminRoute></ProtectedRoute>} />
                 <Route path="/admin/calibration" element={<ProtectedRoute><AdminRoute><AdminCalibrationPage /></AdminRoute></ProtectedRoute>} />
-                <Route path="/dashboard" element={<CanonicalProductRedirect />} />
-                <Route path="/experiences" element={<CanonicalProductRedirect />} />
-                <Route path="/profile" element={<CanonicalProductRedirect />} />
-                <Route path="/progress" element={<CanonicalProductRedirect />} />
-                <Route path="/resume-reviews" element={<CanonicalProductRedirect />} />
-                <Route path="/resume-match" element={<CanonicalProductRedirect />} />
-                <Route path="/saved-experiences" element={<CanonicalProductRedirect />} />
-                <Route path="/resumes" element={<CanonicalProductRedirect />} />
-                <Route path="/pricing" element={<CanonicalProductRedirect />} />
-                <Route path="/billing/success" element={<CanonicalProductRedirect />} />
-                <Route path="/create-interview" element={<CanonicalProductRedirect />} />
-                <Route path="/resume-review" element={<CanonicalProductRedirect />} />
-                <Route path="/interviews/:interviewId" element={<CanonicalProductRedirect />} />
-                <Route path="/assessments" element={<CanonicalProductRedirect />} />
-                <Route path="/assessments/:assessmentId" element={<CanonicalProductRedirect />} />
-                <Route path="/assessments/:assessmentId/preview" element={<CanonicalProductRedirect />} />
-                <Route path="/hiring/team" element={<CanonicalProductRedirect />} />
-                <Route path="/hiring/sso" element={<CanonicalProductRedirect />} />
                 <Route path="/practice/*" element={<Navigate to="/practice" replace />} />
                 <Route path="/hire/*" element={<Navigate to="/hire" replace />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

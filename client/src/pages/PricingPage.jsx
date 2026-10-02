@@ -1,6 +1,6 @@
 import useBillingPhone from "../hooks/useBillingPhone";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Container, Grid, List, ListItem, ListItemText, Stack, Typography } from "@mui/material";
 import { CheckCircleOutline } from "@mui/icons-material";
 import api from "../api/axios";
@@ -66,8 +66,6 @@ export default function PricingPage() {
         }
     };
 
-    const needsPortal = Boolean(entitlements?.requiresBillingPortal);
-
     return <Container maxWidth="md" sx={{ py: { xs: 4, md: 7 } }}>
         {billingPhoneDialog}
         <Stack alignItems="center" textAlign="center" mb={4}>
@@ -76,7 +74,6 @@ export default function PricingPage() {
             <Typography color="text.secondary" mt={1}>Choose the plan that fits how often you practice and review your resume.</Typography>
         </Stack>
         {params.get("checkout") === "cancelled" && <Alert severity="info" sx={{ mb: 3 }}>Checkout was canceled. Nothing was charged.</Alert>}
-        {needsPortal && <Alert severity="warning" sx={{ mb: 3 }} action={<Button color="inherit" size="small" disabled={loading} onClick={() => redirect("/billing/practice/portal-session")}>Manage billing</Button>}>Your existing Practice subscription needs attention before you can start another checkout.</Alert>}
         {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
         {entitlementsLoading ? <Stack alignItems="center" py={8} role="status"><CircularProgress /><Typography color="text.secondary" mt={2}>Loading Practice plans…</Typography></Stack> : <Grid container spacing={3}>
             {plans.map((plan) => {
@@ -95,12 +92,11 @@ export default function PricingPage() {
                     <Box mt="auto" pt={2}>
                         {current ? <Button fullWidth variant="contained" disabled>Current plan</Button>
                             : plan.id === "free" ? <Button fullWidth variant="outlined" disabled>Included access</Button>
-                                : needsPortal ? <Button fullWidth variant="outlined" disabled={loading} onClick={() => redirect("/billing/practice/portal-session")}>Manage Practice billing</Button>
-                                    : <Button fullWidth variant="contained" disabled={loading || !entitlements?.billingAvailable?.pro || !price} onClick={() => redirect("/billing/practice/checkout-session", { plan: "pro" })}>{loading ? "Opening checkout…" : entitlements?.billingAvailable?.pro ? "Choose Pro" : "Checkout not configured"}</Button>}
+                                : <Button fullWidth variant="contained" disabled={loading || !entitlements?.billingAvailable?.pro || !price} onClick={() => redirect("/billing/practice/checkout-session", { plan: "pro" })}>{loading ? "Opening checkout…" : entitlements?.billingAvailable?.pro ? "Choose Pro" : "Checkout not configured"}</Button>}
                     </Box>
                 </CardContent></Card></Grid>;
             })}
         </Grid>}
-        {(entitlements?.plan === "pro" || needsPortal) && <Stack alignItems="center" mt={3}><Button onClick={() => redirect("/billing/practice/portal-session")} disabled={loading}>Manage billing and automatic renewal</Button></Stack>}
+        {entitlements?.plan === "pro" && <Stack alignItems="center" mt={3}><Button component={RouterLink} to="/practice/billing/manage">Manage billing and automatic renewal</Button></Stack>}
     </Container>;
 }
