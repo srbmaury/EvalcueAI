@@ -28,6 +28,8 @@ import { candidateTranscriptionConfig } from "../utils/hiringVoicePolicy";
 import { describeError } from "../utils/errorFormatter";
 import { buildTranscriptionHint, replaceLastOccurrence } from "../utils/speechTranscription";
 
+const LOCAL_SAVE_DELAY_MS = 400;
+
 // Attempts are tab-scoped so a shared device never resumes another person's attempt.
 const readSavedAttempt = (key) => { try { return JSON.parse(window.sessionStorage?.getItem(key) || "null"); } catch { return null; } };
 const writeSavedAttempt = (key, value) => { try { window.sessionStorage?.setItem(key, JSON.stringify(value)); } catch { /* local recovery is best effort */ } };
@@ -206,12 +208,28 @@ export default function CandidateAssessmentPage() {
         });
     }, [activeQuestionIndex, activeRoundIndex, attemptToken, dirty, identity, invitationId, roundTransition, storageKey]);
 
+    // Typing changes the attempt on every keystroke. Writing the whole attempt to storage and updating
+    // "saved at" each time chains extra renders per key, which drops characters and can exceed React's
+    // update-depth limit, so the local copy is written once typing pauses (and when the page is hidden).
+    const pendingLocalSaveRef = useRef(null);
     useEffect(() => {
-        if (!attempt || !attemptToken) return;
-        const savedAt = new Date().toISOString();
-        writeSavedAttempt(storageKey, { attempt, attemptToken, dirty, identity, invitationId, savedAt, navigation: { activeRoundIndex, activeQuestionIndex, roundTransition } });
-        setLastSavedAt(savedAt);
+        if (!attempt || !attemptToken) return undefined;
+        const save = () => {
+            pendingLocalSaveRef.current = null;
+            const savedAt = new Date().toISOString();
+            writeSavedAttempt(storageKey, { attempt, attemptToken, dirty, identity, invitationId, savedAt, navigation: { activeRoundIndex, activeQuestionIndex, roundTransition } });
+            setLastSavedAt(savedAt);
+        };
+        pendingLocalSaveRef.current = save;
+        const timer = window.setTimeout(save, LOCAL_SAVE_DELAY_MS);
+        return () => window.clearTimeout(timer);
     }, [activeQuestionIndex, activeRoundIndex, attempt, attemptToken, dirty, identity, invitationId, roundTransition, storageKey]);
+
+    useEffect(() => {
+        const flush = () => pendingLocalSaveRef.current?.();
+        window.addEventListener("pagehide", flush);
+        return () => { window.removeEventListener("pagehide", flush); flush(); };
+    }, []);
 
     useEffect(() => {
         const update = () => setOnline(navigator.onLine);

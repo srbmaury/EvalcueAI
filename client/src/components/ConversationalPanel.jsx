@@ -82,6 +82,9 @@ const ConversationalPanel = ({
     const lastVoiceActivityRef = useRef(Date.now());
     const lastObservedAnswerRef = useRef("");
     const autoSubmittedTurnRef = useRef("");
+    // The auto-submit timer reads the answer through a ref so typing does not tear it down on every key.
+    const convAnswerRef = useRef(convAnswer);
+    convAnswerRef.current = convAnswer;
     const [autoSubmitIn, setAutoSubmitIn] = useState(null);
     const spokenReadinessRef = useRef("");
     const elapsedLabel = useElapsed();
@@ -246,7 +249,7 @@ const ConversationalPanel = ({
     useEffect(() => {
         if (!autoAdvanceEnabled) return undefined;
         const timer = window.setInterval(() => {
-            const answer = String(convAnswer || "").trim();
+            const answer = String(convAnswerRef.current || "").trim();
             const turnKey = `${activeText}::${answer}`;
             if (!answer || autoSubmittedTurnRef.current === turnKey) { setAutoSubmitIn(null); return; }
             const silenceMs = Date.now() - lastVoiceActivityRef.current;
@@ -273,7 +276,7 @@ const ConversationalPanel = ({
             else void submitAnswerTurn();
         }, 400);
         return () => { window.clearInterval(timer); setAutoSubmitIn(null); };
-    }, [activeText, aiSpeaking, autoAdvanceEnabled, codingEnabled, convAnswer, convRoundSubmitting, convSubmitting, interimText, isRecording, micSessionActive, pendingFollowUp, readinessNeeded, typedWorkspaceVisible]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [activeText, aiSpeaking, autoAdvanceEnabled, codingEnabled, convRoundSubmitting, convSubmitting, interimText, isRecording, micSessionActive, pendingFollowUp, readinessNeeded, typedWorkspaceVisible]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const endRound = async () => {
         setSubmitRoundOpen(false);
