@@ -2,11 +2,15 @@
 // Imported by the Vite prerender (vite.config.js), the runtime SEO component, and /llms.txt, so the
 // name, positioning, official URLs, and plan facts stay identical everywhere they are published.
 
+import { debuggingCopy, debuggingItems } from "./featureFlags.js";
+
 export const BRAND_NAME = "EvalcueAI";
 export const BUSINESS_LEGAL_NAME = "SAURABH MAURYA";
 export const BRAND_TAGLINE = "AI interview practice and structured technical hiring for software engineers";
-export const BRAND_POSITIONING = "Coding, system design, debugging, and technical interviews with adaptive AI follow-ups and structured engineering assessments.";
-export const BRAND_DESCRIPTION = `${BRAND_NAME} is a browser-based platform for software engineering interviews. Engineers practice coding, system-design, debugging, and technical-discussion rounds with an AI interviewer that asks adaptive follow-ups based on their answers. Hiring teams build structured engineering assessments and review evidence-based scorecards, with every hiring decision made by a human reviewer.`;
+export const BRAND_POSITIONING = `Coding, system design, ${debuggingCopy("debugging, ")}and technical interviews with adaptive AI follow-ups and structured engineering assessments.`;
+export const HOME_TITLE = `EvalcueAI | AI Coding, System Design & ${debuggingCopy("Debugging", "Technical")} Interviews for Engineers`;
+export const HOME_DESCRIPTION = `EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, ${debuggingCopy("debugging, ")}and technical interviews with adaptive AI follow-ups.`;
+export const BRAND_DESCRIPTION = `${BRAND_NAME} is a browser-based platform for software engineering interviews. Engineers practice coding, system-design, ${debuggingCopy("debugging, ")}and technical-discussion rounds with an AI interviewer that asks adaptive follow-ups based on their answers. Hiring teams build structured engineering assessments and review evidence-based scorecards, with every hiring decision made by a human reviewer.`;
 
 export const BRAND_URLS = Object.freeze({
     landing: "https://evalcueai.com",
@@ -32,7 +36,7 @@ export const HIRING_PLAN_SUMMARY = "Hiring teams can start with a pilot and move
 export const INTERVIEW_TYPES = Object.freeze([
     "Coding rounds with code execution in JavaScript, Python, Java, and C++",
     "Live system-design discussion with an architecture canvas and interviewer interjections",
-    "Debugging rounds on multi-file projects, graded against hidden tests or written findings",
+    ...debuggingItems("Debugging rounds on multi-file projects, graded against hidden tests or written findings"),
     "Technical discussion by voice or text with adaptive follow-up questions",
     "Backend, distributed-systems, and project-depth rounds that probe resume claims",
     "Behavioral and ownership rounds",

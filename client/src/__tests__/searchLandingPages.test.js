@@ -38,7 +38,6 @@ describe("search-focused interview landing pages", () => {
             "/system-design-interview-practice",
             "/coding-interview-practice",
             "/backend-engineer-interview-practice",
-            "/debugging-interview-practice",
             "/system-design",
             "/system-design/url-shortener",
             "/system-design/rate-limiter",

@@ -1,3 +1,5 @@
+import { debuggingCopy, debuggingItems } from "./featureFlags.js";
+
 export const SEARCH_LANDING_PAGES = [
     {
         slug: "ai-interview-practice",
@@ -323,11 +325,11 @@ export const SEARCH_LANDING_PAGES = [
             ["Can I practice Java backend interviews?", "Yes. EvalcueAI already includes Java-oriented practice covering core Java, collections, concurrency, and backend engineering topics."],
             ["Are backend interviews only coding interviews?", "No. Many backend roles combine coding with API and database design, debugging, distributed-systems reasoning, production reliability, and system design."],
         ],
-        related: ["system-design-interview-practice", "technical-interview-practice", "debugging-interview-practice"],
+        related: ["system-design-interview-practice", "technical-interview-practice", debuggingCopy("debugging-interview-practice", "software-engineer-interview-practice")],
         practiceResource: "java-interview-questions",
         schema: "TechArticle",
     },
-    {
+    ...debuggingItems({
         slug: "debugging-interview-practice",
         path: "/debugging-interview-practice",
         audience: "Engineers facing debugging or \"fix this codebase\" rounds, and anyone who wants to practice production-style diagnosis.",
@@ -390,7 +392,7 @@ export const SEARCH_LANDING_PAGES = [
         related: ["backend-engineer-interview-practice", "technical-interview-practice", "software-engineer-interview-practice"],
         practiceResource: "software-engineer-mock-interview",
         schema: "TechArticle",
-    },
+    }),
     {
         slug: "system-design",
         path: "/system-design",
@@ -803,11 +805,11 @@ export const SEARCH_LANDING_PAGES = [
         slug: "ai-interview-platform",
         path: "/ai-interview-platform",
         title: "AI Interview Platform for Software Engineering",
-        metaTitle: "AI Interview Platform for Coding, System Design & Debugging | EvalcueAI",
-        description: "EvalcueAI is an AI interview platform built for software engineering: coding, system design, debugging, and technical interviews with adaptive follow-ups, for both candidate practice and structured hiring.",
+        metaTitle: `AI Interview Platform for Coding, System Design ${debuggingCopy("& Debugging", "& Technical Interviews")} | EvalcueAI`,
+        description: `EvalcueAI is an AI interview platform built for software engineering: coding, system design, ${debuggingCopy("debugging, ")}and technical interviews with adaptive follow-ups, for both candidate practice and structured hiring.`,
         eyebrow: "AI interview platform",
         audience: "Software engineers preparing for technical interviews, and engineering teams that want structured, evidence-based technical assessments with human hiring decisions.",
-        intro: "Most AI interview tools are built for general hiring. EvalcueAI is built for engineering: the interviewer runs coding, system-design, debugging, and technical-discussion rounds, asks follow-ups based on what you actually said, and records the evidence behind every score.",
+        intro: `Most AI interview tools are built for general hiring. EvalcueAI is built for engineering: the interviewer runs coding, system-design, ${debuggingCopy("debugging, ")}and technical-discussion rounds, asks follow-ups based on what you actually said, and records the evidence behind every score.`,
         sections: [
             {
                 heading: "What EvalcueAI is",
@@ -822,11 +824,11 @@ export const SEARCH_LANDING_PAGES = [
             {
                 heading: "What it can evaluate",
                 body: "Each round type collects a different kind of engineering signal, so EvalcueAI treats them as separate rounds with their own competencies. It does not run them as one generic question-and-answer session.",
-                points: ["Coding: correctness, complexity, code quality", "System design: requirements, architecture, scale, trade-offs", "Debugging: diagnosis and fixes checked by hidden tests", "Technical depth: trade-offs, failure modes, production judgment"],
+                points: ["Coding: correctness, complexity, code quality", "System design: requirements, architecture, scale, trade-offs", ...debuggingItems("Debugging: diagnosis and fixes checked by hidden tests"), "Technical depth: trade-offs, failure modes, production judgment"],
             },
         ],
         faq: [
-            ["What is EvalcueAI?", "EvalcueAI is an AI interview platform for software engineering. Engineers use it to practice coding, system-design, debugging, and technical interviews with adaptive AI follow-ups, and hiring teams use it to run structured engineering assessments with human-reviewed scorecards."],
+            ["What is EvalcueAI?", `EvalcueAI is an AI interview platform for software engineering. Engineers use it to practice coding, system-design, ${debuggingCopy("debugging, ")}and technical interviews with adaptive AI follow-ups, and hiring teams use it to run structured engineering assessments with human-reviewed scorecards.`],
             ["Is EvalcueAI the same as EvalAI?", "No. EvalAI is an open-source platform for evaluating machine-learning models on benchmarks. EvalcueAI is a separate product for software engineering interview practice and technical hiring."],
             ["Does EvalcueAI make hiring decisions?", "No. EvalcueAI produces evidence and scores. Advance, hold, or reject decisions are recorded by a human reviewer, who must write an evidence note to support the decision."],
         ],
@@ -839,15 +841,15 @@ export const SEARCH_LANDING_PAGES = [
         path: "/engineering-assessment",
         title: "Structured Engineering Assessments with AI Interviews",
         metaTitle: "Engineering Assessment Platform with Adaptive AI Interviews | EvalcueAI",
-        description: "Build structured software engineering assessments with coding, system design, debugging, and adaptive technical interviews, then review evidence-based scorecards with human-controlled hiring decisions.",
+        description: `Build structured software engineering assessments with coding, system design, ${debuggingCopy("debugging, ")}and adaptive technical interviews, then review evidence-based scorecards with human-controlled hiring decisions.`,
         eyebrow: "Engineering assessments",
         audience: "Engineering managers, hiring managers, and recruiters hiring software engineers who want consistent technical signal without scheduling a live interviewer for every early-stage candidate.",
-        intro: "A take-home or a single coding test shows only a small part of how an engineer works. EvalcueAI Hire combines coding, system design, debugging, and adaptive technical discussion in one structured assessment, and every score links back to what the candidate actually said or wrote.",
+        intro: `A take-home or a single coding test shows only a small part of how an engineer works. EvalcueAI Hire combines coding, system design, ${debuggingCopy("debugging, ")}and adaptive technical discussion in one structured assessment, and every score links back to what the candidate actually said or wrote.`,
         sections: [
             {
                 heading: "Design the assessment around the role",
                 body: "Start from a job description or a template, choose the rounds, and set the rubric. EvalcueAI turns each round into weighted competencies so every candidate for the role is measured against the same plan.",
-                points: ["Role-specific rounds and weighted competencies", "Coding, system design, debugging, and discussion rounds", "Multi-file debugging projects with hidden tests", "Invite-only links, time windows, and time limits"],
+                points: ["Role-specific rounds and weighted competencies", `Coding, system design, ${debuggingCopy("debugging, ")}and discussion rounds`, ...debuggingItems("Multi-file debugging projects with hidden tests"), "Invite-only links, time windows, and time limits"],
             },
             {
                 heading: "Adaptive interviews, consistent evidence",
@@ -862,7 +864,7 @@ export const SEARCH_LANDING_PAGES = [
         ],
         faq: [
             ["What is an engineering assessment?", "An engineering assessment is a structured evaluation of a software engineering candidate across the skills the role needs, such as coding, system design, debugging, and technical judgment. Every candidate is measured against the same competencies and rubric."],
-            ["How is EvalcueAI different from a coding test?", "A coding test mostly measures whether code passes. EvalcueAI also runs system-design and debugging rounds and asks adaptive follow-ups about trade-offs, failure modes, and resume claims, then shows the evidence behind each score."],
+            ["How is EvalcueAI different from a coding test?", `A coding test mostly measures whether code passes. EvalcueAI also runs system-design ${debuggingCopy("and debugging ")}rounds and asks adaptive follow-ups about trade-offs, failure modes, and resume claims, then shows the evidence behind each score.`],
             ["Can candidates be rejected automatically?", "No. EvalcueAI does not make employment decisions. A human reviewer records every decision along with a written evidence note."],
         ],
         related: ["ai-interview-platform", "ai-interview-evaluation-methodology", "system-design-interview-practice"],
@@ -875,7 +877,7 @@ export const SEARCH_LANDING_PAGES = [
         path: "/ai-interview-evaluation-methodology",
         title: "How EvalcueAI Evaluates Engineering Interviews",
         metaTitle: "AI Interview Evaluation Methodology: Scoring, Follow-ups & Difficulty | EvalcueAI",
-        description: "How EvalcueAI plans competencies, scores answers with evidence and confidence, chooses follow-up questions, adapts difficulty, evaluates coding, system design, and debugging, and keeps hiring decisions with humans.",
+        description: `How EvalcueAI plans competencies, scores answers with evidence and confidence, chooses follow-up questions, adapts difficulty, evaluates coding${debuggingCopy(", system design, and debugging", " and system design")}, and keeps hiring decisions with humans.`,
         eyebrow: "Evaluation methodology",
         audience: "Engineers who want to know how their practice answers are judged, and hiring teams deciding whether they can trust EvalcueAI's scorecards.",
         intro: "\"AI-powered\" tells you nothing about how answers are judged. This page explains, step by step, how an EvalcueAI round decides what to measure, how answers are scored, how the next question is chosen, and where a human stays in control.",
@@ -911,9 +913,9 @@ export const SEARCH_LANDING_PAGES = [
                 points: ["Interjection types: clarify, challenge, constraint, scale", "Also: failure, trade-off, security, observability", "Grounded in what you said or drew", "No hints and no ideal answer revealed"],
             },
             {
-                heading: "7. Coding and debugging are checked by running code",
-                body: "Coding answers run in a sandboxed execution service that supports JavaScript, Python, Java, and C++, and they are judged on correctness, complexity, and code quality alongside your explanation. Debugging rounds use realistic multi-file projects. In fix mode, your change is graded against hidden tests you cannot see, and assignments are validated so those tests fail only because of the intended bug. In findings mode, you submit a written diagnosis that is reviewed.",
-                points: ["Sandboxed code execution in four languages", "Multi-file debugging projects", "Fixes graded by hidden tests", "Assignments validated against unrelated failures"],
+                heading: `7. Coding ${debuggingCopy("and debugging are", "is")} checked by running code`,
+                body: `Coding answers run in a sandboxed execution service that supports JavaScript, Python, Java, and C++, and they are judged on correctness, complexity, and code quality alongside your explanation.${debuggingCopy(" Debugging rounds use realistic multi-file projects. In fix mode, your change is graded against hidden tests you cannot see, and assignments are validated so those tests fail only because of the intended bug. In findings mode, you submit a written diagnosis that is reviewed.")}`,
+                points: ["Sandboxed code execution in four languages", ...debuggingItems("Multi-file debugging projects", "Fixes graded by hidden tests", "Assignments validated against unrelated failures")],
             },
             {
                 heading: "8. A correct answer is not the same as a good engineering answer",
@@ -945,7 +947,7 @@ export const SEARCH_LANDING_PAGES = [
             ["Can EvalcueAI invent questions about my resume?", "Resume questions must be based on claims that actually appear in your resume. Generated questions are checked for details that aren't in your resume or job description, and resume probing is capped at two questions per round."],
             ["Who decides whether a candidate advances?", "A human reviewer. EvalcueAI does not make employment decisions."],
         ],
-        related: ["ai-interview-platform", "system-design-interview-practice", "debugging-interview-practice"],
+        related: ["ai-interview-platform", "system-design-interview-practice", debuggingCopy("debugging-interview-practice", "technical-interview-practice")],
         practiceResource: "software-engineer-mock-interview",
         schema: "TechArticle",
     },
@@ -954,7 +956,7 @@ export const SEARCH_LANDING_PAGES = [
         path: "/about",
         title: "About EvalcueAI",
         metaTitle: "About EvalcueAI | AI Interview Practice & Technical Hiring for Engineers",
-        description: "EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, debugging, and technical interviews with adaptive follow-ups.",
+        description: `EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, ${debuggingCopy("debugging, ")}and technical interviews with adaptive follow-ups.`,
         eyebrow: "About",
         audience: "Engineers preparing for technical interviews and teams looking for a more consistent way to assess candidates.",
         intro: "Technical interviews should reveal how someone approaches a problem. EvalcueAI helps engineers practice that process and helps hiring teams review it through structured assessments, adaptive follow-ups, and feedback grounded in the work submitted.",
@@ -967,7 +969,7 @@ export const SEARCH_LANDING_PAGES = [
             {
                 heading: "Supported interview types",
                 body: "Each round type is a separate interview with its own competencies. Rounds can be combined to match a real interview loop.",
-                points: ["Coding with code execution", "Live system design with an architecture canvas", "Debugging on multi-file projects with hidden tests", "Technical, backend, project-depth, and behavioral discussion"],
+                points: ["Coding with code execution", "Live system design with an architecture canvas", ...debuggingItems("Debugging on multi-file projects with hidden tests"), "Technical, backend, project-depth, and behavioral discussion"],
             },
             {
                 heading: "Terminology",

@@ -3,12 +3,12 @@ import { useLocation } from "react-router-dom";
 import Seo from "./Seo";
 import { RESOURCE_ROUTE_META, SEARCH_ROUTE_META } from "virtual:seo-route-meta";
 import { deploymentOrigins } from "../utils/deploymentSurface";
-import { BRAND_NAME, organizationSchema, publisherRef, softwareApplicationSchema } from "../utils/brandEntity";
+import { BRAND_NAME, HOME_DESCRIPTION, HOME_TITLE, organizationSchema, publisherRef, softwareApplicationSchema } from "../utils/brandEntity";
 
 const ROUTES = {
     "/": {
-        title: "EvalcueAI | AI Coding, System Design & Debugging Interviews for Engineers",
-        description: "EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, debugging, and technical interviews with adaptive AI follow-ups.",
+        title: HOME_TITLE,
+        description: HOME_DESCRIPTION,
         schema: "WebSite",
     },
     "/practice": {

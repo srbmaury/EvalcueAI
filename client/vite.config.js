@@ -1,3 +1,4 @@
+import "./buildEnv.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -9,6 +10,7 @@ import {
     resourcePathsForSurface,
 } from "./src/utils/productResourcePages.js";
 import { applyStaticSeoHtml, escapeHtml, renderSeoHead } from "./src/utils/staticSeoHtml.js";
+import { debuggingCopy } from "./src/utils/featureFlags.js";
 import {
     SEARCH_LANDING_PAGES,
     searchLandingPaths,
@@ -21,6 +23,8 @@ import {
     BRAND_URLS,
     BUSINESS_LEGAL_NAME,
     HIRING_PLAN_SUMMARY,
+    HOME_DESCRIPTION,
+    HOME_TITLE,
     INTERVIEW_TYPES,
     PRACTICE_PLANS,
     breadcrumbSchema,
@@ -91,22 +95,22 @@ const resourcePageForRoute = (route) => PRODUCT_RESOURCE_PAGES.find((page) => re
 
 const STATIC_PRODUCT_COPY = {
     "/": {
-        title: "EvalcueAI | AI Coding, System Design & Debugging Interviews for Engineers",
-        description: "EvalcueAI is AI interview practice and structured technical hiring for software engineers: coding, system design, debugging, and technical interviews with adaptive AI follow-ups.",
+        title: HOME_TITLE,
+        description: HOME_DESCRIPTION,
         heading: "AI interview practice and structured technical hiring for software engineers",
-        intro: "Practice realistic coding, system-design, debugging, and technical interviews with adaptive AI follow-ups, or build evidence-focused engineering assessments for your hiring team.",
+        intro: `Practice realistic coding, system-design, ${debuggingCopy("debugging, ")}and technical interviews with adaptive AI follow-ups, or build evidence-focused engineering assessments for your hiring team.`,
     },
     "/practice": {
         title: "AI Technical Interview Practice for Software Engineers | EvalcueAI",
         description: "Practice role-specific software engineering interviews with adaptive follow-ups, coding rounds, system design, resume context, and evidence-backed feedback.",
         heading: "AI technical interview practice for software engineers",
-        intro: "Run role-specific mock interviews across technical discussion, coding, system design, debugging, and project depth, then review the evidence and feedback from each session.",
+        intro: `Run role-specific mock interviews across technical discussion, coding, system design, ${debuggingCopy("debugging, ")}and project depth, then review the evidence and feedback from each session.`,
     },
     "/hire": {
         title: "Structured Technical Hiring & AI Candidate Assessments | EvalcueAI",
         description: "Create structured engineering assessments, invite candidates, run adaptive technical interviews, and review evidence-rich scorecards with human-controlled hiring decisions.",
         heading: "Structured technical hiring for software engineering teams",
-        intro: "Create role-specific technical assessments across discussion, coding, system design, and debugging while keeping candidate evidence review and employment decisions human-controlled.",
+        intro: `Create role-specific technical assessments across discussion, coding, ${debuggingCopy("system design, and debugging", "and system design")} while keeping candidate evidence review and employment decisions human-controlled.`,
     },
 };
 
