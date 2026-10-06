@@ -340,7 +340,6 @@ const renderLlmsTxt = () => [
     `- Documentation: ${BRAND_URLS.docs}`,
     `- About: ${BRAND_URLS.about}`,
     `- Evaluation methodology: ${BRAND_URLS.methodology}`,
-    `- Source code: ${BRAND_URLS.source}`,
     "",
 ].join("\n");
 
