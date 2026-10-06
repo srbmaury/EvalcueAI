@@ -140,18 +140,28 @@ const staticConfigForRoute = (route) => {
     return STATIC_PRODUCT_COPY[route] || null;
 };
 
+const relatedSearchPages = (page) => page.related
+    .map((slug) => SEARCH_LANDING_PAGES.find((candidate) => candidate.slug === slug))
+    .filter(Boolean);
+
 const renderSearchPageMarkup = (page, practiceOrigin = APP_SURFACE_ORIGINS.practice, hiringOrigin = APP_SURFACE_ORIGINS.hiring) => `
 <main data-static-page="search-landing">
   <nav aria-label="Breadcrumb"><a href="${APP_SURFACE_ORIGINS.landing}/">${BRAND_NAME}</a></nav>
   <p>${escapeHtml(page.eyebrow)}</p>
   <h1>${escapeHtml(page.title)}</h1>
   <p>${escapeHtml(page.intro)}</p>
-  ${page.audience ? `<section><h2>Who it's for</h2><p>${escapeHtml(page.audience)}</p></section>` : ""}
+  ${page.audience ? `<p>For: ${escapeHtml(page.audience)}</p>` : ""}
+  ${page.schema === "CollectionPage" ? `
+  <section>
+    <h2>${page.path === "/system-design" ? "Problems to practice" : "Question sets"}</h2>
+    <ul>${relatedSearchPages(page).map((related) => `<li><a href="${escapeHtml(related.path)}">${escapeHtml(related.title)}</a>: ${escapeHtml(related.description)}</li>`).join("")}</ul>
+  </section>` : ""}
   ${page.sections.map((section) => `
     <section>
       <h2>${escapeHtml(section.heading)}</h2>
       <p>${escapeHtml(section.body)}</p>
-      <ul>${section.points.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}</ul>
+      ${section.points?.length ? `<ul>${section.points.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}</ul>` : ""}
+      ${section.questions?.length ? section.questions.map(([question, answer]) => `<h3>${escapeHtml(question)}</h3><p>${escapeHtml(answer)}</p>`).join("") : ""}
     </section>
   `).join("")}
   ${page.example ? `
@@ -162,7 +172,7 @@ const renderSearchPageMarkup = (page, practiceOrigin = APP_SURFACE_ORIGINS.pract
     <h3>What ${BRAND_NAME} evaluates here</h3>
     <ul>${page.example.evaluates.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
   </section>` : ""}
-  ${page.schema !== "TechArticle" ? `
+  ${page.schema === "WebPage" ? `
   <section>
     <h2>Pricing</h2>
     <ul>
@@ -170,19 +180,16 @@ const renderSearchPageMarkup = (page, practiceOrigin = APP_SURFACE_ORIGINS.pract
       <li>Hire: ${escapeHtml(HIRING_PLAN_SUMMARY)}</li>
     </ul>
   </section>` : ""}
+  ${page.faq.length ? `
   <section>
-    <h2>Frequently asked questions</h2>
+    <h2>Common questions</h2>
     ${page.faq.map(([question, answer]) => `<h3>${escapeHtml(question)}</h3><p>${escapeHtml(answer)}</p>`).join("")}
-  </section>
+  </section>` : ""}
+  ${page.schema !== "CollectionPage" ? `
   <section>
-    <h2>Related interview practice</h2>
-    <ul>
-      ${page.related.map((slug) => {
-          const related = SEARCH_LANDING_PAGES.find((candidate) => candidate.slug === slug);
-          return related ? `<li><a href="${escapeHtml(related.path)}">${escapeHtml(related.title)}</a></li>` : "";
-      }).join("")}
-    </ul>
-  </section>
+    <h2>Related guides</h2>
+    <ul>${relatedSearchPages(page).map((related) => `<li><a href="${escapeHtml(related.path)}">${escapeHtml(related.title)}</a></li>`).join("")}</ul>
+  </section>` : ""}
   <p><a href="${escapeHtml(page.cta?.surface === "hiring"
       ? `${hiringOrigin || APP_SURFACE_ORIGINS.hiring}${page.cta.path}`
       : `${practiceOrigin || APP_SURFACE_ORIGINS.practice}/practice/resources/${page.practiceResource}`)}">${escapeHtml(page.cta?.label || "Start AI interview practice")}</a></p>

@@ -6,6 +6,22 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Merged into /ai-interview-practice.
+[[redirects]]
+  from = "/ai-mock-interview"
+  to = "/ai-interview-practice"
+  status = 301
+
+[[redirects]]
+  from = "/software-engineer-interview-practice"
+  to = "/ai-interview-practice"
+  status = 301
+
+[[redirects]]
+  from = "/technical-interview-practice"
+  to = "/ai-interview-practice"
+  status = 301
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

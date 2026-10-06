@@ -112,14 +112,14 @@ function App() {
                 <Route path="/practice/resources/:slug" element={<ProductResourcePage surface="practice" />} />
                 <Route path="/hire/resources/:slug" element={<ProductResourcePage surface="hiring" />} />
                 <Route path="/ai-interview-practice" element={<SearchLandingPage />} />
-                <Route path="/ai-mock-interview" element={<SearchLandingPage />} />
+                <Route path="/ai-mock-interview" element={<Navigate to="/ai-interview-practice" replace />} />
                 <Route path="/ai-interview-platform" element={<SearchLandingPage />} />
                 <Route path="/engineering-assessment" element={<SearchLandingPage />} />
                 <Route path="/ai-interview-evaluation-methodology" element={<SearchLandingPage />} />
                 <Route path="/plans" element={<PublicPricingPage />} />
                 <Route path="/about" element={<SearchLandingPage />} />
-                <Route path="/software-engineer-interview-practice" element={<SearchLandingPage />} />
-                <Route path="/technical-interview-practice" element={<SearchLandingPage />} />
+                <Route path="/software-engineer-interview-practice" element={<Navigate to="/ai-interview-practice" replace />} />
+                <Route path="/technical-interview-practice" element={<Navigate to="/ai-interview-practice" replace />} />
                 <Route path="/system-design-interview-practice" element={<SearchLandingPage />} />
                 <Route path="/coding-interview-practice" element={<SearchLandingPage />} />
                 <Route path="/backend-engineer-interview-practice" element={<SearchLandingPage />} />

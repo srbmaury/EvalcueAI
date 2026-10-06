@@ -12,7 +12,7 @@ const guides = [
     ["01", "Coding interviews", "Practice implementation, explain your approach, and respond to follow-up questions.", "/coding-interview-practice"],
     ["02", "System design", "Work through requirements, architecture, and the trade-offs behind your decisions.", "/system-design-interview-practice"],
     ...(DEBUGGING_ASSESSMENTS_ENABLED ? [["03", "Debugging", "Investigate a failing system and show how you isolate and resolve the problem.", "/debugging-interview-practice"]] : []),
-    [DEBUGGING_ASSESSMENTS_ENABLED ? "04" : "03", "Technical discussion", "Go deeper on backend engineering, project experience, and technical judgment.", "/technical-interview-practice"],
+    [DEBUGGING_ASSESSMENTS_ENABLED ? "04" : "03", "Technical discussion", "Go deeper on backend engineering, project experience, and technical judgment.", "/backend-engineer-interview-practice"],
 ];
 
 export default function LandingPage() {
