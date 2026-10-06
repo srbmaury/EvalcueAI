@@ -943,7 +943,7 @@ export const SEARCH_LANDING_PAGES = [
             },
             {
                 heading: "Who runs it",
-                body: "EvalcueAI is built and run by Saurabh Maurya. The source code is public on GitHub at github.com/srbmaury/EvalcueAI, and the evaluation methodology page explains how answers are scored, how follow-up questions are chosen, and where a human stays in control.",
+                body: "EvalcueAI is built and run by Saurabh Maurya, a developer from IIT BHU based in Chandauli, India. Saurabh is srbmaury on GitHub and LinkedIn (linkedin.com/in/srbmaury). The source code is public at github.com/srbmaury/EvalcueAI, and the evaluation methodology page explains how answers are scored, how follow-up questions are chosen, and where a human stays in control.",
             },
             {
                 heading: "Pricing",
