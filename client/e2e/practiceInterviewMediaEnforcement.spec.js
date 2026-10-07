@@ -6,7 +6,7 @@ const baseUser = { _id: "user-media", name: "Media Candidate", email: "media@exa
 
 const roundQuestion = (id, text) => ({ question: { _id: id, text }, answerGiven: "", feedback: null });
 
-const interviewPayload = ({ name, description, deliveryMode, question }) => ({
+const interviewPayload = ({ name, description, deliveryMode, question, extraRounds = [] }) => ({
     _id: "interview-media",
     jobRole: "Software Engineer",
     // Interviews in these scenarios already passed the one-time intro, so round 1 opens directly.
@@ -23,7 +23,7 @@ const interviewPayload = ({ name, description, deliveryMode, question }) => ({
             conversationalIndex: 0,
             questions: [question],
         },
-    }],
+    }, ...extraRounds],
 });
 
 const mockAuth = async (page) => {
@@ -126,6 +126,8 @@ test("practice coding round keeps the microphone hands-free, speaks each problem
         description: "Data structures and algorithms",
         deliveryMode: "online-assessment",
         question: roundQuestion("question-code", question),
+        // Skip Round is only offered while another round remains, and this test checks its layout.
+        extraRounds: [{ round: { _id: "round-media-next", name: "Wrap-up", description: "Behavioral follow-up", deliveryMode: "conversational", status: "pending", questionLimit: 1, questions: [] } }],
     }));
 
     await expectRequiredCameraAndMic(page);

@@ -139,6 +139,7 @@ export const checkpointPracticeSystemDesign = async (req, res, next) => {
             previousInterjections: req.body.previousInterjections || [],
             forceInteraction: req.body.forceInteraction === true,
             candidateAskedQuestion: req.body.candidateAskedQuestion === true,
+            candidateQuestion: req.body.candidateQuestion || "",
         });
         appendInterviewerTurn(item, decision);
         if (transcript || diagram.data || decision?.shouldInterrupt) await round.save();
@@ -214,6 +215,7 @@ export const checkpointCandidateSystemDesign = async (req, res, next) => {
             previousInterjections: req.body.previousInterjections || [],
             forceInteraction: req.body.forceInteraction === true,
             candidateAskedQuestion: req.body.candidateAskedQuestion === true,
+            candidateQuestion: req.body.candidateQuestion || "",
         });
         appendInterviewerTurn(item, decision);
         if (transcript || diagram.data || decision?.shouldInterrupt) await attempt.save();

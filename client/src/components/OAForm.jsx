@@ -239,7 +239,7 @@ const OAForm = ({
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
                             <Button variant="contained" onClick={onSubmit} disabled={submitting} sx={{ minWidth: 170 }}>{submitting ? "Finishing…" : "Finish coding round"}</Button>
-                            <SkipRoundButton onSkip={onSkip} disabled={submitting} />
+                            {onSkip && <SkipRoundButton onSkip={onSkip} disabled={submitting} />}
                         </Stack>
                     </Stack>
                 </Box>

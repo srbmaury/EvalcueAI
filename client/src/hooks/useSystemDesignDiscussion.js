@@ -9,11 +9,18 @@ export const CANDIDATE_SILENCE_MS = 15000;
 const SILENCE_POLL_MS = 500;
 const SPEECH_LEVEL_THRESHOLD = 0.035;
 
-const looksLikeCandidateQuestion = (value = "") => {
-    const tail = value.trim().slice(-180);
-    if (tail.length < 12) return false;
-    if (tail.endsWith("?")) return true;
-    return /\b(what|which|how|when|where|who)\b|\b(should|can|could|would)\s+(i|we)\b|\b(do|are|is)\s+(we|there|it)\b/i.test(tail);
+// The latest question the candidate asked in what they said since the last checkpoint. Candidates often ask
+// ("what scale should I assume?") and keep talking, so the question is rarely at the very end of the text.
+export const candidateQuestionIn = (text = "") => {
+    const sentences = String(text).split(/(?<=[.?!])\s+|\n+/).map((sentence) => sentence.trim()).filter(Boolean);
+    for (let index = sentences.length - 1; index >= 0; index -= 1) {
+        const sentence = sentences[index];
+        if (sentence.length < 8) continue;
+        if (sentence.endsWith("?") || /^(?:so,?\s+|and\s+|first,?\s+|also,?\s+)?(what|which|how|when|where|who|should|can|could|would|do|does|is|are|will)\b/i.test(sentence)) {
+            return sentence.slice(0, 300);
+        }
+    }
+    return "";
 };
 
 /**
@@ -110,7 +117,8 @@ export const useSystemDesignDiscussion = ({
         const now = Date.now();
         const newChars = currentTranscript.length - lastCheckedLengthRef.current;
         const previousInterjections = interjectionsRef.current;
-        const candidateAskedQuestion = newChars >= 12 && looksLikeCandidateQuestion(currentTranscript);
+        const candidateQuestion = newChars >= 12 ? candidateQuestionIn(currentTranscript.slice(-newChars)) : "";
+        const candidateAskedQuestion = Boolean(candidateQuestion);
         const needsFirstInteraction = previousInterjections.length === 0 && currentTranscript.length >= FIRST_INTERACTION_CONTEXT_CHARS;
         const candidateSilent = dueToSilence || (
             now - lastCandidateActivityAtRef.current >= CANDIDATE_SILENCE_MS
@@ -137,6 +145,7 @@ export const useSystemDesignDiscussion = ({
                 previousInterjections: previousInterjections.map((item) => item.text).slice(-8),
                 forceInteraction,
                 candidateAskedQuestion,
+                candidateQuestion,
             }, { headers, skipAuthRedirect });
             if (data?.shouldInterrupt && data?.interjection) {
                 const item = {

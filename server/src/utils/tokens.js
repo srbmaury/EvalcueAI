@@ -21,6 +21,42 @@ export const bumpTokenVersion = async (userId) => {
 
 export const hashOpaqueToken = (raw) => crypto.createHash("sha256").update(raw).digest("hex");
 
+// AES-256-GCM with a key derived from JWT_SECRET (present in every deployment). Used only to hold a successor
+// refresh token for the short rotation grace window; it is never readable once the window has passed.
+const graceKey = () => crypto.createHash("sha256").update(`refresh-rotation-grace:${process.env.JWT_SECRET || ""}`).digest();
+
+const sealSuccessor = (raw) => {
+    if (!process.env.JWT_SECRET) return "";
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", graceKey(), iv);
+    const sealed = Buffer.concat([cipher.update(raw, "utf8"), cipher.final()]);
+    return [iv, cipher.getAuthTag(), sealed].map((part) => part.toString("base64url")).join(".");
+};
+
+const openSuccessor = (value) => {
+    try {
+        const [iv, tag, sealed] = String(value || "").split(".").map((part) => Buffer.from(part, "base64url"));
+        if (!iv?.length || !tag?.length || !sealed?.length) return "";
+        const decipher = crypto.createDecipheriv("aes-256-gcm", graceKey(), iv);
+        decipher.setAuthTag(tag);
+        return Buffer.concat([decipher.update(sealed), decipher.final()]).toString("utf8");
+    } catch {
+        return "";
+    }
+};
+
+// Within the grace window, hand back the successor this token was already rotated into. Re-sending the same
+// token (rather than minting another) keeps a single chain, so reuse detection is unchanged; it only lets a
+// client whose earlier refresh response never arrived pick up the cookie it missed.
+const graceResult = (record, now) => {
+    if (!record?.rotationGraceUntil || record.rotationGraceUntil < now) return null;
+    const raw = openSuccessor(record.graceSuccessor);
+    if (raw && hashOpaqueToken(raw) === record.replacedByTokenHash && record.graceSuccessorExpiresAt) {
+        return { userId: record.user, rotated: true, raw, expiresAt: record.graceSuccessorExpiresAt, concurrentGrace: true };
+    }
+    return { userId: record.user, rotated: false, concurrentGrace: true };
+};
+
 const newRefreshToken = (userId, { userAgent, ip } = {}) => {
     const raw = crypto.randomBytes(40).toString("hex");
     const tokenHash = hashOpaqueToken(raw);
@@ -38,38 +74,32 @@ export const rotateRefreshToken = async (raw, metadata = {}) => {
     if (!raw) return null;
     const now = new Date();
     const tokenHash = hashOpaqueToken(raw);
-    const current = await RefreshToken.findOne({ tokenHash }).select("+replacedByTokenHash +rotationGraceUntil").lean();
+    const current = await RefreshToken.findOne({ tokenHash }).select("+replacedByTokenHash +rotationGraceUntil +graceSuccessor +graceSuccessorExpiresAt").lean();
     if (!current) return null;
     if (current.expiresAt < now) {
         await RefreshToken.deleteOne({ _id: current._id });
         return null;
     }
 
-    if (current.replacedByTokenHash) {
-        if (current.rotationGraceUntil && current.rotationGraceUntil >= now) {
-            return { userId: current.user, rotated: false, concurrentGrace: true };
-        }
-        return null;
-    }
+    if (current.replacedByTokenHash) return graceResult(current, now);
 
     const next = newRefreshToken(current.user, metadata);
     await RefreshToken.create(next.record);
     const graceUntil = new Date(now.getTime() + REFRESH_ROTATION_GRACE_MS);
     const claimed = await RefreshToken.findOneAndUpdate(
         { _id: current._id, replacedByTokenHash: "", expiresAt: { $gt: now } },
-        { $set: { replacedByTokenHash: next.tokenHash, rotationGraceUntil: graceUntil, rotatedAt: now } },
+        { $set: { replacedByTokenHash: next.tokenHash, rotationGraceUntil: graceUntil, rotatedAt: now, graceSuccessor: sealSuccessor(next.raw), graceSuccessorExpiresAt: next.expiresAt } },
         { new: true },
     ).select("+replacedByTokenHash +rotationGraceUntil");
 
     if (!claimed || claimed.replacedByTokenHash !== next.tokenHash) {
         await RefreshToken.deleteOne({ tokenHash: next.tokenHash }).catch(() => {});
-        const winner = await RefreshToken.findOne({ _id: current._id }).select("+replacedByTokenHash +rotationGraceUntil").lean();
-        if (winner?.rotationGraceUntil && winner.rotationGraceUntil >= new Date()) {
-            return { userId: current.user, rotated: false, concurrentGrace: true };
-        }
-        return null;
+        const winner = await RefreshToken.findOne({ _id: current._id }).select("+replacedByTokenHash +rotationGraceUntil +graceSuccessor +graceSuccessorExpiresAt").lean();
+        return graceResult(winner, new Date());
     }
 
+    // This token reached its client, so the encrypted copy kept on its predecessor is no longer needed.
+    await RefreshToken.updateOne({ replacedByTokenHash: tokenHash }, { $set: { graceSuccessor: "", graceSuccessorExpiresAt: null } }).catch(() => {});
     return { userId: current.user, rotated: true, raw: next.raw, expiresAt: next.expiresAt };
 };
 
