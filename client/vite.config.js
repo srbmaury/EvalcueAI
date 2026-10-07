@@ -444,6 +444,11 @@ const applyStaticRouteHtml = (baseHtml, route, origin, config, surfaceOrigins = 
     return applyStaticSeoHtml(baseHtml, { head, markup: renderStaticMarkup(route, config, surfaceOrigins) });
 };
 
+const staticRouteRewrites = (routes) => routes
+    .filter((route) => route !== "/" && staticConfigForRoute(route))
+    .map((route) => `${route}/  ${route}.html  200!`)
+    .join("\n") + "\n";
+
 const writeStaticRoute = async (outDir, route, html) => {
     if (route === "/") {
         await writeFile(path.join(outDir, "index.html"), html);
@@ -505,6 +510,9 @@ const seoFilesPlugin = (origin, routes, surfaceOrigins = {}, appSurface = null) 
         await Promise.all([
             writeFile(path.join(outDir, "sitemap.xml"), sitemap),
             writeFile(path.join(outDir, "robots.txt"), robots),
+            // Forced rewrites so "/route/" returns the page (200) instead of Netlify's 301 back to "/route".
+            // Browsers that cached the old "/route" -> "/route/" 301 would otherwise loop between the two.
+            writeFile(path.join(outDir, "_redirects"), staticRouteRewrites(routes)),
             ...(deploymentSurface === "landing" ? [writeFile(path.join(outDir, "llms.txt"), renderLlmsTxt())] : []),
             ...staticRouteWrites,
         ]);

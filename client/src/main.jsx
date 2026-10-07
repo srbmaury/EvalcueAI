@@ -12,6 +12,14 @@ import PublicRouteSeo from "./components/PublicRouteSeo.jsx";
 import AnalyticsPageViewTracker from "./components/AnalyticsPageViewTracker.jsx";
 import { initGoogleAnalytics } from "./utils/analytics.js";
 
+// Prerendered pages live at "/route", but browsers that cached the old "/route" -> "/route/" 301
+// still arrive with a trailing slash. Drop it before the router reads the URL, so every page
+// resolves its own content, canonical and index policy instead of a near-miss "/route/".
+if (window.location.pathname.length > 1 && window.location.pathname.endsWith("/")) {
+  const { pathname, search, hash } = window.location;
+  window.history.replaceState(window.history.state, "", `${pathname.replace(/\/+$/, "")}${search}${hash}`);
+}
+
 initGoogleAnalytics();
 
 // Public VITE_* deployment settings are embedded into each surface at build time.
