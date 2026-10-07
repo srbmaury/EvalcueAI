@@ -13,6 +13,7 @@ import {
     Typography,
 } from "@mui/material";
 import SiteFooter from "../components/SiteFooter";
+import NotFoundPage from "./NotFoundPage";
 import { searchLandingPageForPath, searchLandingPageForSlug } from "../utils/searchLandingPages";
 import { deploymentOrigins, externalSurfaceUrl } from "../utils/deploymentSurface";
 import { HIRING_PLAN_SUMMARY, PRACTICE_PLANS } from "../utils/brandEntity";
@@ -21,7 +22,9 @@ export default function SearchLandingPage() {
     const { pathname } = useLocation();
     const page = searchLandingPageForPath(pathname);
 
-    if (!page) return <Navigate to="/" replace />;
+    // The debugging guide is hidden behind a feature flag and intentionally falls back to home; any other
+    // unknown slug (e.g. /interview-questions/rate-limiter) is a broken link and gets a real 404.
+    if (!page) return pathname === "/debugging-interview-practice" ? <Navigate to="/" replace /> : <NotFoundPage />;
 
     const practicePath = `/practice/resources/${page.practiceResource}`;
     const origins = deploymentOrigins();

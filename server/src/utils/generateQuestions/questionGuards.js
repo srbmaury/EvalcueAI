@@ -39,6 +39,21 @@ export const unsupportedSpecifics = (question = "", context = "") => {
     return [...new Set(specificsIn(question))].filter((token) => !available.has(token) && !available.has(token.replace(/%$/, "")));
 };
 
+export const CLAIM_GROUNDING = 0.6;
+
+// A resume claim the interviewer will quote back must come from the resume: every number in it must
+// appear there, and most of its key words too. Paraphrases pass; an invented achievement does not.
+export const claimGroundedIn = (claim = "", source = "") => {
+    if (!String(source).trim()) return false;
+    if (unsupportedSpecifics(claim, source).length) return false;
+    const claimed = contentWords(claim);
+    if (!claimed.size) return false;
+    const available = contentWords(source);
+    let shared = 0;
+    for (const word of claimed) if (available.has(word)) shared += 1;
+    return shared / claimed.size >= CLAIM_GROUNDING;
+};
+
 // Word-overlap similarity (Jaccard) between two questions; paraphrases of the same probe score high.
 export const questionSimilarity = (a = "", b = "") => {
     const left = contentWords(a);

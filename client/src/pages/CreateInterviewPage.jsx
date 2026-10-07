@@ -40,7 +40,7 @@ import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 
 import RoundSelector from "../components/RoundSelector";
-import { getDefaultQuestionLimit } from "../utils/roundDefaults";
+import { getDefaultQuestionLimit, SYSTEM_DESIGN_FORMAT, systemDesignDescription } from "../utils/roundDefaults";
 import { clearPracticeCreateDraft, readPracticeCreateDraft, writePracticeCreateDraft } from "../utils/practiceCreateDraft";
 import { useNotify } from "../context/NotificationContext";
 import JobPostImporter from "../components/JobPostImporter";
@@ -211,7 +211,17 @@ const CreateInterviewPage = () => {
     };
 
     const handleChangeMode = (roundName, mode) => {
-        setSelectedRounds((prev) => prev.map((r) => r.roundName === roundName ? { ...r, deliveryMode: mode } : r));
+        setSelectedRounds((prev) => prev.map((r) => {
+            if (r.roundName !== roundName) return r;
+            const baseDescription = r.baseDescription ?? r.description ?? "";
+            // System design isn't a delivery mode: every layer recognises it from the round's name or
+            // description. Choosing it marks the description, and switching away restores the original.
+            if (mode === SYSTEM_DESIGN_FORMAT) {
+                return { ...r, deliveryMode: "conversational", baseDescription, description: systemDesignDescription(baseDescription), questionLimit: 1 };
+            }
+            const { baseDescription: _previous, ...rest } = r;
+            return { ...rest, deliveryMode: mode, description: baseDescription };
+        }));
     };
 
     const handleChangeCount = (roundName, num) => {

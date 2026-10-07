@@ -66,3 +66,6 @@ export const adoptGuestWorkspacePreference = (userId) => {
 };
 
 export const getWorkspaceHome = (workspace) => productHomePath(workspace === "hiring" ? "hiring" : "practice");
+
+// With no saved choice, a member of any hiring organization starts in Hire; everyone else in Practice.
+export const defaultWorkspaceFor = (organizations) => (Array.isArray(organizations) && organizations.length ? "hiring" : "practice");

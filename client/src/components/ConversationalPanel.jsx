@@ -85,6 +85,11 @@ const ConversationalPanel = ({
     // The auto-submit timer reads the answer through a ref so typing does not tear it down on every key.
     const convAnswerRef = useRef(convAnswer);
     convAnswerRef.current = convAnswer;
+    // The silence auto-submit runs from an interval created before the answer was spoken. Calling the
+    // parent's handlers through refs makes it submit the answer it just checked, not the empty one those
+    // handlers closed over when the interval started.
+    const turnHandlersRef = useRef({});
+    turnHandlersRef.current = { onPauseHandsFree, onSubmitAnswer, onFollowUpDone };
     const [autoSubmitIn, setAutoSubmitIn] = useState(null);
     const spokenReadinessRef = useRef("");
     const elapsedLabel = useElapsed();
@@ -237,13 +242,13 @@ const ConversationalPanel = ({
     };
 
     const submitAnswerTurn = async () => {
-        await onPauseHandsFree?.();
-        await onSubmitAnswer?.();
+        await turnHandlersRef.current.onPauseHandsFree?.();
+        await turnHandlersRef.current.onSubmitAnswer?.();
     };
 
     const submitFollowUpTurn = async (skip = false) => {
-        await onPauseHandsFree?.();
-        await onFollowUpDone?.({ skip });
+        await turnHandlersRef.current.onPauseHandsFree?.();
+        await turnHandlersRef.current.onFollowUpDone?.({ skip });
     };
 
     useEffect(() => {
@@ -276,7 +281,7 @@ const ConversationalPanel = ({
             else void submitAnswerTurn();
         }, 400);
         return () => { window.clearInterval(timer); setAutoSubmitIn(null); };
-    }, [activeText, aiSpeaking, autoAdvanceEnabled, codingEnabled, convRoundSubmitting, convSubmitting, interimText, isRecording, micSessionActive, pendingFollowUp, readinessNeeded, typedWorkspaceVisible]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [activeText, aiSpeaking, autoAdvanceEnabled, codingEnabled, convRoundSubmitting, convSubmitting, interimText, isRecording, micSessionActive, pendingFollowUp, readinessNeeded, typedWorkspaceVisible]);
 
     const endRound = async () => {
         setSubmitRoundOpen(false);
@@ -415,7 +420,7 @@ const ConversationalPanel = ({
 
                 <Dialog open={submitRoundOpen} onClose={() => setSubmitRoundOpen(false)} aria-labelledby="submit-round-title">
                     <DialogTitle id="submit-round-title">End this round?</DialogTitle>
-                    <DialogContent><DialogContentText>This closes the live round and moves you forward. You can review feedback after the interview is complete.</DialogContentText></DialogContent>
+                    <DialogContent><DialogContentText>This closes the live round. Your feedback for it appears as soon as it is scored, and you can continue to the next round from there.</DialogContentText></DialogContent>
                     <DialogActions><Button onClick={() => setSubmitRoundOpen(false)}>Keep interviewing</Button><Button variant="contained" onClick={endRound}>End round</Button></DialogActions>
                 </Dialog>
             </Box>

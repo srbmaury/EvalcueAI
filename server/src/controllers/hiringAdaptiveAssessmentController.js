@@ -180,8 +180,9 @@ export const startAdaptiveCandidateAttempt = async (req, res, next) => {
         if (existing) { observeCandidateAction("start", "duplicate", assessment); return res.status(409).json({ message: existing.status === "submitted" ? "This email has already submitted an attempt" : "An attempt for this email is already in progress. Continue from the browser where it was started or contact the recruiting team." }); }
 
         const rawToken = crypto.randomBytes(32).toString("base64url");
-        const attemptRounds = [];
-        for (const round of assessment.rounds) attemptRounds.push(await makeAttemptRound(assessment, round));
+        // Each adaptive round needs AI calls to plan it and write its opening question; rounds are
+        // independent, so build them concurrently rather than making the candidate wait for each in turn.
+        const attemptRounds = await Promise.all(assessment.rounds.map((round) => makeAttemptRound(assessment, round)));
         const now = new Date();
         const attempt = new CandidateAttempt({
             assessment: assessment._id, candidateEmail, candidateName: req.body.name.trim(), accessTokenHash: tokenHash(rawToken),

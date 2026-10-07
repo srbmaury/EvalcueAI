@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDefaultQuestionLimit, getQuestionCountCopy, isSystemDesignRound } from "../utils/roundDefaults";
+import { getDefaultQuestionLimit, getQuestionCountCopy, isSystemDesignRound, systemDesignDescription } from "../utils/roundDefaults";
 
 describe("practice round defaults", () => {
     it("uses one evolving problem for system design", () => {
@@ -28,5 +28,14 @@ describe("practice round defaults", () => {
 
     it("treats architecture rounds as live system-design discussions", () => {
         expect(getDefaultQuestionLimit({ roundName: "Frontend Architecture", deliveryMode: "conversational" })).toBe(1);
+    });
+});
+
+describe("choosing live system design for a practice round", () => {
+    it("marks the description so every layer treats the round as system design, within the API limit", () => {
+        const description = systemDesignDescription("Discuss partitioning, load balancing, and fault tolerance.");
+        expect(isSystemDesignRound({ roundName: "Distributed Systems and Scalability", description })).toBe(true);
+        expect(getDefaultQuestionLimit({ roundName: "Distributed Systems and Scalability", description })).toBe(1);
+        expect(systemDesignDescription("x".repeat(300))).toHaveLength(260);
     });
 });

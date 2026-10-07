@@ -36,6 +36,7 @@ const LandingPage = lazy(() => import("./pages/LandingPage.jsx"));
 const ProductLandingPage = lazy(() => import("./pages/ProductLandingPage.jsx"));
 const ProductResourcePage = lazy(() => import("./pages/ProductResourcePage.jsx"));
 const SearchLandingPage = lazy(() => import("./pages/SearchLandingPage.jsx"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
 const LegalPage = lazy(() => import("./pages/LegalPage.jsx"));
 const ProgressPage = lazy(() => import("./pages/ProgressPage.jsx"));
 const ReviewHistoryPage = lazy(() => import("./pages/ReviewHistoryPage.jsx"));
@@ -179,7 +180,7 @@ function App() {
                 <Route path="/admin/calibration" element={<ProtectedRoute><AdminRoute><AdminCalibrationPage /></AdminRoute></ProtectedRoute>} />
                 <Route path="/practice/*" element={<Navigate to="/practice" replace />} />
                 <Route path="/hire/*" element={<Navigate to="/hire" replace />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route path="*" element={<NotFoundPage />} />
                 </Routes></Suspense></ErrorBoundary>
             </main>
             {practiceLimit && <Suspense fallback={null}><PracticeLimitDialog limit={practiceLimit} onClose={() => setPracticeLimit(null)} /></Suspense>}

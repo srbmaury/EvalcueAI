@@ -10,6 +10,7 @@ const defaultOrganizationContext = {
     activeOrganizationId: null,
     currentRole: null,
     loading: false,
+    organizationsReady: true,
     error: "",
     selectOrganization: () => {},
     createOrganization: async () => null,
@@ -39,6 +40,9 @@ export const OrganizationProvider = ({ children }) => {
     const [activeOrganizationId, setActiveOrganizationId] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    // Which user's memberships have finished loading (successfully or not), so callers can tell
+    // "no organizations" apart from "not loaded yet" on the first render after sign-in.
+    const [loadedForUserId, setLoadedForUserId] = useState(null);
 
     const selectOrganization = useCallback((organizationId) => {
         const selected = organizationId || null;
@@ -71,6 +75,7 @@ export const OrganizationProvider = ({ children }) => {
             return [];
         } finally {
             setLoading(false);
+            setLoadedForUserId(user._id);
         }
     }, [selectOrganization, user?._id]);
 
@@ -92,8 +97,11 @@ export const OrganizationProvider = ({ children }) => {
         [activeOrganizationId, organizations],
     );
 
+    const organizationsReady = !user?._id || loadedForUserId === user._id;
+
     const value = useMemo(() => ({
         organizations,
+        organizationsReady,
         activeOrganization,
         activeOrganizationId,
         currentRole: activeOrganization?.role || null,
@@ -102,7 +110,7 @@ export const OrganizationProvider = ({ children }) => {
         selectOrganization,
         createOrganization,
         refreshOrganizations,
-    }), [organizations, activeOrganization, activeOrganizationId, loading, error, selectOrganization, createOrganization, refreshOrganizations]);
+    }), [organizations, organizationsReady, activeOrganization, activeOrganizationId, loading, error, selectOrganization, createOrganization, refreshOrganizations]);
 
     return <OrganizationContext.Provider value={value}>{children}</OrganizationContext.Provider>;
 };
