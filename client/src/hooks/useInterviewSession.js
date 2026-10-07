@@ -71,7 +71,11 @@ export const useInterviewSession = (interviewId, showToast) => {
             const { data } = await api.get(`/interviews/${interviewId}`);
             setInterview(data);
             clearDraftsForRound(selectedRound);
-            selectRound(data.rounds[0]?.round || null);
+            // Continue with the first unfinished round; if the skip finished the interview, stay on the
+            // last round so its debrief can link to the overall feedback.
+            const rounds = data.rounds || [];
+            const nextUnfinished = rounds.find((entry) => entry?.round && entry.round.status !== "completed")?.round;
+            selectRound(nextUnfinished || rounds[rounds.length - 1]?.round || null);
             showToast("success", "Round skipped.");
         } catch (e) {
             console.error("skip error", e);

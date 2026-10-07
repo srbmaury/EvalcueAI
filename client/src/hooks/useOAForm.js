@@ -24,10 +24,14 @@ export const useOAForm = ({
     const [oaFeedbackProgress, setOaFeedbackProgress] = useState(0);
     const autosaveTimerRef = useRef(null);
     const lastServerSnapshotRef = useRef("");
+    const autosaveWarnedRef = useRef(false);
+    const showToastRef = useRef(showToast);
+    showToastRef.current = showToast;
 
     useEffect(() => {
         if (!selectedRound || isConversational) return;
         const questionCount = selectedRound.questions?.length || 0;
+        autosaveWarnedRef.current = false;
         const key = storageKeys.oa(interviewId, selectedRound._id);
         const saved = storage.get(key);
         const len = Math.max(questionCount, Array.isArray(saved) ? saved.length : 0);
@@ -80,6 +84,13 @@ export const useOAForm = ({
                 lastServerSnapshotRef.current = serialized;
             } catch (error) {
                 console.debug("OA autosave deferred", error?.message || error);
+                // Answers are still kept locally, but tell the candidate once so a long outage isn't silent.
+                if (!autosaveWarnedRef.current) {
+                    autosaveWarnedRef.current = true;
+                    showToastRef.current?.("warning", error?.response?.status === 429
+                        ? "Autosave is paused for a moment. Your answers are kept on this device and will save when you submit."
+                        : "Couldn't reach the server to autosave. Your answers are kept on this device.");
+                }
             }
         }, 850);
         return () => clearTimeout(autosaveTimerRef.current);

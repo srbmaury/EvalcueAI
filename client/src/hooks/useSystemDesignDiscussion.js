@@ -61,6 +61,9 @@ export const useSystemDesignDiscussion = ({
     const interjectionsRef = useRef(interjections);
     const onInterjectionRef = useRef(onInterjection);
     const interviewerSpeakingRef = useRef(Boolean(interviewerSpeaking));
+    // A forced check (e.g. the candidate pressed Send) that couldn't run yet is retried as forced on the
+    // next tick or when the tab becomes visible, instead of waiting for enough new text to accumulate.
+    const pendingForceRef = useRef(false);
 
     const markCandidateTurnStart = useCallback(() => {
         const now = Date.now();
@@ -110,9 +113,15 @@ export const useSystemDesignDiscussion = ({
     useEffect(() => { interjectionsRef.current = interjections; }, [interjections]);
     useEffect(() => { onInterjectionRef.current = onInterjection; }, [onInterjection]);
 
-    const checkpoint = useCallback(async ({ force = false, dueToSilence = false } = {}) => {
-        if (!enabled || !endpoint || busyRef.current || interviewerSpeakingRef.current) return null;
-        if (typeof document !== "undefined" && document.hidden) return null;
+    const checkpoint = useCallback(async ({ force: forceRequested = false, dueToSilence = false } = {}) => {
+        const force = forceRequested || pendingForceRef.current;
+        const blocked = !enabled || !endpoint || busyRef.current || interviewerSpeakingRef.current
+            || (typeof document !== "undefined" && document.hidden);
+        if (blocked) {
+            if (forceRequested && enabled && endpoint) pendingForceRef.current = true;
+            return null;
+        }
+        pendingForceRef.current = false;
         const currentTranscript = (transcriptRef.current || "").trim();
         const now = Date.now();
         const newChars = currentTranscript.length - lastCheckedLengthRef.current;
@@ -175,7 +184,9 @@ export const useSystemDesignDiscussion = ({
     useEffect(() => {
         if (!enabled || !endpoint) return undefined;
         const timer = window.setInterval(() => { checkpoint(); }, Math.max(5000, intervalMs));
-        return () => window.clearInterval(timer);
+        const onVisible = () => { if (!document.hidden && pendingForceRef.current) checkpoint(); };
+        document.addEventListener("visibilitychange", onVisible);
+        return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
     }, [checkpoint, enabled, endpoint, intervalMs]);
 
     useEffect(() => {

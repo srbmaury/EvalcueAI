@@ -1,0 +1,105 @@
+{
+  "started_utc": "2026-10-01T16:29:19.060463+00:00",
+  "finished_utc": "2026-10-01T16:29:57.954036+00:00",
+  "method": {
+    "concurrency": [
+      1,
+      3,
+      5
+    ],
+    "stage_duration_seconds": 12,
+    "worker_pause_seconds": 0.75,
+    "request_cap": 180,
+    "timeout_seconds": 10,
+    "stop_threshold": "4 invalid responses in last 20"
+  },
+  "stopped_early": false,
+  "overall": {
+    "requests": 72,
+    "failures": 9,
+    "p50_ms": 660.47,
+    "p95_ms": 1854.15,
+    "max_ms": 2752.75
+  },
+  "targets": {
+    "landing": {
+      "requests": 9,
+      "failures": 0,
+      "p50_ms": 682.94,
+      "p95_ms": 1400.91,
+      "max_ms": 1400.91
+    },
+    "pricing": {
+      "requests": 9,
+      "failures": 0,
+      "p50_ms": 681.55,
+      "p95_ms": 997.24,
+      "max_ms": 997.24
+    },
+    "terms": {
+      "requests": 9,
+      "failures": 0,
+      "p50_ms": 692.01,
+      "p95_ms": 955.55,
+      "max_ms": 955.55
+    },
+    "practice": {
+      "requests": 9,
+      "failures": 0,
+      "p50_ms": 1614.8,
+      "p95_ms": 2752.75,
+      "max_ms": 2752.75
+    },
+    "hire": {
+      "requests": 9,
+      "failures": 0,
+      "p50_ms": 1694.02,
+      "p95_ms": 2113.96,
+      "max_ms": 2113.96
+    },
+    "liveness": {
+      "requests": 9,
+      "failures": 0,
+      "p50_ms": 300.11,
+      "p95_ms": 403.08,
+      "max_ms": 403.08
+    },
+    "readiness": {
+      "requests": 9,
+      "failures": 0,
+      "p50_ms": 288.06,
+      "p95_ms": 359.93,
+      "max_ms": 359.93
+    },
+    "catalog": {
+      "requests": 9,
+      "failures": 9,
+      "p50_ms": 281.52,
+      "p95_ms": 429.65,
+      "max_ms": 429.65
+    }
+  },
+  "stages": {
+    "1": {
+      "requests": 6,
+      "failures": 0,
+      "p50_ms": 855.18,
+      "p95_ms": 2752.75,
+      "max_ms": 2752.75
+    },
+    "3": {
+      "requests": 24,
+      "failures": 3,
+      "p50_ms": 667.78,
+      "p95_ms": 1796.66,
+      "max_ms": 1969.08
+    },
+    "5": {
+      "requests": 42,
+      "failures": 6,
+      "p50_ms": 622.21,
+      "p95_ms": 1710.21,
+      "max_ms": 1854.15
+    }
+  }
+}

@@ -16,6 +16,7 @@ import Brightness7Icon from "@mui/icons-material/Brightness7";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
+import usePublicConfig from "../hooks/usePublicConfig";
 import { storage, storageKeys } from "../utils/interviewStorage";
 
 // Monaco is several megabytes. Keep it out of the network path until the user
@@ -42,8 +43,11 @@ const languageMentionedIn = (text = "") => {
     return null;
 };
 
-const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputSx, onModeChange, draftKey, suggestCode = false, questionText = "", executionEndpoint = "/run-code", executionHeaders = {}, skipAuthRedirect = false, canRun = true }) => {
+const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputSx, onModeChange, draftKey, suggestCode = false, questionText = "", executionEndpoint = "/run-code", executionHeaders = {}, skipAuthRedirect = false, canRun: canRunProp }) => {
     const muiTheme = useTheme();
+    const publicConfig = usePublicConfig();
+    // Callers can force it either way; otherwise follow whether the server has code execution enabled.
+    const canRun = canRunProp ?? Boolean(publicConfig?.features?.codeExecution);
     const authContext = useContext(AuthContext);
     const preferredProgrammingLanguage = authContext?.user?.preferredProgrammingLanguage;
     const [useEditor, setUseEditor] = useState(() => Boolean(suggestCode));
@@ -115,7 +119,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
     }, [editorTheme]);
 
     const handleRunCode = useCallback(async () => {
-        if (!useEditor || !isRunnable(language)) return;
+        if (!canRun || !useEditor || !isRunnable(language)) return;
         setRunError("");
         setOutput("");
         setExecMeta(null);
@@ -146,15 +150,14 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                 memory: d?.memory,
             });
         } catch (err) {
-            const message =
-                err?.response?.data?.error ||
-                err?.message ||
-                "Failed to run code";
+            const message = err?.response?.status === 503
+                ? "Code execution is unavailable right now. Your code is still saved with your answer."
+                : err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to run code";
             setRunError(message);
         } finally {
             setIsRunning(false);
         }
-    }, [useEditor, value, language, stdin, executionEndpoint, executionHeaders, skipAuthRedirect]);
+    }, [canRun, useEditor, value, language, stdin, executionEndpoint, executionHeaders, skipAuthRedirect]);
 
     const handleEditorDidMount = useCallback((editor, monaco) => {
         editorRef.current = editor;
@@ -185,13 +188,19 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
         updateEditorHeight();
     }, [handleRunCode, minRows, onFocus]);
 
-    const outputValue = execMeta?.isError
+    // A request that never reached the runner has no execMeta; show why instead of an empty box.
+    const outputValue = runError && !execMeta
+        ? runError
+        : execMeta?.isError
         ? execMeta?.errorType === "compile"
             ? execMeta?.compileOutput || output || runError
             : execMeta?.stderr || output || runError
         : output;
 
-    const outputLabel = execMeta?.isError
+    const outputIsError = Boolean(execMeta?.isError || (runError && !execMeta));
+    const outputLabel = runError && !execMeta
+        ? "Run failed"
+        : execMeta?.isError
         ? execMeta?.errorType === "compile" ? "Compilation Error" : "Runtime/Error"
         : "Output";
 
@@ -204,7 +213,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                 <IconButton onClick={() => setUseEditor((current) => { const next = !current; onModeChange?.(next); return next; })} size="small" aria-label={useEditor ? "Use text answer" : "Use code editor"}>
                     <CodeIcon />
                 </IconButton>
-                {useEditor && canRun && (
+                {useEditor && (
                     <Tooltip title={isLightTheme ? "Switch to dark theme" : "Switch to light theme"}>
                         <IconButton onClick={toggleTheme} size="small">
                             {isLightTheme ? <Brightness4Icon /> : <Brightness7Icon />}
@@ -224,7 +233,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                         ))}
                     </Select>
                 )}
-                {useEditor && (
+                {useEditor && canRun && (
                     <Button
                         size="small"
                         variant="contained"
@@ -247,7 +256,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
             </Stack>
 
             {/* Stdin — only visible when not in fullscreen (fullscreen has its own copy below) */}
-            {useEditor && !isFullscreen && (
+            {useEditor && canRun && !isFullscreen && (
                 <TextField
                     fullWidth
                     multiline
@@ -325,6 +334,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                                         </MenuItem>
                                     ))}
                                 </Select>
+                                {canRun && (
                                 <Button
                                     size="small"
                                     variant="contained"
@@ -335,10 +345,11 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                                 >
                                     {isRunning ? "Running..." : "Run"}
                                 </Button>
+                                )}
                             </div>
 
                             {/* Stdin inside fullscreen */}
-                            <TextField
+                            {canRun && <TextField
                                 fullWidth
                                 multiline
                                 minRows={2}
@@ -356,7 +367,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                                     }),
                                 }}
                                 inputProps={{ style: isLightTheme ? {} : { color: "#e0e0e0" } }}
-                            />
+                            />}
                         </>
                     )}
 
@@ -413,7 +424,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                                 sx={{
                                     display: "block",
                                     mb: 0.5,
-                                    color: execMeta?.isError ? "#f44336" : fsColor,
+                                    color: outputIsError ? "#f44336" : fsColor,
                                     opacity: 0.8,
                                 }}
                             >
@@ -491,7 +502,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                 <Stack mt={1} spacing={0.5}>
                     <Typography
                         variant="caption"
-                        color={execMeta?.isError ? "error" : "text.secondary"}
+                        color={outputIsError ? "error" : "text.secondary"}
                     >
                         {outputLabel}
                     </Typography>
@@ -504,7 +515,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                         sx={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
                     />
                     <Typography variant="caption" color="text.secondary">
-                        {isRunnable(language) ? "Shortcuts: Run (Cmd/Ctrl+Enter or F9)." : "SQL answers are reviewed, not executed. Explain any assumptions about the schema."}
+                        {!canRun ? "" : isRunnable(language) ? "Shortcuts: Run (Cmd/Ctrl+Enter or F9)." : "SQL answers are reviewed, not executed. Explain any assumptions about the schema."}
                     </Typography>
                 </Stack>
             )}

@@ -1,0 +1,73 @@
+stage,target,url,status,latency_ms,bytes,valid,error,cache,final_url
+1,landing,https://evalcueai.com/,200,847.48,10111,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://evalcueai.com/
+1,pricing,https://evalcueai.com/plans,200,997.24,10111,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://evalcueai.com/plans
+1,terms,https://evalcueai.com/terms,200,855.18,10111,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://evalcueai.com/terms
+1,practice,https://practice.evalcueai.com/practice,200,2752.75,6630,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://practice.evalcueai.com/practice/
+1,hire,https://hiring.evalcueai.com/hire,200,2113.96,6564,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://hiring.evalcueai.com/hire/
+1,liveness,https://api.evalcueai.com/health/liveness,200,392.57,65,True,,,https://api.evalcueai.com/health/liveness
+3,catalog,https://api.evalcueai.com/api/billing/catalog,404,332.67,0,False,HTTP Error 404: Not Found,,https://api.evalcueai.com/api/billing/catalog
+3,readiness,https://api.evalcueai.com/health/readiness,200,333.14,106,True,,,https://api.evalcueai.com/health/readiness
+3,landing,https://evalcueai.com/,200,1400.91,10111,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://evalcueai.com/
+3,pricing,https://evalcueai.com/plans,200,898.68,10111,True,,"""Netlify Edge""; hit; ttl=31535927",https://evalcueai.com/plans
+3,terms,https://evalcueai.com/terms,200,955.55,10111,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://evalcueai.com/terms
+3,liveness,https://api.evalcueai.com/health/liveness,200,403.08,65,True,,,https://api.evalcueai.com/health/liveness
+3,practice,https://practice.evalcueai.com/practice,200,1777.05,6630,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://practice.evalcueai.com/practice/
+3,readiness,https://api.evalcueai.com/health/readiness,200,359.93,106,True,,,https://api.evalcueai.com/health/readiness
+3,hire,https://hiring.evalcueai.com/hire,200,1969.08,6564,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://hiring.evalcueai.com/hire/
+3,catalog,https://api.evalcueai.com/api/billing/catalog,404,429.65,0,False,HTTP Error 404: Not Found,,https://api.evalcueai.com/api/billing/catalog
+3,landing,https://evalcueai.com/,200,598.92,10111,True,,"""Netlify Edge""; hit; ttl=31535995",https://evalcueai.com/
+3,pricing,https://evalcueai.com/plans,200,667.78,10111,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://evalcueai.com/plans
+3,terms,https://evalcueai.com/terms,200,713.39,10111,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://evalcueai.com/terms
+3,liveness,https://api.evalcueai.com/health/liveness,200,324.27,65,True,,,https://api.evalcueai.com/health/liveness
+3,practice,https://practice.evalcueai.com/practice,200,1614.8,6630,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://practice.evalcueai.com/practice/
+3,hire,https://hiring.evalcueai.com/hire,200,1490.94,6564,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://hiring.evalcueai.com/hire/
+3,readiness,https://api.evalcueai.com/health/readiness,200,289.35,106,True,,,https://api.evalcueai.com/health/readiness
+3,catalog,https://api.evalcueai.com/api/billing/catalog,404,273.39,0,False,HTTP Error 404: Not Found,,https://api.evalcueai.com/api/billing/catalog
+3,landing,https://evalcueai.com/,200,784.07,10111,True,,"""Netlify Edge""; fwd=stale; fwd-status=200; stored",https://evalcueai.com/
+3,pricing,https://evalcueai.com/plans,200,660.47,10111,True,,"""Netlify Edge""; hit; ttl=31535980",https://evalcueai.com/plans
+3,terms,https://evalcueai.com/terms,200,670.89,10111,True,,"""Netlify Edge""; hit; ttl=31535996",https://evalcueai.com/terms
+3,liveness,https://api.evalcueai.com/health/liveness,200,300.11,65,True,,,https://api.evalcueai.com/health/liveness
+3,hire,https://hiring.evalcueai.com/hire,200,1092.7,6564,True,,"""Netlify Edge""; hit; ttl=31535993",https://hiring.evalcueai.com/hire/
+3,practice,https://practice.evalcueai.com/practice,200,1796.66,6630,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://practice.evalcueai.com/practice/
+5,catalog,https://api.evalcueai.com/api/billing/catalog,404,279.08,0,False,HTTP Error 404: Not Found,,https://api.evalcueai.com/api/billing/catalog
+5,readiness,https://api.evalcueai.com/health/readiness,200,288.06,106,True,,,https://api.evalcueai.com/health/readiness
+5,landing,https://evalcueai.com/,200,550.58,10111,True,,"""Netlify Edge""; hit; ttl=31535996",https://evalcueai.com/
+5,terms,https://evalcueai.com/terms,200,623.17,10111,True,,"""Netlify Edge""; hit; ttl=31535988",https://evalcueai.com/terms
+5,pricing,https://evalcueai.com/plans,200,638.66,10111,True,,"""Netlify Edge""; hit; ttl=31535915",https://evalcueai.com/plans
+5,liveness,https://api.evalcueai.com/health/liveness,200,253.45,65,True,,,https://api.evalcueai.com/health/liveness
+5,readiness,https://api.evalcueai.com/health/readiness,200,246.99,106,True,,,https://api.evalcueai.com/health/readiness
+5,catalog,https://api.evalcueai.com/api/billing/catalog,404,254.64,0,False,HTTP Error 404: Not Found,,https://api.evalcueai.com/api/billing/catalog
+5,practice,https://practice.evalcueai.com/practice,200,1441.74,6630,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://practice.evalcueai.com/practice/
+5,hire,https://hiring.evalcueai.com/hire,200,1771.04,6564,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://hiring.evalcueai.com/hire/
+5,landing,https://evalcueai.com/,200,682.94,10111,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://evalcueai.com/
+5,pricing,https://evalcueai.com/plans,200,681.55,10111,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://evalcueai.com/plans
+5,terms,https://evalcueai.com/terms,200,692.01,10111,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://evalcueai.com/terms
+5,liveness,https://api.evalcueai.com/health/liveness,200,304.11,65,True,,,https://api.evalcueai.com/health/liveness
+5,readiness,https://api.evalcueai.com/health/readiness,200,281.81,106,True,,,https://api.evalcueai.com/health/readiness
+5,catalog,https://api.evalcueai.com/api/billing/catalog,404,405.88,0,False,HTTP Error 404: Not Found,,https://api.evalcueai.com/api/billing/catalog
+5,practice,https://practice.evalcueai.com/practice,200,1367.74,6630,True,,"""Netlify Edge""; hit; ttl=31535990",https://practice.evalcueai.com/practice/
+5,hire,https://hiring.evalcueai.com/hire,200,1694.02,6564,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://hiring.evalcueai.com/hire/
+5,landing,https://evalcueai.com/,200,619.86,10111,True,,"""Netlify Edge""; hit; ttl=31535991",https://evalcueai.com/
+5,pricing,https://evalcueai.com/plans,200,733.33,10111,True,,"""Netlify Edge""; hit; ttl=31535997",https://evalcueai.com/plans
+5,terms,https://evalcueai.com/terms,200,625.43,10111,True,,"""Netlify Edge""; hit; ttl=31535997",https://evalcueai.com/terms
+5,liveness,https://api.evalcueai.com/health/liveness,200,260.46,65,True,,,https://api.evalcueai.com/health/liveness
+5,readiness,https://api.evalcueai.com/health/readiness,200,278.51,106,True,,,https://api.evalcueai.com/health/readiness
+5,catalog,https://api.evalcueai.com/api/billing/catalog,404,281.52,0,False,HTTP Error 404: Not Found,,https://api.evalcueai.com/api/billing/catalog
+5,practice,https://practice.evalcueai.com/practice,200,1388.25,6630,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://practice.evalcueai.com/practice/
+5,hire,https://hiring.evalcueai.com/hire,200,1541.28,6564,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://hiring.evalcueai.com/hire/
+5,pricing,https://evalcueai.com/plans,200,760.15,10111,True,,"""Netlify Edge""; hit; ttl=31535985",https://evalcueai.com/plans
+5,landing,https://evalcueai.com/,200,927.88,10111,True,,"""Netlify Edge""; hit; ttl=31535989",https://evalcueai.com/
+5,terms,https://evalcueai.com/terms,200,703.59,10111,True,,"""Netlify Edge""; hit; ttl=31535981",https://evalcueai.com/terms
+5,catalog,https://api.evalcueai.com/api/billing/catalog,404,262.99,0,False,HTTP Error 404: Not Found,,https://api.evalcueai.com/api/billing/catalog
+5,readiness,https://api.evalcueai.com/health/readiness,200,267.57,106,True,,,https://api.evalcueai.com/health/readiness
+5,liveness,https://api.evalcueai.com/health/liveness,200,271.2,65,True,,,https://api.evalcueai.com/health/liveness
+5,practice,https://practice.evalcueai.com/practice,200,1854.15,6630,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://practice.evalcueai.com/practice/
+5,hire,https://hiring.evalcueai.com/hire,200,1644.73,6564,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://hiring.evalcueai.com/hire/
+5,terms,https://evalcueai.com/terms,200,613.35,10111,True,,"""Netlify Edge""; hit; ttl=31535968",https://evalcueai.com/terms
+5,landing,https://evalcueai.com/,200,622.21,10111,True,,"""Netlify Edge""; hit; ttl=31535986",https://evalcueai.com/
+5,pricing,https://evalcueai.com/plans,200,665.79,10111,True,,"""Netlify Edge""; hit; ttl=31535905",https://evalcueai.com/plans
+5,practice,https://practice.evalcueai.com/practice,200,1187.25,6630,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://practice.evalcueai.com/practice/
+5,liveness,https://api.evalcueai.com/health/liveness,200,286.17,64,True,,,https://api.evalcueai.com/health/liveness
+5,readiness,https://api.evalcueai.com/health/readiness,200,289.03,106,True,,,https://api.evalcueai.com/health/readiness
+5,catalog,https://api.evalcueai.com/api/billing/catalog,404,283.85,0,False,HTTP Error 404: Not Found,,https://api.evalcueai.com/api/billing/catalog
+5,hire,https://hiring.evalcueai.com/hire,200,1710.21,6564,True,,"""Netlify Edge""; fwd=miss; fwd-status=200; stored",https://hiring.evalcueai.com/hire/

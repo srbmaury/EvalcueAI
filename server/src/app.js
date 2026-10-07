@@ -16,6 +16,7 @@ import errorHandler from "./middleware/errorHandler.js";
 import httpLogger from "./middleware/logger.js";
 import { normalizeRoute } from "./metrics/routes.js";
 import originCheck from "./middleware/originCheck.js";
+import { questionRouteLimiter } from "./middleware/questionRouteLimits.js";
 
 import swaggerSpec from "./config/swagger.js";
 
@@ -259,6 +260,8 @@ const apiLimiter = makeLimiter(
 );
 // Tighter limits for AI-intensive endpoints (per authenticated user)
 const aiLimiter   = makeLimiter(15 * 60 * 1000, parseInt(process.env.AI_RATE_LIMIT_MAX   || "30",  10) || 30,  "ai");
+// Answer turns, checkpoints and completion inside a running interview get their own budget (see questionRouteLimits.js).
+const aiTurnLimiter = makeLimiter(15 * 60 * 1000, parseInt(process.env.AI_TURN_RATE_LIMIT_MAX || "150", 10) || 150, "ai-turn");
 const sttLimiter  = makeLimiter(15 * 60 * 1000, parseInt(process.env.STT_RATE_LIMIT_MAX  || "60",  10) || 60,  "stt");
 const codeLimiter = makeLimiter(15 * 60 * 1000, parseInt(process.env.CODE_RATE_LIMIT_MAX || "20",  10) || 20,  "code");
 
@@ -269,7 +272,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api/interviews", interviewRoutes);
 app.use("/api/rounds", aiLimiter, roundRoutes);
-app.use("/api/questions", aiLimiter, questionRoutes);
+app.use("/api/questions", questionRouteLimiter({ turnLimiter: aiTurnLimiter, generationLimiter: aiLimiter }), questionRoutes);
 app.use("/api/feedback", aiLimiter, feedbackRoutes);
 app.use("/api/run-code", codeLimiter, runCodeRoutes);
 app.use("/api/stt", sttLimiter, sttRoutes);

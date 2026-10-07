@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link as RouterLink, useParams } from "react-router-dom";
 
 import { useInterviewSession } from "../hooks/useInterviewSession";
 import { useConversational } from "../hooks/useConversational";
@@ -363,9 +363,13 @@ const InterviewPage = () => {
         return index >= 0 ? { round: rounds[index].round, number: index + 1 } : null;
     }, [interview?.rounds, selectedRound]);
 
+    // Only offer a round that still needs doing; completed rounds are reached from "Back to rounds".
     const nextRound = useMemo(() => {
         if (!selectedRound || roundMeta.index < 0) return null;
-        return interview?.rounds?.[roundMeta.index + 1]?.round || null;
+        const rounds = interview?.rounds || [];
+        const after = rounds.slice(roundMeta.index + 1).find((entry) => entry?.round && entry.round.status !== "completed");
+        const before = rounds.slice(0, roundMeta.index).find((entry) => entry?.round && entry.round.status !== "completed");
+        return (after || before)?.round || null;
     }, [interview?.rounds, roundMeta.index, selectedRound]);
 
     const modeLabel = isSystemDesign
@@ -384,6 +388,7 @@ const InterviewPage = () => {
                 <Stack direction={{ xs: "column", sm: "row" }} gap={1}>
                     <Button variant="outlined" onClick={() => setShowRoundsOverview(true)}>Back to rounds</Button>
                     {nextRound && <Button variant="contained" onClick={() => enterRound(nextRound)}>Continue to {nextRound.name}</Button>}
+                    {!nextRound && allRoundsCompleted && <Button variant="contained" component={RouterLink} to={`/practice/interviews/${interviewId}/feedback`}>View interview feedback</Button>}
                 </Stack>
             </Stack>
         </Paper>
@@ -504,7 +509,10 @@ const InterviewPage = () => {
                                             Interviewer is preparing this round{roundPrepareProgress ? ` · ${Math.min(100, Math.max(0, Math.round(roundPrepareProgress)))}%` : ""}
                                         </Typography>
                                         <Typography variant="body2" color="text.secondary">Questions are being tailored to the role and your interview context.</Typography>
+                                        {/* Keyed so switching to determinate starts a fresh bar at the real value instead of
+                                            animating from wherever the indeterminate animation was (it briefly showed ~85% beside "25%"). */}
                                         <LinearProgress
+                                            key={roundPrepareProgress ? "determinate" : "indeterminate"}
                                             variant={roundPrepareProgress ? "determinate" : "indeterminate"}
                                             value={Math.min(100, Math.max(0, roundPrepareProgress || 0))}
                                         />

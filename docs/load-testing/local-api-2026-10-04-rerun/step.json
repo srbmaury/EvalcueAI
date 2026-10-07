@@ -1,0 +1,585 @@
+{
+  "base": "http://localhost:5000",
+  "stages": [
+    {
+      "vus": 5,
+      "seconds": 30.2,
+      "requests": 943,
+      "rps": 31.2,
+      "errorRate": 0,
+      "p50": 120.7,
+      "p90": 308.1,
+      "p95": 361.3,
+      "p99": 481.4,
+      "max": 760.4,
+      "byStatus": {
+        "200": 943
+      },
+      "serverCpuAvg": 11,
+      "serverCpuMax": 32,
+      "serverRssMaxMb": 254
+    },
+    {
+      "vus": 25,
+      "seconds": 31,
+      "requests": 1154,
+      "rps": 37.2,
+      "errorRate": 0,
+      "p50": 844.6,
+      "p90": 1798.3,
+      "p95": 1880,
+      "p99": 2028.1,
+      "max": 2959.5,
+      "byStatus": {
+        "200": 1154
+      },
+      "serverCpuAvg": 9,
+      "serverCpuMax": 33.5,
+      "serverRssMaxMb": 260
+    },
+    {
+      "vus": 50,
+      "seconds": 31.9,
+      "requests": 1246,
+      "rps": 39,
+      "errorRate": 0,
+      "p50": 1001.4,
+      "p90": 2934.6,
+      "p95": 2957.8,
+      "p99": 3933.4,
+      "max": 5052.8,
+      "byStatus": {
+        "200": 1246
+      },
+      "serverCpuAvg": 17,
+      "serverCpuMax": 45.1,
+      "serverRssMaxMb": 268
+    },
+    {
+      "vus": 100,
+      "seconds": 33,
+      "requests": 1492,
+      "rps": 45.2,
+      "errorRate": 0,
+      "p50": 1974.8,
+      "p90": 4923.6,
+      "p95": 4993.4,
+      "p99": 5955.4,
+      "max": 8962.3,
+      "byStatus": {
+        "200": 1492
+      },
+      "serverCpuAvg": 8,
+      "serverCpuMax": 40.8,
+      "serverRssMaxMb": 277
+    },
+    {
+      "vus": 200,
+      "seconds": 35.1,
+      "requests": 1636,
+      "rps": 46.6,
+      "errorRate": 0,
+      "p50": 3278.2,
+      "p90": 8049.8,
+      "p95": 9002.9,
+      "p99": 9996.4,
+      "max": 10268.2,
+      "byStatus": {
+        "200": 1636
+      },
+      "serverCpuAvg": 10,
+      "serverCpuMax": 35.1,
+      "serverRssMaxMb": 297
+    }
+  ],
+  "perEndpoint": {
+    "health.readiness": {
+      "requests": 670,
+      "rps": null,
+      "errorRate": 0,
+      "p50": 2.8,
+      "p90": 21,
+      "p95": 26.8,
+      "p99": 37.5,
+      "max": 46.5,
+      "byStatus": {
+        "200": 670
+      }
+    },
+    "billing.catalog": {
+      "requests": 535,
+      "rps": null,
+      "errorRate": 0,
+      "p50": 1.7,
+      "p90": 13.7,
+      "p95": 22.1,
+      "p99": 40.4,
+      "max": 46.1,
+      "byStatus": {
+        "200": 535
+      }
+    },
+    "auth.profile": {
+      "requests": 775,
+      "rps": null,
+      "errorRate": 0,
+      "p50": 920.4,
+      "p90": 1981.8,
+      "p95": 2002.3,
+      "p99": 2223.2,
+      "max": 3005.4,
+      "byStatus": {
+        "200": 775
+      }
+    },
+    "practice.interviews": {
+      "requests": 791,
+      "rps": null,
+      "errorRate": 0,
+      "p50": 1038.2,
+      "p90": 3955.1,
+      "p95": 4006.8,
+      "p99": 5056.2,
+      "max": 6277.9,
+      "byStatus": {
+        "200": 791
+      }
+    },
+    "practice.progress": {
+      "requests": 500,
+      "rps": null,
+      "errorRate": 0,
+      "p50": 1014.3,
+      "p90": 3967.8,
+      "p95": 4009.8,
+      "p99": 6951.8,
+      "max": 8010.8,
+      "byStatus": {
+        "200": 500
+      }
+    },
+    "practice.resumes": {
+      "requests": 359,
+      "rps": null,
+      "errorRate": 0,
+      "p50": 1048.5,
+      "p90": 3940.9,
+      "p95": 3998.6,
+      "p99": 4123.5,
+      "max": 5013.6,
+      "byStatus": {
+        "200": 359
+      }
+    },
+    "orgs.list": {
+      "requests": 411,
+      "rps": null,
+      "errorRate": 0,
+      "p50": 2069.5,
+      "p90": 6968.9,
+      "p95": 7024.4,
+      "p99": 8002.2,
+      "max": 8020.1,
+      "byStatus": {
+        "200": 411
+      }
+    },
+    "hire.assessments": {
+      "requests": 613,
+      "rps": null,
+      "errorRate": 0,
+      "p50": 2950.9,
+      "p90": 8035.2,
+      "p95": 9004.7,
+      "p99": 9966.6,
+      "max": 10268.2,
+      "byStatus": {
+        "200": 613
+      }
+    },
+    "hire.overview": {
+      "requests": 682,
+      "rps": null,
+      "errorRate": 0,
+      "p50": 2993.6,
+      "p90": 8053.8,
+      "p95": 9003,
+      "p99": 10012.5,
+      "max": 10030.2,
+      "byStatus": {
+        "200": 682
+      }
+    },
+    "hire.assessmentReport": {
+      "requests": 484,
+      "rps": null,
+      "errorRate": 0,
+      "p50": 3000.2,
+      "p90": 8029.6,
+      "p95": 8943.7,
+      "p99": 9265.6,
+      "max": 10054.2,
+      "byStatus": {
+        "200": 484
+      }
+    },
+    "candidate.publicAssessment": {
+      "requests": 651,
+      "rps": null,
+      "errorRate": 0,
+      "p50": 1014.8,
+      "p90": 3057,
+      "p95": 3965.7,
+      "p99": 4015.9,
+      "max": 4247.8,
+      "byStatus": {
+        "200": 651
+      }
+    }
+  },
+  "perEndpointByStage": {
+    "5": {
+      "health.readiness": {
+        "n": 83,
+        "p50": 1,
+        "p95": 1.9,
+        "err": 0
+      },
+      "billing.catalog": {
+        "n": 73,
+        "p50": 0.7,
+        "p95": 2.2,
+        "err": 0
+      },
+      "auth.profile": {
+        "n": 120,
+        "p50": 57.5,
+        "p95": 80.1,
+        "err": 0
+      },
+      "practice.interviews": {
+        "n": 125,
+        "p50": 118,
+        "p95": 192.9,
+        "err": 0
+      },
+      "practice.progress": {
+        "n": 75,
+        "p50": 119.1,
+        "p95": 235.9,
+        "err": 0
+      },
+      "practice.resumes": {
+        "n": 44,
+        "p50": 116.2,
+        "p95": 234.2,
+        "err": 0
+      },
+      "orgs.list": {
+        "n": 58,
+        "p50": 229.7,
+        "p95": 397.3,
+        "err": 0
+      },
+      "hire.assessments": {
+        "n": 101,
+        "p50": 294.9,
+        "p95": 395.6,
+        "err": 0
+      },
+      "hire.overview": {
+        "n": 97,
+        "p50": 292.9,
+        "p95": 481.4,
+        "err": 0
+      },
+      "hire.assessmentReport": {
+        "n": 76,
+        "p50": 292.8,
+        "p95": 482,
+        "err": 0
+      },
+      "candidate.publicAssessment": {
+        "n": 91,
+        "p50": 115.6,
+        "p95": 227,
+        "err": 0
+      }
+    },
+    "25": {
+      "health.readiness": {
+        "n": 117,
+        "p50": 1.7,
+        "p95": 10.4,
+        "err": 0
+      },
+      "billing.catalog": {
+        "n": 119,
+        "p50": 1.2,
+        "p95": 7.5,
+        "err": 0
+      },
+      "auth.profile": {
+        "n": 140,
+        "p50": 68.1,
+        "p95": 881.5,
+        "err": 0
+      },
+      "practice.interviews": {
+        "n": 138,
+        "p50": 848.7,
+        "p95": 977.2,
+        "err": 0
+      },
+      "practice.progress": {
+        "n": 100,
+        "p50": 873.4,
+        "p95": 1004.1,
+        "err": 0
+      },
+      "practice.resumes": {
+        "n": 66,
+        "p50": 198.8,
+        "p95": 934.6,
+        "err": 0
+      },
+      "orgs.list": {
+        "n": 64,
+        "p50": 1005.8,
+        "p95": 1555.6,
+        "err": 0
+      },
+      "hire.assessments": {
+        "n": 111,
+        "p50": 1129.1,
+        "p95": 1921.7,
+        "err": 0
+      },
+      "hire.overview": {
+        "n": 108,
+        "p50": 1128.4,
+        "p95": 2066.9,
+        "err": 0
+      },
+      "hire.assessmentReport": {
+        "n": 81,
+        "p50": 1119.5,
+        "p95": 1973,
+        "err": 0
+      },
+      "candidate.publicAssessment": {
+        "n": 110,
+        "p50": 830.7,
+        "p95": 939.3,
+        "err": 0
+      }
+    },
+    "50": {
+      "health.readiness": {
+        "n": 131,
+        "p50": 4.3,
+        "p95": 17.4,
+        "err": 0
+      },
+      "billing.catalog": {
+        "n": 104,
+        "p50": 2.1,
+        "p95": 9.9,
+        "err": 0
+      },
+      "auth.profile": {
+        "n": 147,
+        "p50": 873.5,
+        "p95": 957,
+        "err": 0
+      },
+      "practice.interviews": {
+        "n": 139,
+        "p50": 998.7,
+        "p95": 1931,
+        "err": 0
+      },
+      "practice.progress": {
+        "n": 92,
+        "p50": 1000.8,
+        "p95": 1905.3,
+        "err": 0
+      },
+      "practice.resumes": {
+        "n": 63,
+        "p50": 997.6,
+        "p95": 1049.7,
+        "err": 0
+      },
+      "orgs.list": {
+        "n": 85,
+        "p50": 1998.9,
+        "p95": 2901.2,
+        "err": 0
+      },
+      "hire.assessments": {
+        "n": 109,
+        "p50": 2079.6,
+        "p95": 2990.5,
+        "err": 0
+      },
+      "hire.overview": {
+        "n": 155,
+        "p50": 2316.8,
+        "p95": 3901.1,
+        "err": 0
+      },
+      "hire.assessmentReport": {
+        "n": 88,
+        "p50": 2094.6,
+        "p95": 3023.3,
+        "err": 0
+      },
+      "candidate.publicAssessment": {
+        "n": 133,
+        "p50": 996.7,
+        "p95": 1892.5,
+        "err": 0
+      }
+    },
+    "100": {
+      "health.readiness": {
+        "n": 181,
+        "p50": 5.3,
+        "p95": 26,
+        "err": 0
+      },
+      "billing.catalog": {
+        "n": 106,
+        "p50": 4.3,
+        "p95": 18.7,
+        "err": 0
+      },
+      "auth.profile": {
+        "n": 175,
+        "p50": 987.6,
+        "p95": 1018.1,
+        "err": 0
+      },
+      "practice.interviews": {
+        "n": 169,
+        "p50": 1979,
+        "p95": 2939,
+        "err": 0
+      },
+      "practice.progress": {
+        "n": 109,
+        "p50": 1971,
+        "p95": 3940.6,
+        "err": 0
+      },
+      "practice.resumes": {
+        "n": 92,
+        "p50": 1977.1,
+        "p95": 2024.8,
+        "err": 0
+      },
+      "orgs.list": {
+        "n": 95,
+        "p50": 3052.7,
+        "p95": 4030.3,
+        "err": 0
+      },
+      "hire.assessments": {
+        "n": 135,
+        "p50": 4047.2,
+        "p95": 5008.5,
+        "err": 0
+      },
+      "hire.overview": {
+        "n": 142,
+        "p50": 4032.6,
+        "p95": 5996.3,
+        "err": 0
+      },
+      "hire.assessmentReport": {
+        "n": 119,
+        "p50": 4027,
+        "p95": 5017.4,
+        "err": 0
+      },
+      "candidate.publicAssessment": {
+        "n": 169,
+        "p50": 1959.4,
+        "p95": 2014,
+        "err": 0
+      }
+    },
+    "200": {
+      "health.readiness": {
+        "n": 158,
+        "p50": 9.3,
+        "p95": 36.9,
+        "err": 0
+      },
+      "billing.catalog": {
+        "n": 133,
+        "p50": 6.5,
+        "p95": 39.5,
+        "err": 0
+      },
+      "auth.profile": {
+        "n": 193,
+        "p50": 1971.5,
+        "p95": 2043.7,
+        "err": 0
+      },
+      "practice.interviews": {
+        "n": 220,
+        "p50": 3045.8,
+        "p95": 5024.8,
+        "err": 0
+      },
+      "practice.progress": {
+        "n": 124,
+        "p50": 3054.9,
+        "p95": 6949,
+        "err": 0
+      },
+      "practice.resumes": {
+        "n": 94,
+        "p50": 3058.9,
+        "p95": 4036.5,
+        "err": 0
+      },
+      "orgs.list": {
+        "n": 109,
+        "p50": 6057.2,
+        "p95": 8000.1,
+        "err": 0
+      },
+      "hire.assessments": {
+        "n": 157,
+        "p50": 7992.7,
+        "p95": 9965.7,
+        "err": 0
+      },
+      "hire.overview": {
+        "n": 180,
+        "p50": 8011.7,
+        "p95": 10006.5,
+        "err": 0
+      },
+      "hire.assessmentReport": {
+        "n": 120,
+        "p50": 7992.8,
+        "p95": 9206.6,
+        "err": 0
+      },
+      "candidate.publicAssessment": {
+        "n": 148,
+        "p50": 3042.2,
+        "p95": 4015.6,
+        "err": 0
+      }
+    }
+  },
+  "thinkMs": 0,
+  "stageSeconds": 30,
+  "finishedAt": "2026-10-04T12:50:54.334Z"
+}
