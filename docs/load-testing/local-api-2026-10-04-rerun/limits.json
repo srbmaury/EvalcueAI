@@ -1,0 +1,48 @@
+{
+  "apiLimiter GET /api/auth/profile x310": {
+    "statuses": {
+      "200": 300,
+      "429": 10
+    },
+    "first429": 301,
+    "expectation": "429 from request 301"
+  },
+  "loginLimiter POST /api/auth/login x12": {
+    "statuses": {
+      "401": 10,
+      "429": 2
+    },
+    "first429": 11,
+    "expectation": "429 from attempt 11"
+  },
+  "autosave POST /api/questions/:id/answers x60": {
+    "statuses": {
+      "404": 60
+    },
+    "first429": "never",
+    "expectation": "no 429 (was 429 from request 31)"
+  },
+  "turn POST /api/questions/:id/answer x155": {
+    "statuses": {
+      "404": 150,
+      "429": 5
+    },
+    "first429": 151,
+    "expectation": "429 from request 151"
+  },
+  "generation POST /api/questions/:id/clarify x35": {
+    "statuses": {
+      "404": 30,
+      "429": 5
+    },
+    "first429": 31,
+    "expectation": "429 from request 31"
+  },
+  "turn after generation exhausted, same user x5": {
+    "statuses": {
+      "404": 5
+    },
+    "first429": "never",
+    "expectation": "no 429"
+  }
+}
