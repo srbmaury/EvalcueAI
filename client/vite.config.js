@@ -10,6 +10,14 @@ import {
     resourcePathsForSurface,
 } from "./src/utils/productResourcePages.js";
 import { applyStaticSeoHtml, escapeHtml, renderSeoHead } from "./src/utils/staticSeoHtml.js";
+import { PUBLIC_ROUTE_META } from "./src/utils/publicRouteMeta.js";
+import {
+    DOCS_ARTICLES,
+    DOCS_CARDS,
+    OIDC_SSO_DOC,
+    PRIVACY_SECTIONS,
+    TERMS_SECTIONS,
+} from "./src/utils/publicPageContent.js";
 import { debuggingCopy } from "./src/utils/featureFlags.js";
 import {
     SEARCH_LANDING_PAGES,
@@ -90,6 +98,53 @@ const normalizePublicOrigin = (raw) => {
     return url.origin;
 };
 
+const docsArticleContent = (article) => ({
+    eyebrow: article.eyebrow,
+    heading: article.title,
+    intro: article.description,
+    sections: article.sections,
+    backToDocs: true,
+});
+
+const INFO_PAGE_CONTENT = {
+    "/docs": {
+        eyebrow: "Documentation",
+        heading: "Guides and documentation",
+        intro: "Guides for engineering teams designing assessments and candidates preparing for technical interviews.",
+        links: DOCS_CARDS.map(([name, path, summary]) => [path, name, summary]),
+    },
+    ...Object.fromEntries(Object.entries(DOCS_ARTICLES).map(([route, article]) => [route, docsArticleContent(article)])),
+    "/docs/hiring/oidc-sso": {
+        eyebrow: OIDC_SSO_DOC.eyebrow,
+        heading: OIDC_SSO_DOC.title,
+        intro: OIDC_SSO_DOC.description,
+        notice: OIDC_SSO_DOC.notice,
+        sections: [...OIDC_SSO_DOC.steps, ["Security behavior", null, OIDC_SSO_DOC.securityBehavior]],
+        backToDocs: true,
+    },
+    "/privacy": {
+        eyebrow: BRAND_NAME,
+        heading: "Privacy notice",
+        intro: "How we collect, use, share, and protect your information, and the choices available to you.",
+        sections: PRIVACY_SECTIONS,
+    },
+    "/terms": {
+        eyebrow: BRAND_NAME,
+        heading: "Terms of use",
+        intro: "The terms for using our practice tools, hiring assessments, and paid services.",
+        sections: TERMS_SECTIONS,
+    },
+    "/plans": {
+        eyebrow: "Plans and pricing",
+        heading: "Choose the capacity you need",
+        intro: "Personal interview practice and organization hiring plans are billed separately. All prices are in Indian rupees.",
+        sections: [
+            ["Practice", null, PRACTICE_PLANS.map((plan) => `Practice ${plan.name}: ${plan.summary}`)],
+            ["Hire", HIRING_PLAN_SUMMARY],
+        ],
+    },
+};
+
 const searchPageForRoute = (route) => SEARCH_LANDING_PAGES.find((page) => page.path === route) || null;
 const resourcePageForRoute = (route) => PRODUCT_RESOURCE_PAGES.find((page) => resourcePathFor(page) === route) || null;
 
@@ -137,7 +192,22 @@ const staticConfigForRoute = (route) => {
         };
     }
 
-    return STATIC_PRODUCT_COPY[route] || null;
+    if (STATIC_PRODUCT_COPY[route]) return STATIC_PRODUCT_COPY[route];
+
+    // Docs, legal and pricing pages: without their own HTML they fall through to the SPA shell, whose
+    // homepage title and canonical tell crawlers every one of them duplicates "/".
+    const meta = PUBLIC_ROUTE_META[route];
+    const infoPage = INFO_PAGE_CONTENT[route];
+    if (meta && infoPage) {
+        return {
+            title: meta.title,
+            description: meta.description,
+            heading: infoPage.heading,
+            schema: meta.schema,
+            infoPage,
+        };
+    }
+    return null;
 };
 
 const relatedSearchPages = (page) => page.related
@@ -223,6 +293,23 @@ const renderResourcePageMarkup = (page) => `
   <p><a href="${APP_SURFACE_ORIGINS.landing}/docs">Product documentation</a> · <a href="${APP_SURFACE_ORIGINS.landing}/">Main website</a></p>
 </main>`;
 
+const renderInfoPageMarkup = (page) => `
+<main data-static-page="info">
+  ${page.backToDocs ? `<nav aria-label="Breadcrumb"><a href="${APP_SURFACE_ORIGINS.landing}/docs">Documentation</a></nav>` : ""}
+  <p>${escapeHtml(page.eyebrow)}</p>
+  <h1>${escapeHtml(page.heading)}</h1>
+  <p>${escapeHtml(page.intro)}</p>
+  ${page.notice ? `<p>${escapeHtml(page.notice)}</p>` : ""}
+  ${(page.sections || []).map(([heading, body, points]) => `
+    <section>
+      <h2>${escapeHtml(heading)}</h2>
+      ${body ? `<p>${escapeHtml(body)}</p>` : ""}
+      ${points ? `<ul>${points.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}</ul>` : ""}
+    </section>
+  `).join("")}
+  ${page.links ? `<ul>${page.links.map(([href, label, summary]) => `<li><a href="${escapeHtml(`${APP_SURFACE_ORIGINS.landing}${href}`)}">${escapeHtml(label)}</a>: ${escapeHtml(summary)}</li>`).join("")}</ul>` : ""}
+</main>`;
+
 const renderProductMarkup = (route, config, surface) => {
     const baseOrigin = APP_SURFACE_ORIGINS[surface] || "";
     const links = route === "/"
@@ -251,6 +338,7 @@ const renderProductMarkup = (route, config, surface) => {
 const renderPageMarkup = (route, config, surfaceOrigins) => {
     if (config.searchPage) return renderSearchPageMarkup(config.searchPage, surfaceOrigins.practice, surfaceOrigins.hiring);
     if (config.resourcePage) return renderResourcePageMarkup(config.resourcePage);
+    if (config.infoPage) return renderInfoPageMarkup(config.infoPage);
     const surface = route === "/practice" ? "practice" : route === "/hire" ? "hiring" : "landing";
     return renderProductMarkup(route, config, surface);
 };
@@ -362,9 +450,11 @@ const writeStaticRoute = async (outDir, route, html) => {
         return;
     }
 
-    const routeDir = path.join(outDir, route.replace(/^\/+/, ""));
-    await mkdir(routeDir, { recursive: true });
-    await writeFile(path.join(routeDir, "index.html"), html);
+    // "/route.html", not "/route/index.html": Netlify serves route.html at "/route" with a 200, while a
+    // directory index makes "/route" 301 to "/route/" and contradicts the slash-free canonical and sitemap URLs.
+    const routeFile = path.join(outDir, `${route.replace(/^\/+/, "")}.html`);
+    await mkdir(path.dirname(routeFile), { recursive: true });
+    await writeFile(routeFile, html);
 };
 
 // Shipped HTML carries no developer comments (including the seo-head markers) and minified inline CSS.

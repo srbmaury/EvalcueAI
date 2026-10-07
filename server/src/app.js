@@ -212,6 +212,13 @@ app.use((req, res, next) => {
 // Origin/Referer check for state-changing requests (defense-in-depth)
 app.use(originCheck());
 
+// The API host is a service endpoint, not a public website: keep every response out of search
+// indexes so crawler hits (including transient 5xx during deploys) never surface as site pages.
+app.use((req, res, next) => {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+    next();
+});
+
 // Basic rate limiting for API (use Redis store in production)
 const redisClient = process.env.NODE_ENV === "production" ? await getRedisClient() : null;
 
