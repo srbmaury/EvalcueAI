@@ -376,7 +376,7 @@ const InterviewPage = () => {
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1.5} alignItems={{ sm: "center" }}>
                 <Box>
                     <Typography fontWeight={850}>Round complete</Typography>
-                    <Typography variant="body2" color="text.secondary">Review this debrief, then choose when to move to the next interview stage.</Typography>
+                    <Typography variant="body2" color="text.secondary">{nextRound ? "Review this debrief, then continue to the next round when you’re ready." : "That was the last round. Review this debrief, then open your full interview feedback."}</Typography>
                 </Box>
                 <Stack direction={{ xs: "column", sm: "row" }} gap={1}>
                     <Button variant="outlined" onClick={() => setShowRoundsOverview(true)}>Back to rounds</Button>

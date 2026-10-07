@@ -5,7 +5,7 @@ import metrics from "../../metrics/index.js";
 import productionMetrics from "../../metrics/production.js";
 
 export const ADAPTIVE_PROMPT_BUNDLE_VERSION = "adaptive-2026-09-v1";
-export const FEEDBACK_PROMPT_BUNDLE_VERSION = "feedback-2026-09-v1";
+export const FEEDBACK_PROMPT_BUNDLE_VERSION = "feedback-2026-10-v2";
 
 const classifyPromptPurpose = (prompt) => {
     const text = (prompt || "").toString().toLowerCase();

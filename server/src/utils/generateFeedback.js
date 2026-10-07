@@ -1,7 +1,8 @@
 import { generateJSON } from "./generateQuestions/aiClient.js";
 import { recordAiQualityEvent } from "../services/aiQuality.js";
+import { IMPLEMENTATION_SCORE_CAP, asksForImplementation, containsCode } from "./implementationEvidence.js";
 
-export const FEEDBACK_PROMPT_VERSION = "feedback-2026-09-v1";
+export const FEEDBACK_PROMPT_VERSION = "feedback-2026-10-v2";
 export const FEEDBACK_ENGINE_VERSION = "hiring-evaluator-v1";
 
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || min, min), max);
@@ -43,9 +44,13 @@ Round: ${clean(evaluationContext?.roundName, 100) || "technical interview"}
 Round focus: ${clean(evaluationContext?.roundDescription, 500)}
 Competencies this question may inform: ${competencyNames.join(", ") || "derive only from the question and answer"}.`;
 
+    // A written answer to a "write/implement this code" question shows design understanding, not a working
+    // implementation; without this it could score 8/10 with 9/10 technical correctness and no code at all.
+    const missingImplementation = !systemDesign && asksForImplementation(q) && !containsCode(a);
+    const implementationContext = missingImplementation ? `\nThis question asks for an implementation, but the response contains no code. Credit the design it describes, state in gaps that the implementation itself was not shown, and score at most ${IMPLEMENTATION_SCORE_CAP}; Technical correctness at most ${IMPLEMENTATION_SCORE_CAP}.` : "";
     const claimContext = sourceClaim ? `\nThe question was used to validate this resume claim: ${sourceClaim}. Evaluate only what the candidate actually substantiated; do not assume the claim is true or false.` : "";
 
-    const prompt = `You are a rigorous, evidence-based technical interviewer.${context}${claimContext}
+    const prompt = `You are a rigorous, evidence-based technical interviewer.${context}${claimContext}${implementationContext}
 Return ONLY JSON in this shape:
 {
   "comment":"concise overall assessment",
@@ -98,16 +103,27 @@ Rules:
 
     let comment = clean(obj?.comment, 2000);
     if (!comment) comment = "Feedback unavailable.";
-    const score = Math.max(0, Math.min(10, Math.round(Number(obj.score) * 10) / 10));
-    const confidence = Math.max(0, Math.min(1, Number(obj?.confidence) || 0));
+    let score = Math.max(0, Math.min(10, Math.round(Number(obj.score) * 10) / 10));
+    let confidence = Math.max(0, Math.min(1, Number(obj?.confidence) || 0));
+    let gaps = strings(obj?.gaps, 5, 300);
+    let scoredDimensions = dimensions(obj?.dimensions);
+    // Enforced here as well as asked for in the prompt, because the model does not always follow the cap.
+    if (missingImplementation) {
+        if (score > IMPLEMENTATION_SCORE_CAP) recordAiQualityEvent("feedback_evaluation", "implementation_cap", "applied");
+        score = Math.min(score, IMPLEMENTATION_SCORE_CAP);
+        confidence = Math.min(confidence, 0.6);
+        scoredDimensions = scoredDimensions.map((item) => /technical correctness/i.test(item.name) ? { ...item, score: Math.min(item.score, IMPLEMENTATION_SCORE_CAP) } : item);
+        const note = audience === "candidate" ? "The question asked for an implementation, but your answer describes it without code." : "The question asked for an implementation, but the answer describes it without code.";
+        if (!gaps.some((gap) => /without code|no code|implementation (itself )?was(n't| not) shown/i.test(gap))) gaps = [note, ...gaps].slice(0, 5);
+    }
     return {
         comment,
         score,
         confidence,
         suggestions: strings(obj?.suggestions, 5, 240),
         strengths: strings(obj?.strengths, 5, 300),
-        gaps: strings(obj?.gaps, 5, 300),
-        dimensions: dimensions(obj?.dimensions),
+        gaps,
+        dimensions: scoredDimensions,
         competencies: competencies(obj?.competencies),
         evidence: strings(obj?.evidence, 8, 400),
     };

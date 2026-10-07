@@ -14,6 +14,7 @@ import SendIcon from "@mui/icons-material/Send";
 import NotesRoundedIcon from "@mui/icons-material/NotesRounded";
 import SkipRoundButton from "./SkipRoundButton";
 import WebcamPreview from "./WebcamPreview";
+import { CAMERA_FAILURE_COPY } from "../utils/cameraFailure";
 
 // Open the code editor only when the question actually asks for code, not whenever it says "implement"
 // (e.g. "how did you implement automated testing" is a discussion question).
@@ -328,7 +329,8 @@ const ConversationalPanel = ({
                             </Stack>
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
                                 {supportsSTT && <Button variant={micReady ? "outlined" : "contained"} onClick={() => onStartHandsFree?.(target)}>{micReady ? "Mic is on" : "Turn on mic"}</Button>}
-                                {!cameraReady && !cameraState.denied && <Typography variant="body2" sx={{ color: "rgba(255,255,255,.72)", alignSelf: "center" }}>Use the camera tile in the bottom-right corner to turn camera on.</Typography>}
+                                {!cameraReady && !cameraState.denied && <Typography variant="body2" role="status" sx={{ color: "rgba(255,255,255,.72)", alignSelf: "center" }}>{cameraState.requesting ? "Waiting for camera permission. Look for your browser’s prompt near the address bar." : "Use the camera tile in the bottom-right corner to turn camera on."}</Typography>}
+                                {!cameraReady && cameraState.denied && <Typography variant="body2" role="alert" sx={{ color: "#fca5a5", alignSelf: "center" }}>{CAMERA_FAILURE_COPY[cameraState.failure || "blocked"].hint}</Typography>}
                                 {cameraState.denied && <Button variant="outlined" sx={{ color: "white", borderColor: "rgba(255,255,255,.45)" }} onClick={() => setCameraBypassed(true)}>Continue without camera</Button>}
                             </Stack>
                         </Paper>
