@@ -19,11 +19,10 @@ export const BRAND_URLS = Object.freeze({
     docs: "https://evalcueai.com/docs",
     about: "https://evalcueai.com/about",
     methodology: "https://evalcueai.com/ai-interview-evaluation-methodology",
-    source: "https://github.com/srbmaury/EvalcueAI",
 });
 
 // Independent profiles that describe the product. Add Product Hunt, G2, LinkedIn, etc. as they go live.
-export const BRAND_SAME_AS = Object.freeze([BRAND_URLS.source]);
+export const BRAND_SAME_AS = Object.freeze([]);
 
 // Server defaults from server/src/services/practiceEntitlements.js. The Pro price comes from the PayU catalog at
 // runtime, so public pages state the included limits and link to pricing instead of a fixed amount.
@@ -51,7 +50,7 @@ export const organizationSchema = () => ({
     logo: `${BRAND_URLS.landing}/favicon.svg`,
     description: BRAND_DESCRIPTION,
     slogan: BRAND_TAGLINE,
-    sameAs: [...BRAND_SAME_AS],
+    ...(BRAND_SAME_AS.length ? { sameAs: [...BRAND_SAME_AS] } : {}),
 });
 
 export const softwareApplicationSchema = () => ({
