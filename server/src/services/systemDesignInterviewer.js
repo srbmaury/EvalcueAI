@@ -55,7 +55,10 @@ export const generateSystemDesignInterjection = async ({
     previousInterjections = [],
     forceInteraction = false,
     candidateAskedQuestion = false,
+    candidateQuestion = "",
 }) => {
+    const question = sanitizeText(candidateQuestion || "", 300);
+    candidateAskedQuestion = candidateAskedQuestion || Boolean(question);
     const recentTranscript = sanitizeText(transcript || "", 5000);
     if (recentTranscript.length < 20) {
         if (forceInteraction) return fallbackForcedInterjection({ previousInterjections, candidateAskedQuestion });
@@ -82,7 +85,7 @@ Current whiteboard summary:
 ${sanitizeText(diagramSummary || "No meaningful diagram elements are visible yet.", 2200)}
 
 ${prior ? `Questions/challenges you already interjected with:\n${prior}\n` : ""}
-Candidate just asked the interviewer a clarification question: ${candidateAskedQuestion ? "YES" : "NO"}.
+Candidate just asked the interviewer a clarification question: ${candidateAskedQuestion ? "YES" : "NO"}.${question ? `\nThe candidate's question: "${question}"` : ""}
 This checkpoint ${forceInteraction ? "REQUIRES an interviewer turn now" : "lets you decide whether to interject now"}.
 
 Return ONLY valid JSON:
@@ -91,7 +94,8 @@ Return ONLY valid JSON:
 Interview behavior:
 - The candidate owns the design. Do not coach, suggest components, reveal an ideal architecture, or praise/judge the answer.
 - This must feel like a real two-way interview, not a monologue.
-- If the candidate asked a clarification question, ANSWER it directly as the interviewer by supplying a realistic requirement, scale assumption, product constraint, or scope decision. Do not dodge the question by asking another question.
+- If the candidate asked a clarification question, your turn MUST start by ANSWERING that question directly as the interviewer, with a concrete requirement, number, product constraint, or scope decision (shouldInterrupt=true, kind="clarify"). Do not dodge it, defer it, or reply only with another question.
+- If, alongside the question, the candidate stated their own assumption (for example a traffic number), explicitly confirm it or correct it, especially when it conflicts with the design problem's stated scale.
 - When this checkpoint REQUIRES an interviewer turn for another reason, return shouldInterrupt=true and ask exactly one high-value question grounded in the discussion so far.
 - Otherwise, remain silent when the candidate is in the middle of a coherent thought or there is no useful reason to interrupt.
 - Good reasons to probe: an important requirement is ambiguous; the candidate makes a consequential assumption without validating it; a key design choice needs justification; scale changes the architecture; a failure mode is being skipped; a trade-off was asserted without support; or the candidate has reached a natural point where a thoughtful interviewer would introduce a new constraint.

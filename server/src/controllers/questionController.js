@@ -146,6 +146,8 @@ export const skipRound = async (req, res, next) => {
         const interview = await Interview.findOne({ _id: interviewId, user: req.user._id });
         if (!interview) return res.status(404).json({ message: "Interview not found" });
         if (!interview.rounds.some((r) => String(r.round) === String(roundId))) return res.status(400).json({ message: "Round not part of interview" });
+        // Skipping deletes the round; deleting the last one would leave an interview with nothing to take or review.
+        if (interview.rounds.length <= 1) return res.status(400).json({ message: "This is the only round in this interview, so it can’t be skipped." });
 
         const round = await Round.findById(roundId);
         if (!round) return res.status(404).json({ message: "Round not found" });

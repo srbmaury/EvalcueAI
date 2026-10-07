@@ -137,6 +137,7 @@ const systemDesignDiscussionBody = z.object({
     previousInterjections: z.array(z.string().max(600)).max(8).optional().default([]),
     forceInteraction: z.boolean().optional().default(false),
     candidateAskedQuestion: z.boolean().optional().default(false),
+    candidateQuestion: z.string().max(300).optional().default(""),
 });
 
 router.post(

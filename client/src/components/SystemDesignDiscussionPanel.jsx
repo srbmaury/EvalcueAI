@@ -7,6 +7,7 @@ import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
 import { useSystemDesignDiscussion } from "../hooks/useSystemDesignDiscussion";
 import { countDiscussionWords, MIN_END_DISCUSSION_WORDS } from "../utils/systemDesignDiscussion";
 import WebcamPreview from "./WebcamPreview";
+import SkipRoundButton from "./SkipRoundButton";
 
 const SystemDesignCanvas = lazy(() => import("./SystemDesignCanvas"));
 
@@ -49,6 +50,8 @@ export default function SystemDesignDiscussionPanel({
     stopHandsFree,
     speakNow,
     onEnd,
+    // Optional: Practice lets candidates skip a design round like any other; Hire assessments do not.
+    onSkip,
     ending = false,
     cameraSlot,
     cameraOn,
@@ -349,6 +352,7 @@ export default function SystemDesignDiscussionPanel({
                         </Stack>
                     )}
                     <Stack direction="row" gap={1} justifyContent="flex-end" flexWrap="wrap">
+                        {onSkip && <SkipRoundButton size="small" disabled={ending} onSkip={async () => { stopHandsFree?.(); await onSkip(); }} />}
                         {!micSessionActive && supportsSTT && micPermission !== "denied" && (
                             <Button size="small" variant="outlined" onClick={() => startHandsFree?.(target)}>Enable microphone</Button>
                         )}

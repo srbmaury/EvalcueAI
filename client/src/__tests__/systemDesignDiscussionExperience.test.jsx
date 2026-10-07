@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import SystemDesignDiscussionPanel from "../components/SystemDesignDiscussionPanel";
 import { countDiscussionWords } from "../utils/systemDesignDiscussion";
@@ -74,5 +74,23 @@ describe("SystemDesignDiscussionPanel", () => {
         rerender(<SystemDesignDiscussionPanel {...baseProps} transcript={longTranscript} />);
 
         expect(screen.getByRole("button", { name: "End discussion" }).disabled).toBe(false);
+    });
+
+    it("lets Practice skip a design round without writing the 30-word minimum, after confirming", async () => {
+        const onSkip = vi.fn().mockResolvedValue(undefined);
+        const stopHandsFree = vi.fn();
+        render(<SystemDesignDiscussionPanel {...baseProps} transcript="" onSkip={onSkip} stopHandsFree={stopHandsFree} />);
+
+        expect(screen.getByRole("button", { name: "End discussion" }).disabled).toBe(true);
+        fireEvent.click(screen.getByRole("button", { name: "Skip Round" }));
+        fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Skip Round" }));
+
+        await waitFor(() => expect(onSkip).toHaveBeenCalledTimes(1));
+        expect(stopHandsFree).toHaveBeenCalled();
+    });
+
+    it("offers no skip when the caller does not allow it (Hire candidates)", () => {
+        render(<SystemDesignDiscussionPanel {...baseProps} transcript="" />);
+        expect(screen.queryByRole("button", { name: "Skip Round" })).toBeNull();
     });
 });

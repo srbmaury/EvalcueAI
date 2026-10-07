@@ -73,6 +73,9 @@ const InterviewPage = () => {
         isConversational && /system\s*design|architecture/i.test(`${selectedRound?.name || ""} ${selectedRound?.description || ""}`),
     ), [isConversational, selectedRound?.description, selectedRound?.name]);
 
+    // Skipping deletes the round, so it is only offered while another round remains; the server enforces this too.
+    const skipRoundHandler = (interview?.rounds?.length || 0) > 1 ? handleSkipRound : undefined;
+
     // One unscored intro at the very start of the interview (before round 1, whatever its format),
     // while the round prepares in the background.
     const firstRoundId = interview?.rounds?.[0]?.round?._id;
@@ -547,6 +550,7 @@ const InterviewPage = () => {
                                         stopHandsFree={stopHandsFree}
                                         speakNow={speakNow}
                                         onEnd={endSystemDesignDiscussion}
+                                        onSkip={skipRoundHandler}
                                         ending={systemDesignEnding || convRoundSubmitting}
                                         savedLabel={convSavedAt ? "Transcript recovery is active" : "Transcript and whiteboard recover automatically"}
                                     />
@@ -568,7 +572,7 @@ const InterviewPage = () => {
                                             onSubmitAnswer={submitConversationalAnswer}
                                             onClarify={handleClarify}
                                             onCompleteRound={handleCompleteRound}
-                                            onSkip={handleSkipRound}
+                                            onSkip={skipRoundHandler}
                                             savedAt={convSavedAt}
                                             target="conv"
                                             pendingFollowUp={pendingFollowUp}
@@ -610,7 +614,7 @@ const InterviewPage = () => {
                                             })}
                                             onChange={handleOAChange}
                                             onSubmit={submitOaAnswers}
-                                            onSkip={handleSkipRound}
+                                            onSkip={skipRoundHandler}
                                             submitting={oaSubmitting}
                                             {...voiceProps}
                                         />
