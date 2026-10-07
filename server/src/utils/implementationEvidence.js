@@ -10,24 +10,28 @@ export const asksForImplementation = (question = "") => {
     return CODE_OBJECT.test(text) || (SERVICE_OBJECT.test(text) && LANGUAGE.test(text));
 };
 
-// Signals that only appear in code, never in ordinary prose: definitions, arrows, braces opening a block,
-// statement-ending semicolons, decorators/route registrations and import lines.
-const CODE_SIGNALS = [
+// Definitions, route registrations and SQL statements only appear in code, so one is enough. Semicolons,
+// indentation and variable declarations can turn up in prose, so it takes two of those.
+const STRONG_SIGNALS = [
     /\b(def|func|fn)\s+\w+\s*\(/,
     /\bfunction\s*\w*\s*\(/,
-    /\)\s*(=>|\{)/,
     /\bclass\s+\w+\s*[({:]/,
-    /^\s*(import|from)\s+[\w.{]/m,
     /^\s*@\w+(\.\w+)*\(/m,
+    /\b(const|let|var)\s+\w+\s*=\s*(async\s*)?\([^)]*\)\s*=>/,
+    /\b(SELECT|INSERT|UPDATE|DELETE)\b[\s\S]{0,80}\b(FROM|INTO|SET|WHERE)\b/,
+];
+const WEAK_SIGNALS = [
+    /\)\s*(=>|\{)/,
+    /^\s*(import|from)\s+[\w.{]/m,
     /\b(const|let|var)\s+\w+\s*=/,
     /;\s*$/m,
     /^\s{2,}\S.*\n\s{2,}\S/m,
-    /\b(SELECT|INSERT|UPDATE|DELETE)\b[\s\S]{0,80}\b(FROM|INTO|SET|WHERE)\b/,
+    /\breturn\s+[\w{[("']/,
 ];
 
 export const containsCode = (answer = "") => {
     const text = String(answer);
-    return CODE_SIGNALS.filter((pattern) => pattern.test(text)).length >= 2;
+    return STRONG_SIGNALS.some((pattern) => pattern.test(text)) || WEAK_SIGNALS.filter((pattern) => pattern.test(text)).length >= 2;
 };
 
 export const IMPLEMENTATION_SCORE_CAP = 6;

@@ -112,6 +112,11 @@ const starterPresets = {
     },
 };
 
+const DRAFT_TEXT_FIELDS = ["jobRole", "title", "jobDescription", "candidateInstructions"];
+const hasDraftContent = (draft) => Number(draft?.activeStep) > 0
+    || DRAFT_TEXT_FIELDS.some((key) => String(draft?.form?.[key] || "").trim())
+    || (draft?.form?.rounds || []).some((round) => (round?.questions || []).some((question) => String(question?.text || "").trim()));
+
 const draftKeyFor = (organizationId, editId) => `hiring-assessment-builder:${organizationId || "unknown"}:${editId || "new"}`;
 const readLocalDraft = (key) => {
     try { return JSON.parse(window.localStorage?.getItem(key) || "null"); }
@@ -249,7 +254,8 @@ export default function AssessmentBuilderPage() {
                         setForm({ ...initialForm, ...local.form });
                         setActiveStep(Math.max(0, Math.min(3, Number(local.activeStep) || 0)));
                         setDraftSavedAt(local.savedAt || null);
-                        setRestoredDraftAt(local.savedAt || new Date().toISOString());
+                        // The builder autosaves even an untouched form, so only announce a draft with real content.
+                        if (hasDraftContent(local)) setRestoredDraftAt(local.savedAt || new Date().toISOString());
                         setDebuggingValidations(local.debuggingValidations || {});
                     } else {
                         setForm(initialForm);

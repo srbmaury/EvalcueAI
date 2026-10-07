@@ -31,6 +31,10 @@ describe("implementation evidence", () => {
         expect(containsCode(CODE)).toBe(true);
         expect(containsCode("const total = items.reduce((sum, item) => sum + item.price, 0);")).toBe(true);
         expect(containsCode(PROSE)).toBe(false);
+        // A minimal one-line Python answer (observed live) is still code.
+        expect(containsCode('def build_spec(title):\nreturn {"openapi": "3.0.0", "info": {"title": title}}')).toBe(true);
+        expect(containsCode("SELECT id, name FROM users WHERE active = true")).toBe(true);
+        expect(containsCode("I would return 404 when the record is missing and keep writes in a transaction.")).toBe(false);
     });
 });
 

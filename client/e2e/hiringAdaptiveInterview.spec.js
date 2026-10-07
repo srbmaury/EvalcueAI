@@ -409,3 +409,17 @@ test("a restored builder draft is announced, and discarding it asks first", asyn
     await expect(page.getByRole("textbox", { name: "Job role" })).toHaveValue("");
     await expect(page.getByText(/Restored unsaved changes from/)).toHaveCount(0);
 });
+
+test("an untouched builder draft (autosaved blank form) is not announced as restored", async ({ page }) => {
+    await mockSignedIn(page);
+    await mockEmptyHiringWorkspace(page);
+    await page.addInitScript(() => {
+        window.localStorage.setItem("hiring-assessment-builder:org-1:new", JSON.stringify({
+            form: { jobRole: "", title: "", jobDescription: "" }, activeStep: 0, savedAt: "2026-10-07T18:23:12.603Z",
+        }));
+    });
+
+    await page.goto("/hire/assessments?create=1");
+    await expect(page.getByRole("heading", { name: "Create an assessment", exact: true })).toBeVisible();
+    await expect(page.getByText(/Restored unsaved changes from/)).toHaveCount(0);
+});
