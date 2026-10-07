@@ -381,3 +381,45 @@ test("recruiter report renders the complete follow-up evidence chain on the cano
     await expect(page.getByText("AI follow-up 3: What failure mode remains?", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Preview candidate experience" })).toHaveAttribute("href", "/hire/assessments/report-followups/preview");
 });
+
+test("a restored builder draft is announced, and discarding it asks first", async ({ page }) => {
+    await mockSignedIn(page);
+    await mockEmptyHiringWorkspace(page);
+    await page.addInitScript(() => {
+        if (window.sessionStorage.getItem("seeded-builder-draft")) return;
+        window.sessionStorage.setItem("seeded-builder-draft", "1");
+        window.localStorage.setItem("hiring-assessment-builder:org-1:new", JSON.stringify({
+            form: { jobRole: "Stale Draft Engineer", title: "Old draft", jobDescription: "Left over from an earlier visit to the builder on this device." },
+            activeStep: 0,
+            savedAt: "2026-10-01T09:30:00.000Z",
+        }));
+    });
+
+    await page.goto("/hire/assessments?create=1");
+    await expect(page.getByText(/Restored unsaved changes from/)).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Job role" })).toHaveValue("Stale Draft Engineer");
+
+    await page.getByRole("button", { name: "Start fresh" }).click();
+    const dialog = page.getByRole("dialog", { name: "Discard unsaved changes?" });
+    await dialog.getByRole("button", { name: "Keep editing" }).click();
+    await expect(page.getByRole("textbox", { name: "Job role" })).toHaveValue("Stale Draft Engineer");
+
+    await page.getByRole("button", { name: "Discard local changes" }).click();
+    await dialog.getByRole("button", { name: "Discard" }).click();
+    await expect(page.getByRole("textbox", { name: "Job role" })).toHaveValue("");
+    await expect(page.getByText(/Restored unsaved changes from/)).toHaveCount(0);
+});
+
+test("an untouched builder draft (autosaved blank form) is not announced as restored", async ({ page }) => {
+    await mockSignedIn(page);
+    await mockEmptyHiringWorkspace(page);
+    await page.addInitScript(() => {
+        window.localStorage.setItem("hiring-assessment-builder:org-1:new", JSON.stringify({
+            form: { jobRole: "", title: "", jobDescription: "" }, activeStep: 0, savedAt: "2026-10-07T18:23:12.603Z",
+        }));
+    });
+
+    await page.goto("/hire/assessments?create=1");
+    await expect(page.getByRole("heading", { name: "Create an assessment", exact: true })).toBeVisible();
+    await expect(page.getByText(/Restored unsaved changes from/)).toHaveCount(0);
+});

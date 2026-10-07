@@ -67,7 +67,7 @@ const InterviewFeedbackPage = () => {
                 <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={2} alignItems={{ sm: "center" }}>
                     <Box>
                         <Typography variant="overline" color="primary.main">Practice interview</Typography>
-                        <Typography variant="h4" fontWeight={850}>Overall interview feedback</Typography>
+                        <Typography component="h1" variant="h4" fontWeight={850}>Overall interview feedback</Typography>
                         <Typography color="text.secondary" sx={{ mt: 0.5 }}>
                             One report across every completed round, built from the detailed feedback generated for your answers.
                         </Typography>

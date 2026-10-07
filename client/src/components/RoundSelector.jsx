@@ -16,7 +16,7 @@ import {
     Typography,
 } from "@mui/material";
 import { AccountTreeRounded, ChatBubbleOutlineRounded, CodeRounded } from "@mui/icons-material";
-import { getDefaultQuestionLimit, getQuestionCountCopy, isSystemDesignRound } from "../utils/roundDefaults";
+import { getDefaultQuestionLimit, getQuestionCountCopy, isSystemDesignRound, SYSTEM_DESIGN_FORMAT } from "../utils/roundDefaults";
 
 const RoundsSelector = ({ suggestedRounds, selectedRounds, onToggleRound, onChangeMode, onChangeCount }) => (
     <Stack spacing={2}>
@@ -27,6 +27,9 @@ const RoundsSelector = ({ suggestedRounds, selectedRounds, onToggleRound, onChan
             const systemDesign = isSystemDesignRound(currentRound);
             const countCopy = getQuestionCountCopy(currentRound);
             const mode = currentRound.deliveryMode || "conversational";
+            // Chosen from the format menu (and reversible), as opposed to a round planned as system design.
+            const chosenSystemDesign = currentRound.baseDescription !== undefined;
+            const formatValue = chosenSystemDesign ? SYSTEM_DESIGN_FORMAT : mode;
             const icon = systemDesign
                 ? <AccountTreeRounded fontSize="small" />
                 : mode === "online-assessment"
@@ -62,7 +65,7 @@ const RoundsSelector = ({ suggestedRounds, selectedRounds, onToggleRound, onChan
 
                         {isSelected && (
                             <Stack mt={2} spacing={1.5} direction={{ xs: "column", sm: "row" }} alignItems={{ sm: "flex-start" }}>
-                                {systemDesign ? (
+                                {systemDesign && !chosenSystemDesign ? (
                                     <Paper variant="outlined" sx={{ px: 1.5, py: 1.25, flex: 1, bgcolor: "background.paper" }}>
                                         <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
                                             <Box>
@@ -79,17 +82,23 @@ const RoundsSelector = ({ suggestedRounds, selectedRounds, onToggleRound, onChan
                                             <Select
                                                 labelId={`mode-label-${idx}`}
                                                 label="Interview format"
-                                                value={mode}
+                                                value={formatValue}
                                                 onChange={(event) => {
                                                     const nextMode = event.target.value;
                                                     onChangeMode(round.roundName, nextMode);
-                                                    onChangeCount?.(round.roundName, getDefaultQuestionLimit({ ...currentRound, deliveryMode: nextMode }));
+                                                    if (nextMode === SYSTEM_DESIGN_FORMAT) return;
+                                                    const { baseDescription, ...plain } = currentRound;
+                                                    onChangeCount?.(round.roundName, getDefaultQuestionLimit({ ...plain, description: baseDescription ?? plain.description, deliveryMode: nextMode }));
                                                 }}
                                             >
                                                 <MenuItem value="conversational">Live conversation (adaptive)</MenuItem>
                                                 <MenuItem value="online-assessment">Coding / written assessment</MenuItem>
+                                                <MenuItem value={SYSTEM_DESIGN_FORMAT}>Live system design (whiteboard)</MenuItem>
                                             </Select>
                                         </FormControl>
+                                        {chosenSystemDesign ? (
+                                            <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center", maxWidth: 320 }}>One architecture problem, drawn and discussed live with the AI interviewer.</Typography>
+                                        ) : (
                                         <Tooltip title={countCopy.helper}>
                                             <TextField
                                                 size="small"
@@ -102,6 +111,7 @@ const RoundsSelector = ({ suggestedRounds, selectedRounds, onToggleRound, onChan
                                                 sx={{ width: { xs: "100%", sm: 250 } }}
                                             />
                                         </Tooltip>
+                                        )}
                                     </>
                                 )}
                             </Stack>

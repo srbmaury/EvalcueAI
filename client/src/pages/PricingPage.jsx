@@ -6,6 +6,7 @@ import { CheckCircleOutline } from "@mui/icons-material";
 import api from "../api/axios";
 import { trackEvent } from "../utils/analytics";
 import { describeError } from "../utils/errorFormatter";
+import { publicSupportEmail } from "../utils/publicContact";
 
 const plans = [
     {
@@ -92,7 +93,9 @@ export default function PricingPage() {
                     <Box mt="auto" pt={2}>
                         {current ? <Button fullWidth variant="contained" disabled>Current plan</Button>
                             : plan.id === "free" ? <Button fullWidth variant="outlined" disabled>Included access</Button>
-                                : <Button fullWidth variant="contained" disabled={loading || !entitlements?.billingAvailable?.pro || !price} onClick={() => redirect("/billing/practice/checkout-session", { plan: "pro" })}>{loading ? "Opening checkout…" : entitlements?.billingAvailable?.pro ? "Choose Pro" : "Checkout not configured"}</Button>}
+                                : <Button fullWidth variant="contained" disabled={loading || !entitlements?.billingAvailable?.pro || !price} onClick={() => redirect("/billing/practice/checkout-session", { plan: "pro" })}>{loading ? "Opening checkout…" : entitlements?.billingAvailable?.pro ? "Choose Pro" : "Payments unavailable"}</Button>}
+                        {/* Mirrors Hire: say why the button is disabled and what to do, rather than a configuration term. */}
+                        {plan.id === "pro" && !current && entitlements && !entitlements.billingAvailable?.pro && <Typography variant="body2" color="text.secondary" mt={1.25}>Online payments aren’t available right now. Email <a href={`mailto:${publicSupportEmail}?subject=Practice%20Pro`}>{publicSupportEmail}</a> to upgrade; your current access is unchanged.</Typography>}
                     </Box>
                 </CardContent></Card></Grid>;
             })}

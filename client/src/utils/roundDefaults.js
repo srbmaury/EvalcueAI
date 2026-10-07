@@ -2,6 +2,13 @@ const roundText = (round = {}) => `${round.roundName || ""} ${round.description 
 
 export const isSystemDesignRound = (round = {}) => /system\s*design|architecture/.test(roundText(round));
 
+// Value for the "Live system design" choice in the round format menu (see systemDesignDescription).
+export const SYSTEM_DESIGN_FORMAT = "system-design";
+
+// Rounds are system design when their name or description says so, so a round the candidate switches to
+// live system design gets a marked description. The API caps descriptions at 260 characters.
+export const systemDesignDescription = (description = "") => `Live system design: ${String(description).trim()}`.slice(0, 260);
+
 export const isBehavioralRound = (round = {}) => /recruiter|screen|behavior|culture|hiring manager|leadership|ownership|collaboration/.test(roundText(round));
 
 export const getDefaultQuestionLimit = (round = {}) => {

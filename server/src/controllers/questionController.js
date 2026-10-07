@@ -70,7 +70,12 @@ export const submitConversationalAnswer = async (req, res, next) => {
             return res.json({ success: true, done: false, nextIndex: idx, followUp: pending.question, followUpNumber: item.followUps.length, remainingFollowUps: Math.max(0, 3 - item.followUps.length), adaptive: compactAdaptiveState(round.adaptiveState) });
         }
 
-        item.answerGiven = (answer || "").toString().slice(0, 5000);
+        const answerText = (answer || "").toString().slice(0, 5000);
+        // A main question has no skip path, so an empty answer is never intentional: it means a client
+        // auto-advanced on silence before anything was said. Recording it would cost the candidate the
+        // question and trigger a follow-up about an answer they never gave.
+        if (!answerText.trim()) return res.status(400).json({ message: "Answer is empty" });
+        item.answerGiven = answerText;
         await round.save();
         const nextFollowUp = await decideNextFollowUp({ interview, round, item });
         if (nextFollowUp) {

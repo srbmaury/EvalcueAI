@@ -71,6 +71,11 @@ describe("adaptive conversational interview API", () => {
         const firstQuestion = prepared.body.questions[0].question.text;
         expect(firstQuestion.length).toBeGreaterThan(20);
 
+        // An empty answer (a client auto-advancing on silence before anything was said) must not consume
+        // the question or trigger a follow-up.
+        const empty = await post(`/api/questions/${round._id}/answer`, auth).send({ index: 0, answer: "   " }).expect(400);
+        expect(empty.body.message).toBe("Answer is empty");
+
         const firstAnswer = await post(`/api/questions/${round._id}/answer`, auth)
             .send({ index: 0, answer: "I would make the API idempotent, define failure semantics, and monitor retries and saturation before scaling horizontally." })
             .expect(200);

@@ -51,7 +51,11 @@ export default function CandidateAssessmentStart({
                     )}
                     {assessment.contactEmail && <Typography variant="body2" color="text.secondary">Need an accommodation or technical help? Contact <Link href={`mailto:${assessment.contactEmail}`}>{assessment.contactEmail}</Link>.</Typography>}
                     <Captcha enabled={captchaEnabled} onVerify={onCaptchaToken} onExpire={() => onCaptchaToken("")} />
-                    <Box><Button type="submit" variant="contained" disabled={!canStart}>{busy ? <CircularProgress size={22} color="inherit" /> : "Start assessment"}</Button></Box>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ sm: "center" }}>
+                        <Box><Button type="submit" variant="contained" disabled={!canStart}>{busy ? <CircularProgress size={22} color="inherit" /> : "Start assessment"}</Button></Box>
+                        {/* Starting prepares the opening questions with AI, which can take several seconds. */}
+                        {busy && <Typography role="status" aria-live="polite" variant="body2" color="text.secondary">Preparing your interview. This can take up to 30 seconds, so keep this page open.</Typography>}
+                    </Stack>
                 </Stack>
             </Paper>
         </>

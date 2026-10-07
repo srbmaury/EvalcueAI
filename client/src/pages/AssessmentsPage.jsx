@@ -117,6 +117,12 @@ export default function AssessmentsPage() {
             ? "candidates"
             : requestedHiringView;
 
+    const viewHeading = {
+        overview: ["Hiring workspace", "Review the hiring pipeline, assessments, and candidate evidence without switching contexts."],
+        candidates: ["Candidates", "Every candidate across your assessments, ordered by their latest activity."],
+        assessments: ["Assessment library", "Draft, publish, and manage the assessments candidates take."],
+    }[hiringView];
+
     const copyLink = async (token) => {
         try {
             await navigator.clipboard.writeText(absoluteSurfaceUrl("practice", `/assessment/${token}`));
@@ -132,8 +138,8 @@ export default function AssessmentsPage() {
     return <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "flex-start" }} gap={2} mb={3}>
             <Box>
-                <Typography component="h1" variant="h3" sx={{ fontSize: { xs: "2.45rem", sm: "3rem" } }} fontWeight={850}>Hiring workspace</Typography>
-                <Typography color="text.secondary" sx={{ mt: 1 }}>Review the hiring pipeline, assessments, and candidate evidence without switching contexts.</Typography>
+                <Typography component="h1" variant="h3" sx={{ fontSize: { xs: "2.45rem", sm: "3rem" } }} fontWeight={850}>{viewHeading[0]}</Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>{viewHeading[1]}</Typography>
             </Box>
             {canManageAssessments && <Button component={RouterLink} to={createAssessmentPath} variant="contained" startIcon={<AddRounded />}>Create assessment</Button>}
         </Stack>

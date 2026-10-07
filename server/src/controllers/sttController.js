@@ -3,7 +3,7 @@ import { toFile } from "openai/uploads";
 import { assertAudioMagic } from "../utils/magicBytes.js";
 import metrics from "../metrics/index.js";
 import { recordAiQualityEvent } from "../services/aiQuality.js";
-import { looksGenerated, looksPromptDerived } from "../utils/transcriptGuard.js";
+import { looksGenerated, looksLikeSilencePhrase, looksPromptDerived } from "../utils/transcriptGuard.js";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
 
@@ -66,6 +66,10 @@ export const transcribe = async (req, res, next) => {
             recordAiQualityEvent("transcription", "prompt_echo", text ? "retried" : "dropped");
         }
         try { metrics.sttTranscribeTotal.labels("success").inc(); } catch {}
+        if (text && looksLikeSilencePhrase(text)) {
+            recordAiQualityEvent("transcription", "silence_phrase", "dropped");
+            text = "";
+        }
         return res.json({ text });
     } catch (error) {
         console.error("stt transcribe error:", error);

@@ -14,6 +14,7 @@ import SendIcon from "@mui/icons-material/Send";
 import NotesRoundedIcon from "@mui/icons-material/NotesRounded";
 import SkipRoundButton from "./SkipRoundButton";
 import WebcamPreview from "./WebcamPreview";
+import { CAMERA_FAILURE_COPY } from "../utils/cameraFailure";
 
 // Open the code editor only when the question actually asks for code, not whenever it says "implement"
 // (e.g. "how did you implement automated testing" is a discussion question).
@@ -85,6 +86,11 @@ const ConversationalPanel = ({
     // The auto-submit timer reads the answer through a ref so typing does not tear it down on every key.
     const convAnswerRef = useRef(convAnswer);
     convAnswerRef.current = convAnswer;
+    // The silence auto-submit runs from an interval created before the answer was spoken. Calling the
+    // parent's handlers through refs makes it submit the answer it just checked, not the empty one those
+    // handlers closed over when the interval started.
+    const turnHandlersRef = useRef({});
+    turnHandlersRef.current = { onPauseHandsFree, onSubmitAnswer, onFollowUpDone };
     const [autoSubmitIn, setAutoSubmitIn] = useState(null);
     const spokenReadinessRef = useRef("");
     const elapsedLabel = useElapsed();
@@ -237,13 +243,13 @@ const ConversationalPanel = ({
     };
 
     const submitAnswerTurn = async () => {
-        await onPauseHandsFree?.();
-        await onSubmitAnswer?.();
+        await turnHandlersRef.current.onPauseHandsFree?.();
+        await turnHandlersRef.current.onSubmitAnswer?.();
     };
 
     const submitFollowUpTurn = async (skip = false) => {
-        await onPauseHandsFree?.();
-        await onFollowUpDone?.({ skip });
+        await turnHandlersRef.current.onPauseHandsFree?.();
+        await turnHandlersRef.current.onFollowUpDone?.({ skip });
     };
 
     useEffect(() => {
@@ -276,7 +282,7 @@ const ConversationalPanel = ({
             else void submitAnswerTurn();
         }, 400);
         return () => { window.clearInterval(timer); setAutoSubmitIn(null); };
-    }, [activeText, aiSpeaking, autoAdvanceEnabled, codingEnabled, convRoundSubmitting, convSubmitting, interimText, isRecording, micSessionActive, pendingFollowUp, readinessNeeded, typedWorkspaceVisible]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [activeText, aiSpeaking, autoAdvanceEnabled, codingEnabled, convRoundSubmitting, convSubmitting, interimText, isRecording, micSessionActive, pendingFollowUp, readinessNeeded, typedWorkspaceVisible]);
 
     const endRound = async () => {
         setSubmitRoundOpen(false);
@@ -323,7 +329,8 @@ const ConversationalPanel = ({
                             </Stack>
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
                                 {supportsSTT && <Button variant={micReady ? "outlined" : "contained"} onClick={() => onStartHandsFree?.(target)}>{micReady ? "Mic is on" : "Turn on mic"}</Button>}
-                                {!cameraReady && !cameraState.denied && <Typography variant="body2" sx={{ color: "rgba(255,255,255,.72)", alignSelf: "center" }}>Use the camera tile in the bottom-right corner to turn camera on.</Typography>}
+                                {!cameraReady && !cameraState.denied && <Typography variant="body2" role="status" sx={{ color: "rgba(255,255,255,.72)", alignSelf: "center" }}>{cameraState.requesting ? "Waiting for camera permission. Look for your browser’s prompt near the address bar." : "Use the camera tile in the bottom-right corner to turn camera on."}</Typography>}
+                                {!cameraReady && cameraState.denied && <Typography variant="body2" role="alert" sx={{ color: "#fca5a5", alignSelf: "center" }}>{CAMERA_FAILURE_COPY[cameraState.failure || "blocked"].hint}</Typography>}
                                 {cameraState.denied && <Button variant="outlined" sx={{ color: "white", borderColor: "rgba(255,255,255,.45)" }} onClick={() => setCameraBypassed(true)}>Continue without camera</Button>}
                             </Stack>
                         </Paper>
@@ -415,7 +422,7 @@ const ConversationalPanel = ({
 
                 <Dialog open={submitRoundOpen} onClose={() => setSubmitRoundOpen(false)} aria-labelledby="submit-round-title">
                     <DialogTitle id="submit-round-title">End this round?</DialogTitle>
-                    <DialogContent><DialogContentText>This closes the live round and moves you forward. You can review feedback after the interview is complete.</DialogContentText></DialogContent>
+                    <DialogContent><DialogContentText>This closes the live round. Your feedback for it appears as soon as it is scored, and you can continue to the next round from there.</DialogContentText></DialogContent>
                     <DialogActions><Button onClick={() => setSubmitRoundOpen(false)}>Keep interviewing</Button><Button variant="contained" onClick={endRound}>End round</Button></DialogActions>
                 </Dialog>
             </Box>

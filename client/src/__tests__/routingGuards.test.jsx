@@ -2,14 +2,17 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import { OrganizationContext } from "../context/OrganizationContext";
+import { setWorkspacePreference, clearWorkspacePreference } from "../utils/workspacePreference";
 import ProtectedRoute from "../components/ProtectedRoute";
 import AdminRoute from "../components/AdminRoute";
 import GuestOnlyRoute from "../components/GuestOnlyRoute";
 
 afterEach(cleanup);
 
-const renderRoutes = (auth, initial = "/private") => render(
+const renderRoutes = (auth, initial = "/private", organizations) => render(
     <AuthContext.Provider value={auth}>
+        <OrganizationContext.Provider value={organizations || { organizations: [], organizationsReady: true }}>
         <MemoryRouter initialEntries={[initial]}>
             <Routes>
                 <Route path="/login" element={<div>Login screen</div>} />
@@ -21,8 +24,10 @@ const renderRoutes = (auth, initial = "/private") => render(
                 <Route path="/hire/private" element={<ProtectedRoute><div>Hire private</div></ProtectedRoute>} />
                 <Route path="/guest" element={<GuestOnlyRoute><div>Guest screen</div></GuestOnlyRoute>} />
                 <Route path="/admin" element={<ProtectedRoute><AdminRoute><div>Admin screen</div></AdminRoute></ProtectedRoute>} />
+                <Route path="/hire/assessments" element={<div>Hiring workspace screen</div>} />
             </Routes>
         </MemoryRouter>
+        </OrganizationContext.Provider>
     </AuthContext.Provider>,
 );
 
@@ -72,5 +77,26 @@ describe("route authorization guards", () => {
     it("renders guest-only content while session restoration is still loading", () => {
         renderRoutes({ user: null, loading: true }, "/guest");
         expect(screen.getByText("Guest screen")).toBeTruthy();
+    });
+
+    describe("signed-in landing without a saved workspace", () => {
+        const owner = { user: { _id: "owner-1", role: "user" }, loading: false };
+        afterEach(() => clearWorkspacePreference("owner-1"));
+
+        it("sends a member of a hiring organization to Hire instead of Practice", () => {
+            renderRoutes(owner, "/guest", { organizations: [{ _id: "org-1" }], organizationsReady: true });
+            expect(screen.getByText("Hiring workspace screen")).toBeTruthy();
+        });
+
+        it("waits for memberships to load before choosing", () => {
+            renderRoutes(owner, "/guest", { organizations: [], organizationsReady: false });
+            expect(screen.getByText("Guest screen")).toBeTruthy();
+        });
+
+        it("still honours a saved Practice preference", () => {
+            setWorkspacePreference("practice", "owner-1");
+            renderRoutes(owner, "/guest", { organizations: [{ _id: "org-1" }], organizationsReady: false });
+            expect(screen.getByText("Dashboard screen")).toBeTruthy();
+        });
     });
 });

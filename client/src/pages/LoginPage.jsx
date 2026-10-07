@@ -4,7 +4,8 @@ import { AuthContext } from "../context/AuthContext";
 import Captcha from "../components/Captcha";
 import AuthShell from "../components/AuthShell";
 import usePublicConfig from "../hooks/usePublicConfig";
-import { getWorkspaceHome, getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
+import api from "../api/axios";
+import { defaultWorkspaceFor, getWorkspaceHome, getWorkspacePreference, setWorkspacePreference } from "../utils/workspacePreference";
 import { productRegisterPath, surfaceForPath, workspaceForSurface } from "../utils/productRoutes";
 import { isEmbeddedBrowser } from "../utils/embeddedBrowser";
 import { describeError } from "../utils/errorFormatter";
@@ -60,11 +61,19 @@ const LoginPage = () => {
     const requestedDestination = requested?.pathname
         ? `${requested.pathname}${requested.search || ""}${requested.hash || ""}`
         : null;
-    const authenticatedDestinationFor = useCallback((authenticatedUser) => (
-        requestedDestination || getWorkspaceHome(
-            requestedWorkspace || getWorkspacePreference(authenticatedUser?._id) || "practice"
-        )
-    ), [requestedDestination, requestedWorkspace]);
+    const authenticatedDestinationFor = useCallback(async (authenticatedUser) => {
+        if (requestedDestination) return requestedDestination;
+        const chosen = requestedWorkspace || getWorkspacePreference(authenticatedUser?._id);
+        if (chosen) return getWorkspaceHome(chosen);
+        // The generic sign-in page doesn't say which product the person wants: hiring-organization
+        // members go to Hire, everyone else to Practice.
+        try {
+            const { data } = await api.get("/organizations");
+            return getWorkspaceHome(defaultWorkspaceFor(data?.organizations));
+        } catch {
+            return getWorkspaceHome("practice");
+        }
+    }, [requestedDestination, requestedWorkspace]);
     const registerPath = productRegisterPath(requestedWorkspace);
     const forgotPasswordPath = `/forgot-password?workspace=${requestedWorkspace || getWorkspacePreference() || "practice"}`;
 
@@ -83,7 +92,7 @@ const LoginPage = () => {
         setSubmitting(true);
         try {
             const authenticatedUser = await login(email, password, captchaToken);
-            navigate(authenticatedDestinationFor(authenticatedUser), { replace: true });
+            navigate(await authenticatedDestinationFor(authenticatedUser), { replace: true });
         } catch (err) {
             const msg = describeError(err, "Invalid credentials");
             if (msg === "Email not verified") {
@@ -149,7 +158,7 @@ const LoginPage = () => {
                     try {
                         setApiError("");
                         const authenticatedUser = await googleLoginRef.current(response.credential);
-                        navigate(authenticatedDestinationFor(authenticatedUser), { replace: true });
+                        navigate(await authenticatedDestinationFor(authenticatedUser), { replace: true });
                     } catch (error) {
                         setApiError(error?.response?.data?.message || "Google sign-in failed");
                     }

@@ -132,6 +132,8 @@ export const useConversational = ({
 
     const handleSubmitAnswer = useCallback(async (answer) => {
         if (!selectedRound || !isConversational || pendingFollowUp) return;
+        // Main questions can't be skipped, so never record an empty answer (the server rejects it too).
+        if (!(answer || "").toString().trim()) return;
         const currentIndex = convState.index;
         if (currentIndex === 0) trackEvent("first_answer_submitted");
         setConvSubmitting(true);

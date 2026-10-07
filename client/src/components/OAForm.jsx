@@ -64,12 +64,22 @@ const OAForm = ({
     const questionSetKey = useMemo(() => (questions || []).map((item, index) => item?.question?._id || item?._id || `${index}:${item?.question?.text || ""}`).join("|"), [questions]);
     const activeQuestionKey = activeQuestion?.question?._id || activeQuestion?._id || `${safeIndex}:${activeQuestionText}`;
 
+    // Reopen the problem the candidate was on after a reload instead of jumping back to problem 1.
+    const positionKey = codeDraftPrefix ? `oa-position:${codeDraftPrefix}` : "";
     useEffect(() => {
         setLocalDrafts({});
-        setActiveIndex(0);
+        let saved = 0;
+        try { saved = Number(positionKey ? window.sessionStorage.getItem(positionKey) : 0) || 0; } catch { saved = 0; }
+        setActiveIndex(Number.isInteger(saved) && saved > 0 && saved < total ? saved : 0);
         spokenQuestionKeysRef.current = new Set();
         roundIntroducedRef.current = false;
-    }, [questionSetKey]);
+    }, [questionSetKey]); // eslint-disable-line react-hooks/exhaustive-deps -- positionKey and total change with the question set
+
+    // Declared after the restore above so the first save on mount can't overwrite the saved position.
+    useEffect(() => {
+        if (!positionKey) return;
+        try { window.sessionStorage.setItem(positionKey, String(activeIndex)); } catch { /* best effort */ }
+    }, [activeIndex, positionKey]);
 
     useEffect(() => {
         if (!activeQuestionText || spokenQuestionKeysRef.current.has(activeQuestionKey)) return undefined;

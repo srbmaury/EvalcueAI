@@ -2,7 +2,7 @@ import { generateJSON } from "../utils/generateQuestions/aiClient.js";
 import { recordAiQualityEvent } from "./aiQuality.js";
 import { generateQuestionsForRound } from "../utils/generateQuestions.js";
 import { sanitizeText } from "../utils/generateQuestions/textUtils.js";
-import { recordGuardEvent, repeatsEarlierQuestion, unsupportedSpecifics } from "../utils/generateQuestions/questionGuards.js";
+import { claimGroundedIn, recordGuardEvent, repeatsEarlierQuestion, unsupportedSpecifics } from "../utils/generateQuestions/questionGuards.js";
 
 const clamp = (value, min, max, fallback = min) => {
     const parsed = Number(value);
@@ -124,6 +124,16 @@ const normalizeClaims = (items, fallback) => {
     return out;
 };
 
+// The model is asked to quote resume claims, but with no resume (or a thin one) it can invent them, and the
+// interviewer would then question the candidate about an achievement they never claimed. Keep only claims
+// grounded in the resume text; anything else is dropped and counted as an invented specific.
+const groundedClaims = (items, resumeText) => {
+    if (!Array.isArray(items) || !items.length) return [];
+    const kept = items.filter((item) => claimGroundedIn(typeof item === "string" ? item : item?.claim, resumeText));
+    if (kept.length < items.length) recordGuardEvent("resume_claims", "invented_specifics", "filtered");
+    return kept;
+};
+
 export const initializeAdaptiveInterviewState = async ({
     jobRole,
     jobDescription,
@@ -195,7 +205,7 @@ Rules:
         currentDifficulty: initialDifficulty,
         questionsAsked: 0,
         competencies: normalizeCompetencies(parsed?.competencies, fallback),
-        resumeClaims: normalizeClaims(parsed?.resumeClaims, fallbackClaims),
+        resumeClaims: normalizeClaims(groundedClaims(parsed?.resumeClaims, safeResume), fallbackClaims),
         lastDecision: { action: "continue", difficulty: initialDifficulty, confidence: 0 },
         completedReason: "",
         initializedAt: new Date(),

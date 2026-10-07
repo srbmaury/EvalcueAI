@@ -4,18 +4,24 @@ import PersonIcon from "@mui/icons-material/Person";
 import VideocamRoundedIcon from "@mui/icons-material/VideocamRounded";
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
 import { useFacePresenceMonitor } from "../hooks/useFacePresenceMonitor";
+import { CAMERA_FAILURE_COPY, cameraFailureKind } from "../utils/cameraFailure";
 
 const WebcamPreview = ({ autoStart = false, required = false, monitorFaces = false, onIntegrityEvent, onFaceStatusChange, onCameraStatusChange }) => {
     const videoRef = useRef(null);
     const streamRef = useRef(null);
     const [on, setOn] = useState(false);
     const [denied, setDenied] = useState(false);
+    // Why the camera failed ("blocked" | "missing" | "busy"), and whether a request is waiting on the
+    // browser's permission prompt; without these the tile looked untouched or said "blocked" for every cause.
+    const [failure, setFailure] = useState("");
+    const [requesting, setRequesting] = useState(false);
     const [selfViewHidden, setSelfViewHidden] = useState(false);
     const [videoElement, setVideoElement] = useState(null);
     const faceStatus = useFacePresenceMonitor({ enabled: monitorFaces && on, video: videoElement, stream: streamRef.current, onEvent: onIntegrityEvent });
     const setVideoRef = useCallback((element) => { videoRef.current = element; setVideoElement(element); }, []);
 
     const start = useCallback(async () => {
+        setRequesting(true);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: "user", width: 480, height: 360 },
@@ -29,8 +35,12 @@ const WebcamPreview = ({ autoStart = false, required = false, monitorFaces = fal
             }, { once: true });
             setOn(true);
             setDenied(false);
-        } catch {
+            setFailure("");
+        } catch (error) {
             setDenied(true);
+            setFailure(cameraFailureKind(error));
+        } finally {
+            setRequesting(false);
         }
     }, []);
 
@@ -45,8 +55,8 @@ const WebcamPreview = ({ autoStart = false, required = false, monitorFaces = fal
     }, [on]);
 
     useEffect(() => {
-        onCameraStatusChange?.({ on, denied });
-    }, [denied, on, onCameraStatusChange]);
+        onCameraStatusChange?.({ on, denied, requesting, failure });
+    }, [denied, failure, on, onCameraStatusChange, requesting]);
 
     const stop = (event) => {
         event?.stopPropagation();
@@ -73,7 +83,7 @@ const WebcamPreview = ({ autoStart = false, required = false, monitorFaces = fal
         <Tooltip
             title={on
                 ? selfViewHidden ? "Camera is still on. Show your self-view." : required ? "Camera is required during this interview" : "Your camera preview"
-                : denied ? "Camera access is blocked. Check your browser permissions." : "Turn on your camera preview"}
+                : requesting ? "Waiting for camera permission. Look for your browser's prompt near the address bar." : denied ? CAMERA_FAILURE_COPY[failure || "blocked"].hint : "Turn on your camera preview"}
             placement="left"
         >
             <Box
@@ -131,7 +141,7 @@ const WebcamPreview = ({ autoStart = false, required = false, monitorFaces = fal
                     <>
                         {denied ? <PersonIcon sx={{ color: "error.light", fontSize: 30 }} /> : <VideocamRoundedIcon sx={{ color: "rgba(255,255,255,.62)", fontSize: 30 }} />}
                         <Typography sx={{ color: denied ? "error.light" : "rgba(255,255,255,.75)", fontSize: 10, textAlign: "center", px: 1, fontWeight: 650 }}>
-                            {denied ? "Camera blocked" : required ? "Turn camera on" : "Turn camera on"}
+                            {requesting ? "Allow camera access…" : denied ? CAMERA_FAILURE_COPY[failure || "blocked"].label : "Turn camera on"}
                         </Typography>
                     </>
                 )}

@@ -18,6 +18,11 @@ import {
     CircularProgress,
     Collapse,
     Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
     Divider,
     FormControlLabel,
     Grid,
@@ -107,6 +112,11 @@ const starterPresets = {
     },
 };
 
+const DRAFT_TEXT_FIELDS = ["jobRole", "title", "jobDescription", "candidateInstructions"];
+const hasDraftContent = (draft) => Number(draft?.activeStep) > 0
+    || DRAFT_TEXT_FIELDS.some((key) => String(draft?.form?.[key] || "").trim())
+    || (draft?.form?.rounds || []).some((round) => (round?.questions || []).some((question) => String(question?.text || "").trim()));
+
 const draftKeyFor = (organizationId, editId) => `hiring-assessment-builder:${organizationId || "unknown"}:${editId || "new"}`;
 const readLocalDraft = (key) => {
     try { return JSON.parse(window.localStorage?.getItem(key) || "null"); }
@@ -158,6 +168,9 @@ export default function AssessmentBuilderPage() {
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [hydrated, setHydrated] = useState(false);
     const [draftSavedAt, setDraftSavedAt] = useState(null);
+    // When an unsaved draft from an earlier visit is restored, say so and offer to start fresh.
+    const [restoredDraftAt, setRestoredDraftAt] = useState(null);
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
     const [existingInvitationCount, setExistingInvitationCount] = useState(0);
     const [debuggingAssessmentsEnabled, setDebuggingAssessmentsEnabled] = useState(false);
     // Runtimes the deployment's code runner supports (server-configured); empty means use the built-in list.
@@ -228,12 +241,12 @@ export default function AssessmentBuilderPage() {
                     setActiveStep(localIsNewer ? Math.max(0, Math.min(3, Number(local.activeStep) || 0)) : 0);
                     if (localIsNewer) {
                         setDraftSavedAt(local.savedAt);
+                        setRestoredDraftAt(local.savedAt);
                         // Restored alongside form/rounds from the same saved snapshot, so the
                         // indices still line up. Without this, a debugging round validated
                         // before a reload showed the "validate before publishing" warning
                         // again even though its config hadn't changed, forcing a re-validate.
                         setDebuggingValidations(local.debuggingValidations || {});
-                        notify("Recovered unsaved draft changes from this device.", "info");
                     }
                 } else {
                     const local = readLocalDraft(draftKey);
@@ -241,6 +254,8 @@ export default function AssessmentBuilderPage() {
                         setForm({ ...initialForm, ...local.form });
                         setActiveStep(Math.max(0, Math.min(3, Number(local.activeStep) || 0)));
                         setDraftSavedAt(local.savedAt || null);
+                        // The builder autosaves even an untouched form, so only announce a draft with real content.
+                        if (hasDraftContent(local)) setRestoredDraftAt(local.savedAt || new Date().toISOString());
                         setDebuggingValidations(local.debuggingValidations || {});
                     } else {
                         setForm(initialForm);
@@ -436,6 +451,8 @@ export default function AssessmentBuilderPage() {
     };
 
     const discardLocalChanges = () => {
+        setConfirmDiscardOpen(false);
+        setRestoredDraftAt(null);
         clearLocalDraft(draftKey);
         setDebuggingValidations({});
         if (isEditing) {
@@ -461,9 +478,23 @@ export default function AssessmentBuilderPage() {
                 </Box>
                 <Stack spacing={1} alignItems={{ md: "flex-end" }}>
                     <Chip label={`${isEditing ? "Editing" : "Creating"} for ${activeOrganization.name}`} variant="outlined" />
-                    {draftSavedAt && <Typography variant="caption" color="text.secondary">Recovered locally · saved {new Date(draftSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Typography>}
+                    {draftSavedAt && <Typography variant="caption" color="text.secondary">Saved on this device · {new Date(draftSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Typography>}
                 </Stack>
             </Stack>
+
+            {restoredDraftAt && (
+                <Alert severity="info" sx={{ mb: 3 }} onClose={() => setRestoredDraftAt(null)} action={<Button color="inherit" size="small" onClick={() => setConfirmDiscardOpen(true)}>{isEditing ? "Discard changes" : "Start fresh"}</Button>}>
+                    Restored unsaved changes from {new Date(restoredDraftAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })} on this device.
+                </Alert>
+            )}
+            <Dialog open={confirmDiscardOpen} onClose={() => setConfirmDiscardOpen(false)}>
+                <DialogTitle>Discard unsaved changes?</DialogTitle>
+                <DialogContent><DialogContentText>{isEditing ? "Changes you haven't saved to this draft will be removed from this device." : "This clears everything you've entered for this new assessment on this device. It can't be undone."}</DialogContentText></DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setConfirmDiscardOpen(false)}>Keep editing</Button>
+                    <Button color="error" variant="contained" onClick={discardLocalChanges}>Discard</Button>
+                </DialogActions>
+            </Dialog>
 
             <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, mb: 3, overflowX: "auto" }}>
                 <Stepper activeStep={activeStep} alternativeLabel sx={{ minWidth: 520 }}>
@@ -567,7 +598,7 @@ export default function AssessmentBuilderPage() {
                         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} gap={1}>
                             <Stack direction="row" gap={1}>
                                 <Button disabled={activeStep === 0 || saving} startIcon={<KeyboardArrowLeftRounded />} onClick={() => { setError(""); setActiveStep((step) => Math.max(0, step - 1)); }}>Back</Button>
-                                <Button color="inherit" disabled={saving} onClick={discardLocalChanges}>Discard local changes</Button>
+                                <Button color="inherit" disabled={saving} onClick={() => setConfirmDiscardOpen(true)}>Discard local changes</Button>
                             </Stack>
                             {activeStep < steps.length - 1 ? <Button variant="contained" disabled={!stepValid} endIcon={<KeyboardArrowRightRounded />} onClick={() => { setError(""); setActiveStep((step) => Math.min(steps.length - 1, step + 1)); }}>Continue</Button> : <Stack direction="row" gap={1} flexWrap="wrap" justifyContent="flex-end"><Button variant="outlined" disabled={saving} onClick={() => save("draft")}>{isEditing ? "Save draft changes" : "Save draft"}</Button>{form.opensAt && <Button variant="outlined" disabled={saving || !debuggingReadyToPublish} onClick={() => save("schedule")}>Schedule</Button>}<Button variant="contained" disabled={saving || !debuggingReadyToPublish} onClick={() => save("publish")}>{saving ? <CircularProgress size={20} color="inherit" /> : "Publish assessment"}</Button></Stack>}
                         </Stack>
