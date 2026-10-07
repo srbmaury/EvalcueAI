@@ -30,7 +30,7 @@ describe("WebcamPreview status", () => {
         fireEvent.click(screen.getByRole("button", { name: "Turn on camera" }));
 
         expect(await screen.findByText("Camera in use")).toBeTruthy();
-        expect(onStatus).toHaveBeenLastCalledWith(expect.objectContaining({ denied: true, failure: "busy", requesting: false }));
+        await waitFor(() => expect(onStatus).toHaveBeenLastCalledWith(expect.objectContaining({ denied: true, failure: "busy", requesting: false })));
     });
 
     it("classifies getUserMedia failures by what the person can do", () => {
