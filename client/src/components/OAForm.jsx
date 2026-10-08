@@ -66,20 +66,34 @@ const OAForm = ({
 
     // Reopen the problem the candidate was on after a reload instead of jumping back to problem 1.
     const positionKey = codeDraftPrefix ? `oa-position:${codeDraftPrefix}` : "";
+    // Index the restore below is applying, or undefined until a loaded question set has been restored.
+    // Saving waits for it: after a reload the form first renders before its questions arrive, and saving
+    // that placeholder 0 used to overwrite the position before it could be restored.
+    const pendingRestoreRef = useRef(undefined);
     useEffect(() => {
         setLocalDrafts({});
-        let saved = 0;
-        try { saved = Number(positionKey ? window.sessionStorage.getItem(positionKey) : 0) || 0; } catch { saved = 0; }
-        setActiveIndex(Number.isInteger(saved) && saved > 0 && saved < total ? saved : 0);
         spokenQuestionKeysRef.current = new Set();
         roundIntroducedRef.current = false;
+        if (!total) {
+            pendingRestoreRef.current = undefined;
+            return;
+        }
+        let saved = 0;
+        try { saved = Number(positionKey ? window.sessionStorage.getItem(positionKey) : 0) || 0; } catch { saved = 0; }
+        const target = Number.isInteger(saved) && saved > 0 && saved < total ? saved : 0;
+        pendingRestoreRef.current = target;
+        setActiveIndex(target);
     }, [questionSetKey]); // eslint-disable-line react-hooks/exhaustive-deps -- positionKey and total change with the question set
 
-    // Declared after the restore above so the first save on mount can't overwrite the saved position.
     useEffect(() => {
-        if (!positionKey) return;
+        if (!positionKey || !total || pendingRestoreRef.current === undefined) return;
+        if (pendingRestoreRef.current !== null) {
+            // Same commit as the restore: activeIndex still holds the previous value.
+            if (activeIndex !== pendingRestoreRef.current) return;
+            pendingRestoreRef.current = null;
+        }
         try { window.sessionStorage.setItem(positionKey, String(activeIndex)); } catch { /* best effort */ }
-    }, [activeIndex, positionKey]);
+    }, [activeIndex, positionKey, total]);
 
     useEffect(() => {
         if (!activeQuestionText || spokenQuestionKeysRef.current.has(activeQuestionKey)) return undefined;
