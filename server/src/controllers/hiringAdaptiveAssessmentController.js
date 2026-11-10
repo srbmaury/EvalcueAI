@@ -176,10 +176,13 @@ export const startAdaptiveCandidateAttempt = async (req, res, next) => {
         const activeInvitation = req.body.invitationId ? assessment.invitations?.id(req.body.invitationId) : null;
         const validInvitation = activeInvitation && activeInvitation.status !== "revoked" && activeInvitation.email === candidateEmail ? activeInvitation : null;
         if (assessment.inviteOnly && !validInvitation) return res.status(403).json({ message: "This assessment is invitation-only. Open the invitation link sent to your email and use that invited email address." });
-        const existing = await CandidateAttempt.findOne({ assessment: assessment._id, candidateEmail });
+        const rawToken = req.body.startToken || crypto.randomBytes(32).toString("base64url");
+        const existing = await CandidateAttempt.findOne({ assessment: assessment._id, candidateEmail }).select("+accessTokenHash");
+        if (req.body.startToken && existing?.status === "started" && existing.accessTokenHash === tokenHash(rawToken)) {
+            return res.json({ attemptToken: rawToken, attempt: publicAttempt(existing) });
+        }
         if (existing) { observeCandidateAction("start", "duplicate", assessment); return res.status(409).json({ message: existing.status === "submitted" ? "This email has already submitted an attempt" : "An attempt for this email is already in progress. Continue from the browser where it was started or contact the recruiting team." }); }
 
-        const rawToken = crypto.randomBytes(32).toString("base64url");
         // Each adaptive round needs AI calls to plan it and write its opening question; rounds are
         // independent, so build them concurrently rather than making the candidate wait for each in turn.
         const attemptRounds = await Promise.all(assessment.rounds.map((round) => makeAttemptRound(assessment, round)));
@@ -213,6 +216,7 @@ export const startAdaptiveCandidateAttempt = async (req, res, next) => {
         return res.status(201).json({ attemptToken: rawToken, attempt: publicAttempt(attempt) });
     } catch (error) {
         if (usageReservation && !attemptSaved) await releaseOrganizationUsage(usageReservation).catch(() => {});
+        if (error?.code === 11000) return res.status(409).json({ message: "An attempt for this email already exists. Retry from the browser where it was started." });
         observeCandidateAction("start", "failure", null);
         return next(error);
     }
@@ -301,6 +305,7 @@ export const saveAdaptiveCandidateAnswer = async (req, res, next) => {
         const { roundIndex, questionIndex, answer, spokenExplanation, followUpAnswer, diagramData } = req.body;
         const round = attempt.rounds?.[roundIndex];
         const item = round?.questions?.[questionIndex];
+        if (["debugging", "system-design"].includes(round?.deliveryMode)) return res.status(400).json({ message: "Use the round-specific submission endpoint" });
         if (!item) { observeCandidateAction("answer", "invalid_question", assessment); return res.status(400).json({ message: "Invalid question" }); }
         if (answer !== undefined) item.answer = answer.toString().trim().slice(0, 20000);
         if (spokenExplanation !== undefined) item.spokenExplanation = spokenExplanation.toString().trim().slice(0, 5000);

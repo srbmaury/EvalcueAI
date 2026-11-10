@@ -7,10 +7,10 @@ import metrics from "../metrics/index.js";
 import runCode from "./runCodeController.js";
 import { transcribe } from "./sttController.js";
 import { getQueue } from "../queues/index.js";
-import { createJobId } from "../queues/jobIds.js";
 import candidateAssessmentProcessor from "../queues/workers/candidateAssessment.js";
 import { debuggingAssessmentsEnabled, safeDebuggingConfig } from "./debuggingAssessmentController.js";
-import { hasPendingFollowUp } from "../services/followUps.js";
+import { candidateRoundComplete } from "../middleware/candidateRoundSequence.js";
+import { candidateEvaluationJobOptions } from "../services/candidateEvaluationRecovery.js";
 
 const tokenHash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const followupLabel = (assessment) => assessment == null ? "unknown" : assessment.followUpsEnabled ? "enabled" : "disabled";
@@ -138,7 +138,7 @@ export const submitCandidateAttempt = async (req, res, next) => {
         if (authorized.status === "submitted") return res.json({ submitted: true, status: "submitted", message: "Your assessment has already been submitted." });
         if (authorized.status !== "started" && authorized.status !== "evaluation_failed") return res.status(409).json({ message: "Attempt cannot be submitted" });
 
-        const unanswered = authorized.rounds.flatMap((round) => round.questions).some((item) => !item.answer || hasPendingFollowUp(item));
+        const unanswered = !authorized.rounds.length || authorized.rounds.some((round, index) => !candidateRoundComplete(round, authorized.debuggingResponses?.find((response) => response.roundIndex === index)));
         if (unanswered) { observeCandidateAction("submit", "incomplete", assessment); return res.status(400).json({ message: "Answer every question and follow-up before submitting" }); }
 
         if (!authorized.usageFinalizedAt && authorized.usageReservationId) {
@@ -168,8 +168,7 @@ export const submitCandidateAttempt = async (req, res, next) => {
             await CandidateAttempt.updateOne({ _id: authorized._id, status: "evaluating" }, { $set: { status: "evaluation_failed", evaluationError: "Evaluation service unavailable" } });
             return res.status(503).json({ message: "Evaluation is temporarily unavailable. Please try again." });
         }
-        const jobId = createJobId("candidate-assessment", { attemptId: String(authorized._id), evaluationStartedAt: claimed.evaluationStartedAt.toISOString() });
-        await queue.add("evaluate", { attemptId: String(authorized._id) }, { jobId, removeOnComplete: { age: 86400, count: 1000 }, removeOnFail: { age: 604800, count: 1000 } });
+        await queue.add("evaluate", { attemptId: String(authorized._id), evaluationStartedAt: claimed.evaluationStartedAt.toISOString() }, candidateEvaluationJobOptions(claimed));
         observeCandidateAction("submit", "accepted", assessment);
         return res.status(202).json({ submitted: true, status: "evaluating", message: "Your assessment was submitted and is being evaluated." });
     } catch (error) { observeCandidateAction("submit", "failure", null); return next(error); }

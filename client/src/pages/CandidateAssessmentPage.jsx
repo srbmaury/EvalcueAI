@@ -53,6 +53,7 @@ export default function CandidateAssessmentPage() {
     const [assessment, setAssessment] = useState(null);
     const [attempt, setAttempt] = useState(null);
     const [attemptToken, setAttemptToken] = useState("");
+    const pendingStart = useRef(null);
     const [identity, setIdentity] = useState({ name: "", email: "" });
     const [emailLocked, setEmailLocked] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -269,7 +270,15 @@ export default function CandidateAssessmentPage() {
                 notify(message, "warning");
                 return;
             }
+            const startKey = `${storageKey}:start:${identity.email.trim().toLowerCase()}`;
+            let startToken = readSavedAttempt(startKey) || (pendingStart.current?.key === startKey ? pendingStart.current.token : null);
+            if (!startToken) {
+                startToken = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+                pendingStart.current = { key: startKey, token: startToken };
+                writeSavedAttempt(startKey, startToken);
+            }
             const { data } = await api.post(`/assessments/public/${shareToken}/start`, {
+                startToken,
                 ...identity,
                 privacyConsent: consent,
                 integrityConsent,
@@ -282,6 +291,8 @@ export default function CandidateAssessmentPage() {
             setRoundTransition(null);
             setRestoreNotice("");
             persist(data.attempt, data.attemptToken, {});
+            removeSavedAttempt(startKey);
+            pendingStart.current = null;
         } catch (err) {
             if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
             const message = describeError(err, "We couldn’t start your assessment.");

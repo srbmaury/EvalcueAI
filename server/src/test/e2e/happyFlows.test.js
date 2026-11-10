@@ -303,9 +303,9 @@ describe("Launch-critical full product journey E2E", () => {
         expect(await Assessment.exists({ _id: assessmentId, organization: hiringOrganization.body.organization._id, createdBy: me._id })).toBeTruthy();
         expect(assessmentCreate.body.rounds[0].questions[0]).toMatchObject({ text: "How would you secure a production API?", weight: 2, competencies: ["Security"], knockout: true });
         const invitationResponse = await agent.post(`/api/assessments/${assessmentId}/invitations`).set(auth).set("origin", origin).set("referer", `${origin}/`).send({ candidates: [{ email: "candidate@example.com", name: "Candidate One" }] }).expect(200);
-        expect(invitationResponse.body.invitations[0]).toMatchObject({ email: "candidate@example.com", status: "sent" });
+        expect(invitationResponse.body.invitations[0]).toMatchObject({ email: "candidate@example.com", status: "queued" });
         await agent.get(`/api/assessments/public/${shareToken}?invite=${invitationResponse.body.invitations[0]._id}`).expect(200);
-        expect((await Assessment.findById(assessmentId).lean()).invitations[0].status).toBe("opened");
+        expect((await Assessment.findById(assessmentId).lean()).invitations[0].status).toBe("queued");
 
         // Reviewed manual questions are preserved exactly; AI generation endpoints are authenticated.
         const hybridAssessment = await agent.post("/api/assessments").set(auth).set("origin", origin).set("referer", `${origin}/`).send({

@@ -1,19 +1,6 @@
 #!/usr/bin/env node
-/**
- * One-off local CompanionAI demo account seed.
- *
- * This file is intentionally OUTSIDE the CompanionAI repository.
- *
- * Run from the CompanionAI/server directory:
- *
- *   MONGO_URI='mongodb+srv://...' \
- *   DEMO_PASSWORD='your-demo-password' \
- *   node /absolute/path/to/seed_companionai_demo_accounts.mjs
- *
- * It imports the application's existing Mongoose models so password hashing
- * and validation stay identical to production. It never calls signup, mailer,
- * Brevo, or verification endpoints.
- */
+// Seeds fixtures in a new, dedicated local database. Run from server/.
+// Supply MONGO_URI and DEMO_PASSWORD through the environment.
 
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -22,9 +9,12 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const serverDir = process.cwd();
-if (!process.env.MONGO_URI) throw new Error("MONGO_URI is required");
-if (!process.env.DEMO_PASSWORD || process.env.DEMO_PASSWORD.length < 12) {
-  throw new Error("DEMO_PASSWORD must be at least 12 characters");
+const localUri = /^mongodb:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?\/evalcue_demo_[a-z0-9_]+(?:\?.*)?$/i;
+if (process.env.NODE_ENV === "production" || !localUri.test(process.env.MONGO_URI || "")) {
+  throw new Error("Use a dedicated local MongoDB database named evalcue_demo_<name>");
+}
+if (!process.env.DEMO_PASSWORD || process.env.DEMO_PASSWORD.length < 12 || Buffer.byteLength(process.env.DEMO_PASSWORD, "utf8") > 72) {
+  throw new Error("DEMO_PASSWORD must be at least 12 characters and at most 72 UTF-8 bytes");
 }
 
 const req = createRequire(path.join(serverDir, "package.json"));
@@ -38,7 +28,6 @@ const { default: Organization } = await importFromServer("src/models/Organizatio
 const { default: OrganizationMembership } = await importFromServer("src/models/OrganizationMembership.js");
 
 const users = [
-  { email: "admin@srbmaury.com", name: "Platform Admin", role: "admin" },
   ...Array.from({ length: 10 }, (_, i) => ({
     email: `candidate${String(i + 1).padStart(2, "0")}@srbmaury.com`,
     name: `Demo Candidate ${String(i + 1).padStart(2, "0")}`,
@@ -65,7 +54,6 @@ const organizations = [
     ownerEmail: "owner@srbmaury.com",
     members: [
       ["owner@srbmaury.com", "owner"],
-      ["admin@srbmaury.com", "admin"],
       ["recruiter1@srbmaury.com", "recruiter"],
       ["recruiter2@srbmaury.com", "recruiter"],
       ["manager1@srbmaury.com", "hiring_manager"],
@@ -97,26 +85,15 @@ try {
 
   for (const def of users) {
     const email = def.email.toLowerCase();
-    let user = await User.findOne({ email }).select("+password +hiringTrialClaimed");
-
-    if (!user) {
-      user = new User({
-        name: def.name,
-        email,
-        password: process.env.DEMO_PASSWORD,
-        provider: "local",
-        isVerified: true,
-        role: def.role,
-      });
-    } else {
-      user.name = def.name;
-      user.provider = "local";
-      user.isVerified = true;
-      user.role = def.role;
-      user.password = process.env.DEMO_PASSWORD;
-      user.verificationToken = undefined;
-      user.verificationTokenExpires = undefined;
-    }
+    if (await User.exists({ email })) throw new Error("Use a fresh demo database. An account already exists.");
+    const user = new User({
+      name: def.name,
+      email,
+      password: process.env.DEMO_PASSWORD,
+      provider: "local",
+      isVerified: true,
+      role: "user",
+    });
 
     await user.save();
     userByEmail.set(email, user);

@@ -129,7 +129,7 @@ const validateConfigForPublish = async (debugging) => {
         const available = executable.map((runtime) => RUNTIME_LABELS[runtime]).join(", ") || "none";
         throw requestError(`${RUNTIME_LABELS[config.runtime]} is not available on the code runner right now. Available: ${available}.`, 422);
     }
-    const result = await runDebuggingProject({ files: config.files, runtime: config.runtime });
+    const result = await runDebuggingProject({ files: config.files, runtime: config.runtime, entryFile: config.entryFile });
     if (["compile_error", "timeout"].includes(result.status)) throw requestError(`Assignment validation failed: starter project returned ${result.status.replaceAll("_", " ")}`);
     if (result.setupErrorCount > 0) throw requestError(`Assignment validation failed: ${result.setupErrorCount} hidden test${result.setupErrorCount === 1 ? "" : "s"} could not run because of a missing module, import, or syntax error. Check file paths and imports so tests fail only because of the intended bug.`);
     if (result.passed === result.total) throw requestError("The starter project already passes every test. Keep at least one reproducible bug for candidates to debug.");
@@ -148,12 +148,12 @@ export const createAssessmentWithDebugging = async (req, res, next) => {
     if (!req.body?.rounds?.some((round) => round.deliveryMode === "debugging")) return createAdaptiveAssessment(req, res, next);
     if (!debuggingAssessmentsEnabled()) return res.status(503).json({ message: "Feature disabled" });
     try {
-        const { title, jobRole, jobDescription, followUpsEnabled = true, inviteOnly = false, candidateInstructions = "", contactEmail = "", durationMinutes = 30, opensAt, expiresAt, timezone = "UTC", rounds, integrity, rubric = [], templateName = "", status = "draft" } = req.body;
+        const { title, jobRole, jobDescription, followUpsEnabled = true, askCandidateIntro = true, inviteOnly = false, candidateInstructions = "", contactEmail = "", durationMinutes = 30, opensAt, expiresAt, timezone = "UTC", rounds, integrity, rubric = [], templateName = "", status = "draft" } = req.body;
         if (status === "scheduled" && (!opensAt || new Date(opensAt) <= new Date())) return res.status(400).json({ message: "Choose a future opening time before scheduling." });
         if (expiresAt && opensAt && new Date(expiresAt) <= new Date(opensAt)) return res.status(400).json({ message: "The submission deadline must be after the opening time." });
         const generatedRounds = await createRoundsIncludingDebugging({ rounds, req, jobRole, jobDescription });
         if (["active", "scheduled"].includes(status)) for (const round of generatedRounds.filter((item) => item.deliveryMode === "debugging")) await validateConfigForPublish(round.debugging);
-        const assessment = await Assessment.create({ organization: req.organizationId, createdBy: req.user._id, title, jobRole, jobDescription, followUpsEnabled, inviteOnly, candidateInstructions, contactEmail, durationMinutes, opensAt: opensAt || undefined, expiresAt: expiresAt || undefined, timezone, rounds: generatedRounds, integrity, rubric, templateName, status, publishedAt: status === "active" ? new Date() : undefined, shareToken: crypto.randomBytes(24).toString("base64url") });
+        const assessment = await Assessment.create({ organization: req.organizationId, createdBy: req.user._id, title, jobRole, jobDescription, followUpsEnabled, askCandidateIntro, inviteOnly, candidateInstructions, contactEmail, durationMinutes, opensAt: opensAt || undefined, expiresAt: expiresAt || undefined, timezone, rounds: generatedRounds, integrity, rubric, templateName, status, publishedAt: status === "active" ? new Date() : undefined, shareToken: crypto.randomBytes(24).toString("base64url") });
         return res.status(201).json(assessment);
     } catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }
 };
@@ -188,7 +188,7 @@ const candidateAttemptPayload = (attempt) => {
             findings: response.findings || [],
             testRuns: response.testRuns || [],
             finalEvaluation: response.finalEvaluation,
-            submittedAt: response.submittedAt,
+            submittedAt: response.finalEvaluation ? response.submittedAt : undefined,
         })),
     };
 };
@@ -222,7 +222,7 @@ const workspacePayload = ({ assessmentRound, config, response, roundIndex }) => 
     findings: response.findings || [],
     testRuns: response.testRuns || [],
     finalEvaluation: response.submittedAt ? response.finalEvaluation : undefined,
-    submittedAt: response.submittedAt,
+    submittedAt: response.finalEvaluation ? response.submittedAt : undefined,
 });
 
 export const getCandidateDebuggingWorkspace = async (req, res, next) => {
@@ -270,7 +270,7 @@ export const saveCandidateDebuggingWorkspace = async (req, res, next) => {
         const context = await loadDebuggingContext(req, res);
         if (!context) return;
         const { attempt, config, response, roundIndex } = context;
-        if (response.submittedAt) return res.status(409).json({ message: "This debugging round has already been submitted" });
+        if (response.submittedAt && response.finalEvaluation) return res.status(409).json({ message: "This debugging round has already been submitted" });
         const changes = {};
         if (config.responseMode === "code_fix") {
             const overlay = { changedFiles: req.body.changedFiles || [], createdFiles: req.body.createdFiles || [], deletedFiles: req.body.deletedFiles || [] };
@@ -288,9 +288,9 @@ export const saveCandidateDebuggingWorkspace = async (req, res, next) => {
             // round's response avoids document-version conflicts (VersionError) between those writes.
             const $set = Object.fromEntries(Object.entries(changes).map(([key, value]) => [`debuggingResponses.$[response].${key}`, value]));
             const result = await CandidateAttempt.updateOne(
-                { _id: attempt._id, status: "started" },
+                { _id: attempt._id, status: "started", debuggingResponses: { $elemMatch: { roundIndex, finalEvaluation: { $exists: false }, submissionClaimedAt: null } } },
                 { $set },
-                { arrayFilters: [{ "response.roundIndex": roundIndex, "response.submittedAt": null }] },
+                { arrayFilters: [{ "response.roundIndex": roundIndex }] },
             );
             if (!result.matchedCount) return res.status(409).json({ message: "This debugging round has already been submitted" });
         }
@@ -304,8 +304,8 @@ export const runCandidateDebuggingProjectTests = async (req, res, next) => {
         if (!context) return;
         const { attempt, config, response } = context;
         if (config.responseMode !== "code_fix") return res.status(409).json({ message: "This assignment collects findings and does not execute candidate code" });
-        if (response.submittedAt) return res.status(409).json({ message: "This debugging round has already been submitted" });
-        const summary = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime });
+        if (response.submittedAt && response.finalEvaluation) return res.status(409).json({ message: "This debugging round has already been submitted" });
+        const summary = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime, entryFile: config.entryFile });
         const ranAt = new Date();
         const record = (target) => {
             target.testRuns.push({ ...summary, ranAt });
@@ -335,44 +335,61 @@ export const submitCandidateDebuggingRound = async (req, res, next) => {
     try {
         const context = await loadDebuggingContext(req, res);
         if (!context) return;
-        const { attempt, attemptRound, config, response, roundIndex } = context;
-        if (response.submittedAt) return res.status(409).json({ message: "This debugging round has already been submitted" });
-
-        let findings;
-        if (config.responseMode !== "code_fix") {
-            findings = Array.isArray(response.findings) ? response.findings : [];
-            if (!findings.length || findings.some((finding) => !cleanText(finding.filePath, 500) || !cleanText(finding.rootCause))) {
-                return res.status(400).json({ message: "Add at least one finding with a project file and finding/root cause before submitting." });
-            }
+        const { attempt, config, response, roundIndex } = context;
+        if (response.submittedAt && response.finalEvaluation) {
+            return res.json({ summary: response.finalEvaluation, attempt: candidateAttemptPayload(attempt) });
         }
 
-        // Atomically claim the submission before doing any expensive/external work
-        // (sandboxed code runner): two concurrent submit requests for the same round must
-        // not both execute and both persist a result — the loser gets a clean 409
-        // instead of racing attempt.save() into an unhandled VersionError after
-        // the runner already ran twice.
+        if (response.isNew) await attempt.save();
         const claimedAt = new Date();
-        const claim = await CandidateAttempt.updateOne(
-            { _id: attempt._id, debuggingResponses: { $elemMatch: { roundIndex, submittedAt: { $exists: false } } } },
-            { $set: { "debuggingResponses.$[elem].submittedAt": claimedAt } },
-            { arrayFilters: [{ "elem.roundIndex": roundIndex }] },
+        const runnerTimeout = Number(process.env.CODE_RUNNER_TIMEOUT_MS) || 90_000;
+        const staleClaim = new Date(claimedAt.getTime() - Math.max(120_000, runnerTimeout + 30_000));
+        const claimed = await CandidateAttempt.findOneAndUpdate(
+            {
+                _id: attempt._id, status: "started",
+                debuggingResponses: { $elemMatch: {
+                    roundIndex, finalEvaluation: { $exists: false },
+                    $or: [{ submissionClaimedAt: null }, { submissionClaimedAt: { $lte: staleClaim } }],
+                } },
+            },
+            { $set: { "debuggingResponses.$.submissionClaimedAt": claimedAt } },
+            { new: true },
         );
-        if (!claim.modifiedCount) return res.status(409).json({ message: "This debugging round has already been submitted" });
-        response.submittedAt = claimedAt;
-
+        if (!claimed) return res.status(409).json({ message: "This debugging round is being submitted. Retry shortly." });
+        const claimedResponse = claimed.debuggingResponses.find((item) => item.roundIndex === roundIndex);
+        const ownedClaim = {
+            _id: attempt._id, status: "started",
+            debuggingResponses: { $elemMatch: { roundIndex, submissionClaimedAt: claimedAt } },
+        };
         let summary;
-        if (config.responseMode === "code_fix") {
-            const execution = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, response), runtime: config.runtime });
-            summary = { ...execution, diff: summarizeDebuggingDiff(config.files, response) };
-            response.finalEvaluation = summary;
-            attemptRound.questions[0].answer = `Debugging solution submitted. Tests: ${execution.passed}/${execution.total}. Files changed: ${summary.diff.changed + summary.diff.created + summary.diff.deleted}.`;
-        } else {
-            summary = { status: "submitted", findings: true, findingCount: findings.length };
-            response.finalEvaluation = summary;
-            attemptRound.questions[0].answer = findingsAnswer(findings);
+        let answer;
+        try {
+            if (config.responseMode === "code_fix") {
+                const execution = await runDebuggingProject({ files: applyDebuggingOverlay(config.files, claimedResponse), runtime: config.runtime, entryFile: config.entryFile });
+                summary = { ...execution, diff: summarizeDebuggingDiff(config.files, claimedResponse) };
+                answer = `Debugging solution submitted. Tests: ${execution.passed}/${execution.total}. Files changed: ${summary.diff.changed + summary.diff.created + summary.diff.deleted}.`;
+            } else {
+                const findings = Array.isArray(claimedResponse.findings) ? claimedResponse.findings : [];
+                if (!findings.length || findings.some((finding) => !cleanText(finding.filePath, 500) || !cleanText(finding.rootCause))) {
+                    throw requestError("Add at least one finding with a project file and finding/root cause before submitting.");
+                }
+                summary = { status: "submitted", findings: true, findingCount: findings.length };
+                answer = findingsAnswer(findings);
+            }
+            const submitted = await CandidateAttempt.findOneAndUpdate(ownedClaim, {
+                $set: {
+                    "debuggingResponses.$.submittedAt": new Date(),
+                    "debuggingResponses.$.finalEvaluation": summary,
+                    [`rounds.${roundIndex}.questions.0.answer`]: answer,
+                },
+                $unset: { "debuggingResponses.$.submissionClaimedAt": "" },
+            }, { new: true });
+            if (!submitted) return res.status(409).json({ message: "The submission changed. Reload before retrying." });
+            return res.json({ summary, attempt: candidateAttemptPayload(submitted) });
+        } catch (error) {
+            await CandidateAttempt.updateOne(ownedClaim, { $unset: { "debuggingResponses.$.submissionClaimedAt": "" } }).catch(() => {});
+            throw error;
         }
-        await attempt.save();
-        return res.json({ summary, attempt: candidateAttemptPayload(attempt) });
     } catch (error) { if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message }); return next(error); }
 };
 

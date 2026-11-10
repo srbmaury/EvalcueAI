@@ -136,7 +136,11 @@ On the server, set `CAPTCHA_ENABLED=true` and `CAPTCHA_SECRET` and enable the lo
 
 Run the React build behind a CDN and the API as a Node 22 service. Production requires a transaction-capable MongoDB replica set or sharded cluster, Redis, HTTPS, Brevo transactional email, Cloudinary for resume storage, CAPTCHA, PayU, and at least one AI provider. The code runner (`runner/`) and server STT are required only when their feature flags are enabled; see [runner/README.md](../runner/README.md) for the runner.
 
-The API process currently starts BullMQ workers and scheduled reminder/assessment tasks. Run one worker-enabled API replica until workers and schedulers are split into dedicated process types.
+Set `PROCESS_ROLE=api` on each HTTP replica, `PROCESS_ROLE=worker` on one or more BullMQ worker services, and `PROCESS_ROLE=scheduler` on exactly one scheduler service. Share the same MongoDB and Redis between all processes. Route HTTP traffic only to the API replicas and use `/health/readiness` for their health checks. The default `PROCESS_ROLE=all` is for a single-process deployment.
+
+Before rolling out, rotate any demo password previously seeded from the public manifest and revoke those accounts’ refresh sessions. Seed new demo fixtures only in a dedicated local database. Use a separate non-privileged account to test the public app.
+
+Deploy the updated runner before the API. Convert existing code-fix assessments to a source entry point that reads stdin and writes stdout, plus JSON fixtures with `stdin` and nonempty `stdout` strings. Executable hidden tests require manual conversion. Finish or replace assessments using the old format before rollout.
 
 ### Pre-deployment
 

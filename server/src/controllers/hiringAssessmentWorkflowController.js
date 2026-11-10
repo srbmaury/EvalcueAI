@@ -1,9 +1,6 @@
 import Assessment from "../models/Assessment.js";
 import CandidateAttempt from "../models/CandidateAttempt.js";
 import metrics from "../metrics/index.js";
-import { practiceClientOrigin } from "../config/clientOrigins.js";
-import { sendMail } from "../utils/mailer.js";
-import { buildHiringInvitationEmail } from "../utils/hiringInvitationEmail.js";
 import {
     applyEditableAssessmentFields,
     canTransitionAssessmentStatus,
@@ -53,25 +50,6 @@ export const updateHiringAssessment = async (req, res, next) => {
     }
 };
 
-const invitationMailFor = ({ assessment, invitation, candidateName, organizationName }) => {
-    const candidateLink = `${practiceClientOrigin()}/assessment/${assessment.shareToken}?invite=${invitation._id}`;
-    return buildHiringInvitationEmail({
-        candidateName: candidateName || invitation.name || "there",
-        candidateEmail: invitation.email,
-        organizationName: organizationName || "Hiring team",
-        assessmentTitle: assessment.title,
-        jobRole: assessment.jobRole,
-        durationMinutes: assessment.durationMinutes,
-        opensAt: assessment.opensAt,
-        expiresAt: assessment.expiresAt,
-        timezone: assessment.timezone || "UTC",
-        candidateLink,
-        contactEmail: assessment.contactEmail || "",
-        inviteOnly: assessment.inviteOnly,
-        integrity: assessment.integrity || { enabled: false },
-    });
-};
-
 export const inviteHiringCandidates = async (req, res, next) => {
     try {
         const assessment = await Assessment.findOne({ _id: req.params.assessmentId, organization: req.organizationId });
@@ -79,39 +57,23 @@ export const inviteHiringCandidates = async (req, res, next) => {
         if (!["draft", "scheduled", "active"].includes(assessment.status)) return res.status(409).json({ message: "Invitations cannot be changed for this assessment." });
 
         const results = [];
+        const seen = new Set();
         for (const entry of req.body.candidates) {
             const email = entry.email.toLowerCase().trim();
+            if (seen.has(email)) continue;
+            seen.add(email);
             let invitation = assessment.invitations.find((item) => item.email === email);
             if (!invitation) {
-                assessment.invitations.push({ email, name: entry.name || "", status: assessment.status === "active" ? "sent" : "queued", invitedAt: new Date(), nextAttemptAt: new Date() });
+                assessment.invitations.push({ email, name: entry.name || "", status: "queued", invitedAt: new Date(), nextAttemptAt: new Date() });
                 invitation = assessment.invitations.at(-1);
-            } else {
+            } else if (!["started", "completed"].includes(invitation.status)) {
                 invitation.name = entry.name || invitation.name || "";
-                invitation.status = assessment.status === "active" ? "sent" : "queued";
+                invitation.status = "queued";
                 invitation.revokedAt = undefined;
                 invitation.nextAttemptAt = new Date();
+                invitation.attempts = 0;
             }
-
-            if (assessment.status !== "active") {
-                results.push({ email, sent: false, queued: true });
-                continue;
-            }
-
-            try {
-                const info = await sendMail(invitationMailFor({ assessment, invitation, candidateName: entry.name, organizationName: req.organization?.name }));
-                invitation.status = "sent";
-                invitation.lastSentAt = new Date();
-                invitation.attempts = Number(invitation.attempts || 0) + 1;
-                invitation.providerMessageId = info?.messageId || "";
-                invitation.lastError = "";
-                results.push({ email, sent: true, queued: false });
-            } catch (deliveryError) {
-                invitation.status = "failed";
-                invitation.attempts = Number(invitation.attempts || 0) + 1;
-                invitation.nextAttemptAt = new Date(Date.now() + Math.min(60, 2 ** invitation.attempts) * 60_000);
-                invitation.lastError = String(deliveryError?.message || deliveryError).slice(0, 500);
-                results.push({ email, sent: false, queued: false });
-            }
+            results.push({ email, sent: false, queued: invitation.status === "queued", unchanged: ["started", "completed"].includes(invitation.status) });
         }
 
         await assessment.save();

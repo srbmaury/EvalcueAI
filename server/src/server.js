@@ -92,25 +92,31 @@ try {
 } catch {}
 await connectDB();
 
+const role = process.env.PROCESS_ROLE || "all";
+if (!["all", "api", "worker", "scheduler"].includes(role)) throw new Error("PROCESS_ROLE must be all, api, worker, or scheduler");
+const runsApi = role === "all" || role === "api";
+const runsWorker = role === "all" || role === "worker";
+const runsScheduler = role === "all" || role === "scheduler";
 const scheduledTasks = [];
-const scheduleTask = (...args) => {
-    const task = cron.schedule(...args);
+const activeTasks = new Set();
+const scheduleTask = (expression, callback, options) => {
+    const task = cron.schedule(expression, async () => {
+        const running = Promise.resolve().then(callback);
+        activeTasks.add(running);
+        try { await running; } finally { activeTasks.delete(running); }
+    }, { ...options, noOverlap: true });
     scheduledTasks.push(task);
     return task;
 };
 let stopOtlpPush = () => {};
 
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, async () => {
-    console.log(`Server running on port ${PORT}`);
-    const hasEmailConfig = process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL;
-    if (hasEmailConfig) {
+const server = runsApi ? app.listen(PORT, () => console.log(`Server running on port ${PORT}`)) : null;
+const startBackground = async () => {
+    if (runsApi && process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL) {
         try { await verifyEmailProvider(); } catch { /* already logged */ }
-    } else {
-        console.log("Brevo email not configured. Set BREVO_API_KEY and BREVO_SENDER_EMAIL.");
     }
-
-    if (process.env.REDIS_URL) {
+    if (runsWorker && process.env.REDIS_URL) {
         try {
             await createWorker("prepare-questions", prepareQuestionsProcessor);
             console.log("[Workers] prepare-questions worker started");
@@ -118,14 +124,13 @@ const server = app.listen(PORT, async () => {
             console.log("[Workers] bulk-feedback worker started");
             await createWorker("candidate-assessment", candidateAssessmentProcessor);
             console.log("[Workers] candidate-assessment worker started");
-            const recovered = await recoverCandidateEvaluations();
-            if (recovered) console.log(`[Workers] recovered ${recovered} candidate assessment evaluations`);
         } catch (e) {
             console.warn("[Workers] Failed to start background workers", e?.message || e);
         }
-    } else {
+    } else if (runsWorker) {
         console.log("[Workers] REDIS_URL not set, background workers disabled");
     }
+    if (!runsScheduler) return;
 
     try {
         scheduleTask("0 3 * * *", async () => {
@@ -223,12 +228,14 @@ const server = app.listen(PORT, async () => {
         }, { noOverlap: true });
     } catch (error) { console.warn("[PAYU] Reconciliation scheduler failed", error.message); }
 
-    try { stopOtlpPush = startOtlpPush() || (() => {}); } catch {}
-});
+};
+try { stopOtlpPush = startOtlpPush() || (() => {}); } catch {}
+const backgroundStartup = startBackground();
 
 let shuttingDown = false;
 const closeHttpServer = () => new Promise((resolve, reject) => {
     try {
+        if (!server) return resolve();
         server.close((error) => error ? reject(error) : resolve());
     } catch (error) {
         reject(error);
@@ -253,9 +260,11 @@ const shutdown = async (signal) => {
     forceExit.unref?.();
 
     try {
+        await backgroundStartup;
         for (const task of scheduledTasks) {
             try { task.stop?.(); } catch {}
         }
+        await Promise.allSettled(activeTasks);
         try { stopOtlpPush(); } catch {}
 
         await Promise.all([closeHttpServer(), closeQueues()]);

@@ -3,7 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { parseProject, parseSnippet } from "./validate.js";
 import { runtimeIds } from "./runtimes.js";
 
-const MAX_BODY_BYTES = 3 * 1024 * 1024;
+const MAX_BODY_BYTES = 13 * 1024 * 1024;
 
 const send = (res, status, body, contentType = "application/json") => {
     const payload = typeof body === "string" ? body : JSON.stringify(body);
@@ -37,7 +37,7 @@ const readJson = (req) => new Promise((resolve, reject) => {
 //   GET  /metrics           Prometheus metrics
 //   GET  /v1/runtimes       runtimes whose toolchain passed the startup probe
 //   POST /v1/snippets       { runtime, source, stdin } -> compile and run one file
-//   POST /v1/projects       { runtime, files, tests } -> compile a project and run each test file
+//   POST /v1/projects       { runtime, files, entryFile, tests } -> compare the entry program output with trusted fixtures
 export const createApp = ({ token, jobs, queue, runtimes, metrics }) => createServer(async (req, res) => {
     try {
         if (req.method === "GET" && req.url === "/healthz") {
