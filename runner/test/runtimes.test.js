@@ -10,16 +10,15 @@ describe("runtime commands", () => {
         assert.deepEqual(snippet.run("Solution.java").slice(-1), ["Solution"]);
     });
 
-    it("runs java tests by package-qualified class name", () => {
-        const test = { path: "src/test/java/app/CalcTest.java", content: "package app;\npublic class CalcTest {}" };
-        assert.deepEqual(RUNTIMES["java-21"].project.testSteps(test).at(0).slice(-3), ["-cp", ".build", "app.CalcTest"]);
+    it("runs Java entry points by package-qualified class name", () => {
+        const entry = { path: "src/app/Calc.java", content: "package app; public class Calc {}" };
+        assert.deepEqual(RUNTIMES["java-21"].project.entryCommand(entry).slice(-3), ["-cp", ".build", "app.Calc"]);
     });
 
-    it("syntax-checks c++ sources once and links each test separately", () => {
-        const files = [{ path: "lib.cpp", test: false }, { path: "lib.h", test: false }, { path: "t.cpp", test: true }];
-        assert.deepEqual(RUNTIMES["cpp-20"].project.compile(files).slice(-2), ["-fsyntax-only", "lib.cpp"]);
-        const [build, run] = RUNTIMES["cpp-20"].project.testSteps(files[2], files, 3);
-        assert.deepEqual(build.slice(-4), ["lib.cpp", "t.cpp", "-o", ".build/test-3"]);
-        assert.deepEqual(run, ["./.build/test-3"]);
+    it("links all C++ source files into the entry binary", () => {
+        const runtime = RUNTIMES["cpp-20"].project;
+        const files = [{ path: "lib.cpp" }, { path: "lib.h" }, { path: "main.cpp" }];
+        assert.deepEqual(runtime.compile(files).slice(-4), ["./lib.cpp", "./main.cpp", "-o", ".build/main"]);
+        assert.deepEqual(runtime.entryCommand(), ["./.build/main"]);
     });
 });

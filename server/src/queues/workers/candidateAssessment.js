@@ -7,7 +7,9 @@ import { summarizeSystemDesignDiagram } from "../../utils/systemDesignDiagram.js
 import { buildCandidateEvaluationEvidence } from "../../services/candidateEvaluationEvidence.js";
 
 export default async function candidateAssessmentProcessor(job) {
-    const attempt = await CandidateAttempt.findOne({ _id: job.data?.attemptId, status: "evaluating" });
+    const filter = { _id: job.data?.attemptId, status: "evaluating" };
+    if (job.data?.evaluationStartedAt) filter.evaluationStartedAt = new Date(job.data.evaluationStartedAt);
+    const attempt = await CandidateAttempt.findOne(filter);
     if (!attempt) return { skipped: true };
 
     productionMetrics.assessmentEvaluationsInFlight.inc();
@@ -58,7 +60,19 @@ export default async function candidateAssessmentProcessor(job) {
             questionCount: completed,
             completedAt: attempt.submittedAt,
         };
-        await attempt.save();
+        if (job.token && await job.extendLock(job.token, 30_000) !== 1) return { skipped: true };
+        const saved = await CandidateAttempt.updateOne(
+            { ...filter, evaluationStartedAt: attempt.evaluationStartedAt },
+            { $set: {
+                rounds: attempt.rounds,
+                overallScore: attempt.overallScore,
+                status: attempt.status,
+                submittedAt: attempt.submittedAt,
+                evaluationError: attempt.evaluationError,
+                evaluationMetadata: attempt.evaluationMetadata,
+            } },
+        );
+        if (!saved.modifiedCount) return { skipped: true };
         await Assessment.updateOne({ _id: attempt.assessment, "invitations.email": attempt.candidateEmail }, { $set: { "invitations.$.status": "completed" } });
         try { metrics.candidateAssessmentCompletionDurationSeconds.observe(Math.max((attempt.submittedAt.getTime() - attempt.startedAt.getTime()) / 1000, 0)); } catch {}
         terminalOutcome = "success";
@@ -69,7 +83,7 @@ export default async function candidateAssessmentProcessor(job) {
         if (finalAttempt) {
             terminalOutcome = "failure";
             terminalAt = new Date();
-            await CandidateAttempt.updateOne({ _id: attempt._id, status: "evaluating" }, { $set: { status: "evaluation_failed", evaluationError: (error?.message || "Evaluation failed").slice(0, 500) } });
+            await CandidateAttempt.updateOne({ ...filter, evaluationStartedAt: attempt.evaluationStartedAt }, { $set: { status: "evaluation_failed", evaluationError: (error?.message || "Evaluation failed").slice(0, 500) } });
         }
         throw error;
     } finally {

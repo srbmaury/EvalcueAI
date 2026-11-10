@@ -63,50 +63,25 @@ describe("runner snippets", live, () => {
     });
 });
 
-const project = async (runtime, files, tests) => (await post("/v1/projects", { runtime, files, tests })).body;
+const project = async (runtime, files, entryFile, stdout) =>
+    (await post("/v1/projects", { runtime, files, entryFile, tests: [{ stdin: "", stdout, name: "result" }] })).body;
 
 describe("runner projects", live, () => {
-    it("runs node tests against candidate sources", async () => {
-        const files = [
-            { path: "src/sum.js", content: "export const sum = (a, b) => a - b;\n" },
-            { path: "package.json", content: "{\"type\":\"module\"}" },
-            { path: "test/sum.test.js", content: "import test from 'node:test'; import assert from 'node:assert'; import { sum } from '../src/sum.js';\ntest('adds', () => assert.equal(sum(2, 3), 5));\n" },
-            { path: "test/zero.test.js", content: "import test from 'node:test'; import assert from 'node:assert'; import { sum } from '../src/sum.js';\ntest('zero', () => assert.equal(sum(0, 0), 0));\n" },
-        ];
-        const result = await project("node-22", files, [{ path: "test/sum.test.js", name: "adds" }, { path: "test/zero.test.js", name: "zero" }]);
-        assert.equal(result.status, "completed");
-        assert.deepEqual(result.tests.map((test) => [test.name, test.passed]), [["adds", false], ["zero", true]]);
-    });
+    for (const [runtime, path, content] of [
+        ["node-22", "main.js", "console.log(5)"],
+        ["python-3", "main.py", "print(5)"],
+        ["java-21", "app/Main.java", "package app; public class Main { public static void main(String[] args) { System.out.println(5); } }"],
+        ["cpp-20", "main.cpp", "#include <iostream>\nint main() { std::cout << 5; }"],
+    ]) {
+        it(`grades trusted output for ${runtime}`, async () => {
+            const result = await project(runtime, [{ path, content }], path, "5");
+            assert.equal(result.tests[0].passed, true, JSON.stringify(result));
+        });
+    }
 
-    it("compiles java packages once and runs each test class", async () => {
-        const files = [
-            { path: "src/main/java/app/Calc.java", content: "package app; public class Calc { public static int twice(int x) { return x * 2; } }" },
-            { path: "src/test/java/app/CalcTest.java", content: "package app; public class CalcTest { public static void main(String[] a) { if (Calc.twice(3) != 6) System.exit(1); } }" },
-        ];
-        const result = await project("java-21", files, [{ path: "src/test/java/app/CalcTest.java", name: "twice" }]);
-        assert.equal(result.tests[0].passed, true, JSON.stringify(result));
-        const broken = await project("java-21", [{ ...files[0], content: "package app; public class Calc {" }, files[1]], [{ path: files[1].path, name: "twice" }]);
-        assert.equal(broken.status, "compile_error");
-    });
-
-    it("links each c++ test against the sources", async () => {
-        const files = [
-            { path: "math.h", content: "int twice(int);\n" },
-            { path: "math.cpp", content: "#include \"math.h\"\nint twice(int x) { return x + x; }\n" },
-            { path: "tests/twice.cpp", content: "#include \"../math.h\"\nint main() { return twice(4) == 8 ? 0 : 1; }\n" },
-        ];
-        const result = await project("cpp-20", files, [{ path: "tests/twice.cpp", name: "twice" }]);
-        assert.equal(result.tests[0].passed, true, JSON.stringify(result));
-    });
-
-    it("runs python test files", async () => {
-        const files = [
-            { path: "app.py", content: "def slug(s):\n    return s.lower()\n" },
-            { path: "test_app.py", content: "from app import slug\nassert slug('A B') == 'a-b'\n" },
-        ];
-        const result = await project("python-3", files, [{ path: "test_app.py", name: "slug" }]);
-        assert.equal(result.tests[0].passed, false);
-        assert.match(result.tests[0].output, /AssertionError/);
+    it("rejects a successful early exit without the expected output", async () => {
+        const result = await project("python-3", [{ path: "main.py", content: "import os; os._exit(0)" }], "main.py", "5");
+        assert.equal(result.tests[0].passed, false, JSON.stringify(result));
     });
 
     it("rejects path traversal", async () => {

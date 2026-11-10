@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 import { candidateRoundComplete, candidateRoundIndexForRequest } from "../../middleware/candidateRoundSequence.js";
 
 describe("candidate round sequencing", () => {
+    it("requires a persisted debugging result before treating the round as complete", () => {
+        const round = { deliveryMode: "debugging", questions: [{ answer: "Arbitrary text" }] };
+        expect(candidateRoundComplete(round)).toBe(false);
+        expect(candidateRoundComplete(round, { submittedAt: new Date() })).toBe(false);
+        expect(candidateRoundComplete(round, { submittedAt: new Date(), finalEvaluation: { status: "failed" } })).toBe(true);
+    });
+
     it("keeps adaptive live rounds open until the interviewer has enough evidence", () => {
         expect(candidateRoundComplete({
             deliveryMode: "conversational",

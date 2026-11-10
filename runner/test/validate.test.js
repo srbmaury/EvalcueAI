@@ -17,11 +17,11 @@ describe("request validation", () => {
         assert.deepEqual(parseSnippet({ runtime: "python-3", source: "print(1)" }), { runtime: "python-3", source: "print(1)", stdin: "" });
     });
 
-    it("marks test files and requires tests to exist in the project", () => {
-        const input = { runtime: "node-22", files: [{ path: "a.js", content: "" }, { path: "a.test.js", content: "" }], tests: [{ path: "a.test.js", name: "a" }] };
-        const parsed = parseProject(input);
-        assert.deepEqual(parsed.files.map((file) => file.test), [false, true]);
-        assert.throws(() => parseProject({ ...input, tests: [{ path: "missing.test.js" }] }), /not in the project/);
+    it("requires a source entry file and input/output fixtures", () => {
+        const input = { runtime: "node-22", files: [{ path: "a.js", content: "" }], entryFile: "a.js", tests: [{ stdin: "", stdout: "answer", name: "a" }] };
+        assert.deepEqual(parseProject(input), input);
+        assert.throws(() => parseProject({ ...input, entryFile: "missing.js" }), /not in the project/);
+        assert.throws(() => parseProject({ ...input, tests: [{ path: "a.test.js" }] }), /Invalid input/);
         assert.throws(() => parseProject({ ...input, files: [...input.files, { path: "a.js", content: "" }] }), /Duplicate/);
     });
 });

@@ -49,7 +49,14 @@ const app = express();
 // Middleware
 app.set("trust proxy", 1); // required for secure cookies behind proxies
 app.use("/api/billing/payu", payuRoutes);
-app.use(express.json({ limit: "700kb" }));
+const standardJson = express.json({ limit: "700kb" });
+const projectJson = express.json({ limit: "13mb" });
+app.use((req, res, next) => {
+    const acceptsProject = (req.method === "POST" && /^\/api\/assessments(?:\/debugging\/validate)?\/?$/.test(req.path))
+        || (req.method === "PATCH" && /^\/api\/assessments\/[a-f0-9]{24}\/?$/i.test(req.path))
+        || (req.method === "PUT" && /^\/api\/assessments\/public\/[^/]+\/attempts\/[a-f0-9]{24}\/debugging\/\d+\/workspace\/?$/i.test(req.path));
+    return (acceptsProject ? projectJson : standardJson)(req, res, next);
+});
 app.use("/api/email-webhooks", emailWebhookRoutes);
 app.use(cookieParser());
 

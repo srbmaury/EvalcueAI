@@ -85,4 +85,4 @@ export const runSnippet = async ({ language, code, stdin = "" }) => {
 
 // Compiles a multi-file project and runs each test file. Test output is returned for server-side
 // classification only; callers must not expose it to candidates because it can reveal hidden tests.
-export const runProject = ({ runtime, files, tests }) => request("/v1/projects", { runtime, files, tests });
+export const runProject = ({ runtime, files, tests, entryFile }) => request("/v1/projects", { runtime, files, tests, entryFile });

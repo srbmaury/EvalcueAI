@@ -9,7 +9,7 @@ const emailSchema = z.preprocess(
 const strongPassword = z
     .string()
     .min(8, "Password must be at least 8 characters")
-    .max(128, "Password is too long")
+    .refine((value) => Buffer.byteLength(value, "utf8") <= 72, { message: "Password must be at most 72 UTF-8 bytes" })
     .refine((v) => /[a-z]/.test(v), { message: "Must include a lowercase letter" })
     .refine((v) => /[A-Z]/.test(v), { message: "Must include an uppercase letter" })
     .refine((v) => /\d/.test(v), { message: "Must include a digit" })

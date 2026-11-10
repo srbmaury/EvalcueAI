@@ -95,7 +95,7 @@ export const createWorker = async (name, processor) => {
     if (!conn) return null;
     const concurrency = Math.max(parseInt(process.env.WORKER_CONCURRENCY || "1", 10) || 1, 1);
     const timeoutMs = Math.max(parseInt(process.env.QUEUE_JOB_TIMEOUT_MS || "60000", 10) || 60000, 1000);
-    const worker = new Worker(name, withJobTimeout(processor, timeoutMs), { connection: conn, concurrency });
+    const worker = new Worker(name, (name === "candidate-assessment" ? processor : withJobTimeout(processor, timeoutMs)), { connection: conn, concurrency });
     workers.add(worker);
     const activeJobs = new Set();
 

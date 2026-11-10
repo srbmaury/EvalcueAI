@@ -1,17 +1,17 @@
 # EvalcueAI code runner
 
 Runs candidate code for EvalcueAI: the editor's **Run** button (one file + stdin) and code-fix debugging
-rounds (a multi-file project plus hidden test files). The API server calls it over HTTPS with a bearer token;
+rounds (a multi-file project plus hidden input/output fixtures). The API server calls it over HTTPS with a bearer token;
 browsers never talk to it.
 
-| Runtime id | Toolchain | Snippet | Project test |
+| Runtime id | Toolchain | Snippet | Project entry |
 |---|---|---|---|
-| `node-22` | Node.js 22 | `node main.js` | `node --test <test>` |
-| `python-3` | Python 3.12 | `python3 main.py` | `python3 <test>` |
-| `java-21` | Temurin JDK 21 | `javac` + `java <PublicClass>` | compile all `.java` once, `java <package.TestClass>` |
-| `cpp-20` | GCC 12, `-std=c++20` | `g++` + `./main` | syntax-check sources once, link each test with them, run |
+| `node-22` | Node.js 22 | `node main.js` | `node -- <entry>` |
+| `python-3` | Python 3.12 | `python3 main.py` | `python3 -- <entry>` |
+| `java-21` | Temurin JDK 21 | `javac` + `java <PublicClass>` | compile all `.java` files and run `java <package.EntryClass>` |
+| `cpp-20` | GCC 12, `-std=c++20` | `g++` + `./main` | compile and link project sources, then run the entry binary |
 
-A project test passes when its program exits with status 0. At startup the runner runs each toolchain's
+Each case runs in a fresh workspace. It passes when the entry exits successfully and stdout matches the expected output. The expected output stays outside the sandbox. At startup the runner runs each toolchain's
 `--version` inside the sandbox and only offers runtimes that pass; the API server reads that list from
 `GET /v1/runtimes`.
 
@@ -23,7 +23,7 @@ Every compile and run step is a separate [nsjail](https://github.com/google/nsja
 - a seccomp filter ([sandbox/seccomp.kafel](sandbox/seccomp.kafel)) blocking tracing, mounts, new namespaces, kernel modules, BPF, keyrings and io_uring
 - runs as `nobody` (65534); sees only read-only `/usr`, `/opt/java`, a private `/tmp`, and its job directory at `/work`
 - cgroup v2 limits per step: memory (512 MB, 768 MB for compiles), 128 processes, one CPU
-- wall-clock and CPU-time limits (6 s run, 10 s per test, 20 s compile, 60 s per project), 16 MB max file size
+- wall-clock and CPU-time limits (6 s run, 20 s compile, 60 s per project), 16 MB max file size
 - stdout/stderr capped at 64 KB each
 
 Jobs run in a throwaway directory on a tmpfs that is deleted afterwards. `RUNNER_CONCURRENCY` jobs run at
@@ -43,7 +43,7 @@ GET  /metrics        -> Prometheus text: runner_jobs_total, runner_job_duration_
 GET  /v1/runtimes    -> { runtimes: [{ id, label, version }] }
 POST /v1/snippets    { runtime, source, stdin? }
                      -> { status: ok|compile_error|runtime_error|timeout|killed, stdout, stderr, compileOutput, exitCode, durationMs, truncated }
-POST /v1/projects    { runtime, files: [{ path, content }], tests: [{ path, name }] }
+POST /v1/projects    { runtime, files: [{ path, content }], entryFile, tests: [{ stdin, stdout, name }] }
                      -> { status: completed|compile_error|timeout, compileOutput, tests: [{ name, passed, status, output }], durationMs }
 ```
 

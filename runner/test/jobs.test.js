@@ -31,15 +31,15 @@ describe("jobs", () => {
         }
     });
 
-    it("runs every test step and stops a test at its first failing step", async () => {
+    it("grades stdout outside the sandbox and gives each case a fresh workspace", async () => {
         const workRoot = await mkdtemp(path.join(os.tmpdir(), "runner-"));
-        // cpp: compile check, then test 1 (build ok, run fails), then test 2 (build fails, run skipped).
-        const sandbox = fakeSandbox([step("ok"), step("ok"), step("failed", { stdout: "assert" }), step("failed", { stderr: "error: x" })]);
-        const files = [{ path: "a.cpp", content: "", test: false }, { path: "t1.cpp", content: "", test: true }, { path: "t2.cpp", content: "", test: true }];
-        const result = await createJobs({ sandbox, workRoot }).runProject({ runtime: "cpp-20", files, tests: [{ path: "t1.cpp", name: "one" }, { path: "t2.cpp", name: "two" }] });
-        assert.equal(result.status, "completed");
-        assert.deepEqual(result.tests.map((test) => [test.name, test.passed, test.status]), [["one", false, "failed"], ["two", false, "failed"]]);
-        assert.equal(result.tests[1].output, "error: x");
-        assert.equal(sandbox.calls.length, 4);
+        const sandbox = fakeSandbox([step("ok"), step("ok", { stdout: "5\n" })]);
+        const files = [{ path: "main.py", content: "import os; os._exit(0)" }];
+        const tests = [{ stdin: "2 3", stdout: "5", name: "early exit" }, { stdin: "4 1", stdout: "5", name: "correct" }];
+        const result = await createJobs({ sandbox, workRoot }).runProject({ runtime: "python-3", files, entryFile: "main.py", tests });
+        assert.deepEqual(result.tests.map((test) => test.passed), [false, true]);
+        assert.equal(sandbox.calls[0].stdin, "2 3");
+        assert.equal(sandbox.calls[0].stdout, undefined);
+        assert.notEqual(sandbox.calls[0].workDir, sandbox.calls[1].workDir);
     });
 });

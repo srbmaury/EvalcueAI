@@ -96,7 +96,7 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
             <TextField select fullWidth label="Runtime" value={debugging.runtime} onChange={(event) => updateDebugging({ runtime: event.target.value })}>
                 {runtimeOptions.map((runtime) => <MenuItem key={runtime.value} value={runtime.value} disabled={runtime.disabled}>{runtime.label}</MenuItem>)}
             </TextField>
-            <TextField fullWidth label="Entry file (optional)" value={debugging.entryFile || ""} onChange={(event) => updateDebugging({ entryFile: event.target.value })} placeholder="src/index.js" />
+            <TextField fullWidth label={debugging.responseMode === "code_fix" ? "Source entry file (required)" : "Entry file (optional)"} value={debugging.entryFile || ""} onChange={(event) => updateDebugging({ entryFile: event.target.value })} placeholder="src/index.js" />
         </Stack>
 
         <Box>
@@ -105,7 +105,7 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
                     <Typography fontWeight={850}>Project workspace</Typography>
                     <Typography variant="body2" color="text.secondary">
                         {debugging.responseMode === "code_fix"
-                            ? "Create source files and mark recruiter tests as Hidden test. Give each test a candidate-visible name."
+                            ? 'Add a source entry file and mark JSON fixtures as Hidden test. Each fixture needs stdin and stdout strings, for example {"stdin":"2 3","stdout":"5"}.'
                             : "Create source files only. Candidates inspect them read-only and attach findings to specific files."}
                     </Typography>
                 </Box>
