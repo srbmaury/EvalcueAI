@@ -188,7 +188,7 @@ export default function ProductHeader({ surface = "practice" }) {
             return (
                 <Box key={item.label}>
                     <Button endIcon={<ExpandMoreRounded />} onClick={(event) => setNavGroupAnchor(event.currentTarget)} sx={navButtonSx(active)}>{item.label}</Button>
-                    <Menu anchorEl={navGroupAnchor} open={Boolean(navGroupAnchor?.isConnected)} onClose={() => setNavGroupAnchor(null)} PaperProps={{ sx: { minWidth: 280 } }}>
+                    <Menu slotProps={{ paper: { sx: { minWidth: 280 } } }} anchorEl={navGroupAnchor} open={Boolean(navGroupAnchor?.isConnected)} onClose={() => setNavGroupAnchor(null)}>
                         {item.children.map((child) => {
                             const ChildIcon = child.icon;
                             const childActive = isProductNavItemActive(location, child);
@@ -247,12 +247,12 @@ export default function ProductHeader({ surface = "practice" }) {
                             <Tooltip title={mode === "dark" ? "Use light theme" : "Use dark theme"}><IconButton onClick={toggle} aria-label="Toggle theme">{mode === "dark" ? <LightMode /> : <DarkMode />}</IconButton></Tooltip>
                             {user && <>
                                 <Tooltip title="Notifications"><IconButton onClick={(event) => setNotificationAnchor(event.currentTarget)} aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}><Badge color="error" badgeContent={unreadCount} max={9}><NotificationsNoneRounded /></Badge></IconButton></Tooltip>
-                                <Menu anchorEl={notificationAnchor} open={Boolean(notificationAnchor?.isConnected)} onClose={() => setNotificationAnchor(null)} PaperProps={{ sx: { width: 390, maxWidth: "calc(100vw - 24px)", maxHeight: 460 } }}>
+                                <Menu slotProps={{ paper: { sx: { width: 390, maxWidth: "calc(100vw - 24px)", maxHeight: 460 } } }} anchorEl={notificationAnchor} open={Boolean(notificationAnchor?.isConnected)} onClose={() => setNotificationAnchor(null)}>
                                     <Stack direction="row" alignItems="center" justifyContent="space-between" px={2} py={1.25}><Box><Typography fontWeight={850}>Notifications</Typography><Typography variant="caption" color="text.secondary">{unreadCount ? `${unreadCount} unread` : "You're all caught up"}</Typography></Box>{unreadCount > 0 && <Button size="small" onClick={markAllRead}>Mark read</Button>}</Stack><Divider />
                                     {notifications.length === 0 ? <Box px={2} py={3}><Typography variant="body2" color="text.secondary">No notifications yet.</Typography></Box> : notifications.slice(0, 8).map((notification) => <MenuItem key={notification.id || notification._id} onClick={() => { markNotificationRead(notification.id || notification._id); if (notification.href) navigate(notification.href); }}><ListItemText primary={notification.title || notification.message || "Notification"} secondary={notification.body || null} primaryTypographyProps={{ fontWeight: notification.read ? 500 : 800, noWrap: true }} secondaryTypographyProps={{ noWrap: true }} /></MenuItem>)}
                                 </Menu>
                                 <Tooltip title="Account"><IconButton onClick={(event) => setProfileAnchor(event.currentTarget)} aria-label="Account menu" sx={{ display: { xs: "none", sm: "inline-flex" } }}><Avatar sx={{ width: 34, height: 34 }}>{user?.name?.trim()?.[0]?.toUpperCase() || "U"}</Avatar></IconButton></Tooltip>
-                                <Menu anchorEl={profileAnchor} open={Boolean(profileAnchor?.isConnected)} onClose={() => setProfileAnchor(null)} PaperProps={{ sx: { minWidth: 250 } }}>
+                                <Menu slotProps={{ paper: { sx: { minWidth: 250 } } }} anchorEl={profileAnchor} open={Boolean(profileAnchor?.isConnected)} onClose={() => setProfileAnchor(null)}>
                                     <Box px={2} py={1.25}><Typography fontWeight={850}>{user?.name || "Account"}</Typography><Typography variant="caption" color="text.secondary">{user?.email}</Typography></Box><Divider />
                                     {surface === "practice" && <MenuItem component={RouterLink} to="/practice/profile"><PersonOutlineRounded sx={{ mr: 1.25 }} />Profile</MenuItem>}
                                     <MenuItem onClick={() => { setProfileAnchor(null); setFeedbackOpen(true); }}><RateReviewOutlined sx={{ mr: 1.25 }} />Send feedback</MenuItem>
@@ -262,7 +262,7 @@ export default function ProductHeader({ surface = "practice" }) {
                                 </Menu>
                             </>}
                             <IconButton onClick={(event) => setMobileAnchor(event.currentTarget)} aria-label="Open navigation" sx={{ display: { xs: "inline-flex", md: "none" } }}><MenuIcon /></IconButton>
-                            <Menu anchorEl={mobileAnchor} open={Boolean(mobileAnchor?.isConnected)} onClose={() => setMobileAnchor(null)} PaperProps={{ sx: { minWidth: 250 } }}>
+                            <Menu slotProps={{ paper: { sx: { minWidth: 250 } } }} anchorEl={mobileAnchor} open={Boolean(mobileAnchor?.isConnected)} onClose={() => setMobileAnchor(null)}>
                                 {/* MUI Menu needs direct children (an array), not a Fragment, for focus and keyboard navigation. */}
                                 {user ? [
                                     ...navigation.map((item) => renderNavItem(item, true)),

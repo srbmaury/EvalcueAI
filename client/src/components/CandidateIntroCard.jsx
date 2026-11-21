@@ -63,13 +63,12 @@ export default function CandidateIntroCard({ onSubmit, onSkip }) {
                     </Typography>
                 </Box>
                 <TextField
-                    label="Your introduction"
+ slotProps={{ htmlInput: { maxLength: 3000 } }}                    label="Your introduction"
                     placeholder="e.g. I’m a backend engineer at a fintech. Recently I rebuilt our payment-status service to cut latency…"
                     value={answer}
                     onChange={(event) => setAnswer(event.target.value)}
                     multiline
                     minRows={4}
-                    inputProps={{ maxLength: 3000 }}
                     helperText={dictating ? "Listening… speak naturally, then press Stop." : `${answer.length}/3000`}
                     fullWidth
                 />

@@ -1,6 +1,6 @@
 import { Component } from "react";
 import { Box, Button, Typography } from "@mui/material";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlined";
 
 class ErrorBoundary extends Component {
     constructor(props) {

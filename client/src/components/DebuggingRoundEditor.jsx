@@ -78,11 +78,10 @@ export default function DebuggingRoundEditor({ round, onChange, validation, onVa
         </Box>
 
         <TextField
-            required
+ slotProps={{ htmlInput: { "aria-label": "Assignment instructions" } }}            required
             multiline
             minRows={3}
             label="Assignment instructions"
-            inputProps={{ "aria-label": "Assignment instructions" }}
             helperText="Describe the observed bug, constraints, and expected outcome without revealing the root cause."
             value={instruction}
             onChange={(event) => emit({ questionCount: 1, questions: [{ ...(round?.questions?.[0] || {}), text: event.target.value, required: true }] })}

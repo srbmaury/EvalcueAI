@@ -5,7 +5,7 @@ import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
 import { trackEvent } from "../utils/analytics";
 
-import { Add, ArrowForward, CheckCircleOutline, InsightsOutlined, PlayCircleOutline, RadioButtonUnchecked, TrackChanges } from "@mui/icons-material";
+import { Add, ArrowForward, CheckCircleOutlined, InsightsOutlined, PlayCircleOutlined, RadioButtonUnchecked, TrackChanges } from "@mui/icons-material";
 import { Alert, Box, Button, Card, CardActionArea, CardContent, Chip, Container, Grid, LinearProgress, Pagination, Skeleton, Stack, Typography, ToggleButton, ToggleButtonGroup } from "@mui/material";
 
 const formatUsagePeriod = (period) => {
@@ -143,7 +143,7 @@ const DashboardPage = () => {
                             <Typography component="h2" variant="h4" fontWeight={650} letterSpacing="-.025em" mt={.25}>{nextAction.title}</Typography>
                             <Typography color="text.secondary" mt={1} maxWidth={650}>{nextAction.body}</Typography>
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} mt={2.5}>
-                                <Button variant="contained" size="large" startIcon={<PlayCircleOutline />} onClick={() => navigate(nextAction.href)}>{nextAction.label}</Button>
+                                <Button variant="contained" size="large" startIcon={<PlayCircleOutlined />} onClick={() => navigate(nextAction.href)}>{nextAction.label}</Button>
                                 {activeInterview && <Button variant="outlined" size="large" startIcon={<Add />} onClick={() => navigate("/practice/new")}>Start something new</Button>}
                                 <Button variant="text" size="large" startIcon={<InsightsOutlined />} onClick={() => navigate("/practice/progress")}>View progress</Button>
                             </Stack>
@@ -165,7 +165,7 @@ const DashboardPage = () => {
                 { done: resumeCount > 0, label: "Add your résumé", action: "Add résumé", href: "/practice/resumes" },
                 { done: totalInterviews > 0, label: "Create a tailored interview", action: "Create interview", href: "/practice/new" },
                 { done: Number(progress.completed || 0) > 0, label: "Finish one round and review feedback", action: "Continue", href: activeInterview?._id ? `/practice/interviews/${activeInterview._id}` : "/practice/new" },
-            ].map((step) => <Stack key={step.label} direction="row" alignItems="center" spacing={1.5} sx={{ p: 1.15, borderRadius: 2, bgcolor: step.done ? "action.hover" : "transparent" }}>{step.done ? <CheckCircleOutline color="success" /> : <RadioButtonUnchecked color="disabled" />}<Typography flex={1} fontWeight={step.done ? 500 : 700} color={step.done ? "text.secondary" : "text.primary"}>{step.label}</Typography>{!step.done && <Button size="small" onClick={() => navigate(step.href)}>{step.action}</Button>}</Stack>)}</Stack></CardContent></Card>}
+            ].map((step) => <Stack key={step.label} direction="row" alignItems="center" spacing={1.5} sx={{ p: 1.15, borderRadius: 2, bgcolor: step.done ? "action.hover" : "transparent" }}>{step.done ? <CheckCircleOutlined color="success" /> : <RadioButtonUnchecked color="disabled" />}<Typography flex={1} fontWeight={step.done ? 500 : 700} color={step.done ? "text.secondary" : "text.primary"}>{step.label}</Typography>{!step.done && <Button size="small" onClick={() => navigate(step.href)}>{step.action}</Button>}</Stack>)}</Stack></CardContent></Card>}
 
             {user?.targetRole && recommendations.length > 0 && <Box mb={4}><Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} mb={2}><Box><Typography component="h2" variant="h5" fontWeight={600}>More ways to improve</Typography><Typography variant="body2" color="text.secondary">Suggested practice based on your goal and recent sessions.</Typography></Box></Stack><Grid container spacing={2}>{recommendations.slice(0, 3).map((item) => <Grid size={{ xs: 12, md: 4 }} key={item.id}><Card variant="outlined" sx={{ height: "100%" }}><CardActionArea onClick={() => navigate(item.href || "/practice/dashboard")} sx={{ height: "100%" }}><CardContent><Typography component="h3" variant="h6" fontWeight={600}>{item.title}</Typography><Typography variant="body2" color="text.secondary" mt={1}>{item.reason || "Based on your saved goal and latest practice."}</Typography><ArrowForward color="primary" sx={{ mt: 2 }} /></CardContent></CardActionArea></Card></Grid>)}</Grid></Box>}
 

@@ -1,5 +1,5 @@
 import { IconButton, Popover, Stack, Typography, Divider, List, ListItem, ListItemText } from "@mui/material";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutlined";
 import { useState, memo, useRef, useEffect } from "react";
 
 const HelpPopover = ({ placement = { vertical: "bottom", horizontal: "right" } }) => {

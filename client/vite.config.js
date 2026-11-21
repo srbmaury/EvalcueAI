@@ -2,7 +2,8 @@ import "./buildEnv.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { defineConfig, loadEnv, transformWithEsbuild } from "vite";
+import { defineConfig, loadEnv } from "vite";
+import { transform } from "esbuild";
 import react from "@vitejs/plugin-react";
 import {
     PRODUCT_RESOURCE_PAGES,
@@ -466,7 +467,7 @@ const writeStaticRoute = async (outDir, route, html) => {
 const finalizeHtml = async (html) => {
     let output = html.replace(/<!--[\s\S]*?-->\s*/g, "");
     for (const [block, css] of [...output.matchAll(/<style>([\s\S]*?)<\/style>/g)]) {
-        const { code } = await transformWithEsbuild(css, "inline.css", { loader: "css", minify: true });
+        const { code } = await transform(css, { loader: "css", minify: true });
         output = output.replace(block, `<style>${code.trim()}</style>`);
     }
     return output;
@@ -474,7 +475,7 @@ const finalizeHtml = async (html) => {
 
 const seoFilesPlugin = (origin, routes, surfaceOrigins = {}, appSurface = null) => ({
     name: "evalcue-seo-files",
-    async closeBundle() {
+    async writeBundle() {
         const outDir = path.resolve(process.cwd(), "dist");
         const baseHtml = await readFile(path.join(outDir, "index.html"), "utf8");
         // The SPA fallback; a prerendered "/" route overwrites it below.

@@ -101,12 +101,11 @@ const RoundsSelector = ({ suggestedRounds, selectedRounds, onToggleRound, onChan
                                         ) : (
                                         <Tooltip title={countCopy.helper}>
                                             <TextField
-                                                size="small"
+ slotProps={{ htmlInput: { min: 1, max: 10 } }}                                                size="small"
                                                 label={countCopy.label}
                                                 type="number"
                                                 value={selected?.questionLimit ?? getDefaultQuestionLimit(currentRound)}
                                                 onChange={(event) => onChangeCount?.(round.roundName, Math.max(1, Math.min(10, Number(event.target.value) || 1)))}
-                                                inputProps={{ min: 1, max: 10 }}
                                                 helperText={countCopy.helper}
                                                 sx={{ width: { xs: "100%", sm: 250 } }}
                                             />
