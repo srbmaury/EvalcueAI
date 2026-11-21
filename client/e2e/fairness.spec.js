@@ -11,7 +11,7 @@ test("candidate can voluntarily self-identify after submitting", async ({ page }
         const body = await route.request().postDataJSON();
         return json(route, { attempt: { ...attempt, rounds: [{ ...attempt.rounds[0], questions: [{ ...attempt.rounds[0].questions[0], answer: body.answer }] }] } });
     });
-    await page.route("**/api/assessments/public/share-fair/attempts/attempt-1/submit", (route) => json(route, { received: true }));
+    await page.route("**/api/assessments/public/share-fair/attempts/attempt-1/submit", (route) => json(route, { submitted: true, status: "submitted" }));
     let selfId;
     await page.route("**/api/assessments/public/share-fair/attempts/attempt-1/self-identification", async (route) => {
         expect(route.request().headers()["x-attempt-token"]).toBe("attempt-secret");

@@ -73,7 +73,10 @@ export default async function candidateAssessmentProcessor(job) {
             } },
         );
         if (!saved.modifiedCount) return { skipped: true };
-        await Assessment.updateOne({ _id: attempt.assessment, "invitations.email": attempt.candidateEmail }, { $set: { "invitations.$.status": "completed" } });
+        await Assessment.updateOne(
+            { _id: attempt.assessment, invitations: { $elemMatch: { email: attempt.candidateEmail, status: { $nin: ["revoked", "bounced"] } } } },
+            { $set: { "invitations.$.status": "completed" } },
+        );
         try { metrics.candidateAssessmentCompletionDurationSeconds.observe(Math.max((attempt.submittedAt.getTime() - attempt.startedAt.getTime()) / 1000, 0)); } catch {}
         terminalOutcome = "success";
         terminalAt = attempt.submittedAt;
