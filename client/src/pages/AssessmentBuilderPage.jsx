@@ -437,7 +437,14 @@ export default function AssessmentBuilderPage() {
             }
 
             if ((publishNow || schedule) && candidates.length) {
-                await api.post(`/assessments/${savedAssessment._id}/invitations`, { candidates });
+                try {
+                    await api.post(`/assessments/${savedAssessment._id}/invitations`, { candidates });
+                } catch {
+                    clearLocalDraft(draftKey);
+                    notify(`Assessment ${publishNow ? "published" : "scheduled"}. Review the invitation list before retrying any missing invitations.`, "warning");
+                    navigate(`/hire/assessments/${savedAssessment._id}`, { replace: true });
+                    return;
+                }
             }
             clearLocalDraft(draftKey);
             trackEvent(publishNow ? "assessment_published" : schedule ? "assessment_scheduled" : "assessment_draft_saved");

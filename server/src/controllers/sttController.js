@@ -5,7 +5,7 @@ import metrics from "../metrics/index.js";
 import { recordAiQualityEvent } from "../services/aiQuality.js";
 import { looksGenerated, looksLikeSilencePhrase, looksPromptDerived } from "../utils/transcriptGuard.js";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
+let openai;
 
 // gpt-4o-mini-transcribe is markedly more accurate than whisper-1 on technical vocabulary and
 // accented English. whisper-1 stays as an automatic fallback if the configured model is unavailable.
@@ -44,6 +44,10 @@ export const transcribe = async (req, res, next) => {
             return res.status(400).json({ message: e?.message || "Invalid audio file" });
         }
 
+        if (!process.env.OPENAI_API_KEY) {
+            return res.status(503).json({ message: "Transcription is unavailable" });
+        }
+        openai ??= new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const options = { prompt: cleanPrompt(req.body?.prompt), language: cleanLanguage(req.body?.language) };
         const typed = () => toFile(file.buffer, file.originalname || "audio.webm", { type: file.mimetype || "audio/webm" });
 

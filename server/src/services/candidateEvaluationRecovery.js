@@ -18,16 +18,19 @@ export const recoverCandidateEvaluations = async ({ olderThanMs = 0 } = {}) => {
     if (!strandedAttempts.length) return 0;
     const assessmentQueue = await getQueue("candidate-assessment");
     if (!assessmentQueue) return 0;
+    let recovered = 0;
     for (const attempt of strandedAttempts) {
-        // The job id is a deterministic hash of (attemptId, evaluationStartedAt). If a
-        // prior recovery attempt's job already reached a terminal state in Redis (e.g.
-        // failed, kept for up to 7 days via removeOnFail), re-adding with the SAME id
-        // just returns that dead job's id without re-queuing anything — this recovery
-        // loop would otherwise silently no-op forever. Bump evaluationStartedAt first so
-        // every recovery attempt gets a fresh job identity that BullMQ will actually run.
-        const now = new Date();
-        await CandidateAttempt.updateOne({ _id: attempt._id, status: "evaluating" }, { $set: { evaluationStartedAt: now } });
-        await assessmentQueue.add("evaluate", { attemptId: String(attempt._id) }, candidateEvaluationJobOptions({ _id: attempt._id, evaluationStartedAt: now }));
+        const options = candidateEvaluationJobOptions(attempt);
+        const job = await assessmentQueue.getJob(options.jobId);
+        if (!job) {
+            await assessmentQueue.add("evaluate", { attemptId: String(attempt._id), evaluationStartedAt: attempt.evaluationStartedAt.toISOString() }, options);
+            recovered += 1;
+        } else if (await job.getState() === "failed") {
+            await CandidateAttempt.updateOne(
+                { _id: attempt._id, status: "evaluating", evaluationStartedAt: attempt.evaluationStartedAt },
+                { $set: { status: "evaluation_failed", evaluationError: "Evaluation failed. Please retry." } },
+            );
+        }
     }
-    return strandedAttempts.length;
+    return recovered;
 };
