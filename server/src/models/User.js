@@ -146,13 +146,12 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ "ssoIdentities.organization": 1, "ssoIdentities.issuer": 1, "ssoIdentities.subject": 1 });
 
 // Encrypt password before save
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
     // Hash password only for local provider and when modified
-    if (this.provider !== "local") return next();
-    if (!this.isModified("password")) return next();
+    if (this.provider !== "local") return;
+    if (!this.isModified("password")) return;
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-    next();
 });
 
 // Match password
