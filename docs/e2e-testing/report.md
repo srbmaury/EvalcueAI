@@ -3,7 +3,7 @@
 - **Date:** 2026-10-04
 - **Branch:** `fix/candidate-answer-typing-crash`
 - **Environment:** local dev — API `http://localhost:5000` (NODE_ENV=development, CAPTCHA bypassed), client Vite `http://localhost:5173` (all surfaces), MongoDB Atlas dev DB `test`, Redis local, Brevo email live, code execution disabled, debugging assessments disabled.
-- **Accounts:** pre-seeded demo accounts (`*@srbmaury.com`, see `server/companionai_demo_accounts_manifest.json`). No additional seeding was needed at start.
+- **Accounts:** Pre-seeded demo accounts were available in the environment used for this report.
 
 Legend: ✅ pass · ⚠️ pass with issues · ❌ fail · ⏭️ skipped
 

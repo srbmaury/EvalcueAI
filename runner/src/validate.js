@@ -26,7 +26,7 @@ export const parseSnippet = (body) => {
 };
 
 export const parseProject = (body) => {
-    const { runtime, files, tests } = body || {};
+    const { runtime, files, tests, entryFile } = body || {};
     getRuntime(runtime);
     if (!Array.isArray(files) || !files.length || files.length > LIMITS.maxFiles) throw badRequest(`files must contain 1-${LIMITS.maxFiles} entries`);
     if (!Array.isArray(tests) || !tests.length || tests.length > LIMITS.maxTests) throw badRequest(`tests must contain 1-${LIMITS.maxTests} entries`);
@@ -43,12 +43,14 @@ export const parseProject = (body) => {
     });
     if (total > LIMITS.maxProjectBytes) throw badRequest("Project is too large");
 
-    const testPaths = new Set();
-    const parsedTests = tests.map((test, index) => {
-        const testPath = safeRelativePath(test?.path);
-        if (!seen.has(testPath)) throw badRequest(`Test file is not in the project: ${testPath}`);
-        testPaths.add(testPath);
-        return { path: testPath, name: String(test.name || `Test ${index + 1}`).slice(0, 120) };
+    const entry = safeRelativePath(entryFile);
+    if (!seen.has(entry)) throw badRequest("Entry file is not in the project");
+    const cases = tests.map((test, index) => {
+        if (typeof test?.stdin !== "string" || byteLength(test.stdin) > LIMITS.maxStdinBytes ||
+            typeof test.stdout !== "string" || !test.stdout.trim() || byteLength(test.stdout) > LIMITS.outputBytes) {
+            throw badRequest("Invalid input/output test case");
+        }
+        return { stdin: test.stdin, stdout: test.stdout, name: String(test.name || `Test ${index + 1}`).slice(0, 120) };
     });
-    return { runtime, files: parsedFiles.map((file) => ({ ...file, test: testPaths.has(file.path) })), tests: parsedTests };
+    return { runtime, files: parsedFiles, entryFile: entry, tests: cases };
 };

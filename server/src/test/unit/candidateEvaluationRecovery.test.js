@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../models/CandidateAttempt.js", () => ({ default: { find: mocks.find, updateOne: mocks.updateOne } }));
 vi.mock("../../queues/index.js", () => ({ getQueue: mocks.getQueue }));
 
-import { recoverCandidateEvaluations } from "../../services/candidateEvaluationRecovery.js";
+import { candidateEvaluationJobOptions, recoverCandidateEvaluations } from "../../services/candidateEvaluationRecovery.js";
 
 describe("recoverCandidateEvaluations", () => {
     const previousRedisUrl = process.env.REDIS_URL;
@@ -32,28 +32,20 @@ describe("recoverCandidateEvaluations", () => {
         expect(mocks.find).not.toHaveBeenCalled();
     });
 
-    it("bumps evaluationStartedAt before re-enqueuing, so a job id that already reached a terminal state in Redis doesn't silently swallow the recovery attempt", async () => {
-        const staleStartedAt = new Date("2020-01-01T00:00:00Z");
-        mocks.find.mockReturnValue({ select: () => ({ lean: () => Promise.resolve([{ _id: "attempt-1", evaluationStartedAt: staleStartedAt }]) }) });
-        const add = vi.fn().mockResolvedValue({ id: "job-1" });
-        mocks.getQueue.mockResolvedValue({ add });
+    it("recreates a missing job under its original ID and skips active jobs", async () => {
+        const attempt = { _id: "attempt-1", evaluationStartedAt: new Date("2020-01-01T00:00:00Z") };
+        mocks.find.mockReturnValue({ select: () => ({ lean: async () => [attempt] }) });
+        const add = vi.fn();
+        const getJob = vi.fn().mockResolvedValueOnce(null).mockResolvedValue({ getState: async () => "active" });
+        mocks.getQueue.mockResolvedValue({ add, getJob });
 
-        const recovered = await recoverCandidateEvaluations({ olderThanMs: 60_000 });
-
-        expect(recovered).toBe(1);
-        expect(mocks.updateOne).toHaveBeenCalledWith(
-            { _id: "attempt-1", status: "evaluating" },
-            { $set: { evaluationStartedAt: expect.any(Date) } },
-        );
-        const bumpedStartedAt = mocks.updateOne.mock.calls[0][1].$set.evaluationStartedAt;
-        expect(bumpedStartedAt.getTime()).not.toBe(staleStartedAt.getTime());
-
-        expect(add).toHaveBeenCalledOnce();
-        const [, , jobOptions] = add.mock.calls[0];
-        // The job id is derived from evaluationStartedAt — it must reflect the freshly
-        // bumped timestamp, not the original stale one, or this recovery attempt would
-        // collide with a job id that may already be dead in Redis.
-        expect(jobOptions.jobId).not.toContain(staleStartedAt.toISOString());
+        expect(await recoverCandidateEvaluations({ olderThanMs: 60_000 })).toBe(1);
+        expect(await recoverCandidateEvaluations({ olderThanMs: 60_000 })).toBe(0);
+        expect(mocks.updateOne).not.toHaveBeenCalled();
+        expect(add).toHaveBeenCalledExactlyOnceWith("evaluate", {
+            attemptId: attempt._id,
+            evaluationStartedAt: attempt.evaluationStartedAt.toISOString(),
+        }, candidateEvaluationJobOptions(attempt));
     });
 
     it("no-ops when there are no stranded attempts", async () => {

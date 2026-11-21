@@ -47,34 +47,32 @@ export const createJobs = ({ sandbox, workRoot }) => {
         });
     };
 
-    const runProject = ({ runtime, files, tests }) => {
+    const runProject = async ({ runtime, files, tests, entryFile }) => {
         const { project } = getRuntime(runtime);
+        const entry = files.find((file) => file.path === entryFile);
         const startedAt = Date.now();
-        return withWorkspace(workRoot, files, async (workDir) => {
-            const compileArgv = project.compile(files);
-            if (compileArgv) {
-                const compiled = await sandbox.run({ workDir, argv: compileArgv, limits: LIMITS.compile });
-                if (compiled.outcome !== "ok") {
-                    return { status: compiled.outcome === "timeout" ? "timeout" : "compile_error", compileOutput: joinOutput(compiled), tests: [], durationMs: Date.now() - startedAt };
-                }
+        const results = [];
+        for (const test of tests) {
+            const remaining = () => Math.floor(LIMITS.projectBudgetSeconds - (Date.now() - startedAt) / 1000);
+            if (remaining() < 1) {
+                results.push({ name: test.name, passed: false, status: "timeout", output: "" });
+                continue;
             }
-
-            const results = [];
-            for (const [index, test] of tests.entries()) {
-                const remainingSeconds = LIMITS.projectBudgetSeconds - (Date.now() - startedAt) / 1000;
-                if (remainingSeconds < 1) { results.push({ name: test.name, passed: false, status: "skipped", output: "Project time budget exhausted." }); continue; }
-                const file = files.find((item) => item.path === test.path);
-                const limits = { ...LIMITS.test, wallSeconds: Math.max(1, Math.min(LIMITS.test.wallSeconds, Math.floor(remainingSeconds))) };
-                let last = null;
-                for (const argv of project.testSteps(file, files, index)) {
-                    last = await sandbox.run({ workDir, argv, limits });
-                    if (last.outcome !== "ok") break;
+            const result = await withWorkspace(workRoot, files, async (workDir) => {
+                const compile = project.compile(files);
+                if (compile) {
+                    const built = await sandbox.run({ workDir, argv: compile, limits: { ...LIMITS.compile, wallSeconds: Math.max(1, Math.min(remaining(), LIMITS.compile.wallSeconds)) } });
+                    if (built.outcome !== "ok") return { compileFailed: true, status: built.outcome === "timeout" ? "timeout" : "compile_error", output: joinOutput(built) };
                 }
-                const status = last.outcome === "ok" ? "passed" : last.outcome;
-                results.push({ name: test.name, passed: status === "passed", status, output: joinOutput(last) });
-            }
-            return { status: "completed", compileOutput: "", tests: results, durationMs: Date.now() - startedAt };
-        });
+                if (remaining() < 1) return { name: test.name, passed: false, status: "timeout", output: "" };
+                const ran = await sandbox.run({ workDir, argv: project.entryCommand(entry), stdin: test.stdin, limits: { ...LIMITS.run, wallSeconds: Math.min(remaining(), LIMITS.run.wallSeconds) } });
+                const passed = ran.outcome === "ok" && !ran.truncated && ran.stdout.replace(/\r\n/g, "\n").replace(/\n$/, "") === test.stdout.replace(/\r\n/g, "\n").replace(/\n$/, "");
+                return { name: test.name, passed, status: passed ? "passed" : ran.outcome === "ok" ? "failed" : ran.outcome, output: joinOutput(ran) };
+            });
+            if (result.compileFailed) return { status: result.status, compileOutput: result.output, tests: [], durationMs: Date.now() - startedAt };
+            results.push(result);
+        }
+        return { status: "completed", compileOutput: "", tests: results, durationMs: Date.now() - startedAt };
     };
 
     return { runSnippet, runProject };
