@@ -38,7 +38,7 @@ export default function JobPostImporter({ onImport }) {
             <Box sx={{ px: 2, pb: 2, borderTop: "1px solid", borderColor: "divider" }}>
                 <Typography variant="body2" color="text.secondary" mt={1.5}>Paste a public employer or job-board link. You’ll review and edit every imported field before continuing.</Typography>
                 <Stack direction={{ xs: "column", sm: "row" }} gap={1} mt={1.5} alignItems="flex-start">
-                    <TextField fullWidth size="small" type="url" label="Job post URL" placeholder="https://company.com/jobs/123" value={url} onChange={(event) => setUrl(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && /^https?:\/\//i.test(url.trim())) { event.preventDefault(); importPost(); } }} inputProps={{ maxLength: 2048 }} />
+                    <TextField slotProps={{ htmlInput: { maxLength: 2048 } }} fullWidth size="small" type="url" label="Job post URL" placeholder="https://company.com/jobs/123" value={url} onChange={(event) => setUrl(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && /^https?:\/\//i.test(url.trim())) { event.preventDefault(); importPost(); } }} />
                     <Button type="button" variant="outlined" startIcon={loading ? <CircularProgress size={18} /> : <LinkRounded />} disabled={loading || !/^https?:\/\//i.test(url.trim())} onClick={importPost} sx={{ minWidth: 150, minHeight: 40 }}>{loading ? "Importing…" : "Import details"}</Button>
                 </Stack>
             </Box>

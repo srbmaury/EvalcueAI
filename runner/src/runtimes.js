@@ -14,9 +14,8 @@ const javaQualifiedName = (file) => {
     return pkg ? `${pkg}.${name}` : name;
 };
 
-// Each runtime says how to run a single-file snippet and how to run a multi-file project's tests.
+// Each runtime says how to run a single-file snippet and how to run a multi-file project entry point.
 // Commands are argv arrays executed directly (no shell), relative to the job's working directory.
-// A project test is a list of steps; every step must succeed, and the last one is the test itself.
 export const RUNTIMES = Object.freeze({
     "node-22": {
         label: "Node.js 22",
@@ -27,7 +26,7 @@ export const RUNTIMES = Object.freeze({
         },
         project: {
             compile: () => null,
-            testSteps: (test) => [["node", "--test", test.path]],
+            entryCommand: (entry) => ["node", "--", entry.path],
         },
     },
     "python-3": {
@@ -39,7 +38,7 @@ export const RUNTIMES = Object.freeze({
         },
         project: {
             compile: () => null,
-            testSteps: (test) => [["python3", test.path]],
+            entryCommand: (entry) => ["python3", "--", entry.path],
         },
     },
     "java-21": {
@@ -52,10 +51,10 @@ export const RUNTIMES = Object.freeze({
         },
         project: {
             compile: (files) => {
-                const sources = files.filter((file) => file.path.endsWith(".java")).map((file) => file.path);
+                const sources = files.filter((file) => file.path.endsWith(".java")).map((file) => `./${file.path}`);
                 return sources.length ? ["javac", ...JAVAC_FLAGS, "-d", ".build", ...sources] : null;
             },
-            testSteps: (test) => [["java", ...JAVA_FLAGS, "-cp", ".build", javaQualifiedName(test)]],
+            entryCommand: (entry) => ["java", ...JAVA_FLAGS, "-cp", ".build", javaQualifiedName(entry)],
         },
     },
     "cpp-20": {
@@ -67,17 +66,8 @@ export const RUNTIMES = Object.freeze({
             run: () => ["./main"],
         },
         project: {
-            // Syntax-check the candidate's sources once so a broken project is reported as a compile error,
-            // then link each test (which has its own main) against those sources.
-            compile: (files) => {
-                const sources = files.filter((file) => !file.test && CPP_SOURCE.test(file.path)).map((file) => file.path);
-                return sources.length ? ["g++", ...CPP_FLAGS, "-fsyntax-only", ...sources] : null;
-            },
-            testSteps: (test, files, index) => {
-                const sources = files.filter((file) => !file.test && CPP_SOURCE.test(file.path)).map((file) => file.path);
-                const binary = `.build/test-${index}`;
-                return [["g++", ...CPP_FLAGS, ...sources, test.path, "-o", binary], [`./${binary}`]];
-            },
+            compile: (files) => ["g++", ...CPP_FLAGS, ...files.filter((file) => CPP_SOURCE.test(file.path)).map((file) => `./${file.path}`), "-o", ".build/main"],
+            entryCommand: () => ["./.build/main"],
         },
     },
 });

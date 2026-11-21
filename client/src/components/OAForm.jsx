@@ -78,7 +78,7 @@ const OAForm = ({
             pendingRestoreRef.current = undefined;
             return;
         }
-        let saved = 0;
+        let saved;
         try { saved = Number(positionKey ? window.sessionStorage.getItem(positionKey) : 0) || 0; } catch { saved = 0; }
         const target = Number.isInteger(saved) && saved > 0 && saved < total ? saved : 0;
         pendingRestoreRef.current = target;

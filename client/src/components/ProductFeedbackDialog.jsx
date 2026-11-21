@@ -59,7 +59,7 @@ export default function ProductFeedbackDialog({ open, onClose }) {
             <TextField select label="Feedback type" value={category} onChange={(e) => setCategory(e.target.value)}>
                 <MenuItem value="idea">Idea or request</MenuItem><MenuItem value="problem">Problem</MenuItem><MenuItem value="praise">What works well</MenuItem><MenuItem value="other">Other</MenuItem>
             </TextField>
-            <TextField label="Your feedback" value={message} onChange={(e) => setMessage(e.target.value)} multiline minRows={4} inputProps={{ maxLength: 2000 }} helperText={`${message.length}/2000 · Don’t include passwords or sensitive personal information.`} autoFocus />
+            <TextField slotProps={{ htmlInput: { maxLength: 2000 } }} label="Your feedback" value={message} onChange={(e) => setMessage(e.target.value)} multiline minRows={4} helperText={`${message.length}/2000 · Don’t include passwords or sensitive personal information.`} autoFocus />
             <Box>
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={addPhotos} />
                 <Button size="small" startIcon={<AddPhotoAlternateRounded />} disabled={photos.length >= MAX_FEEDBACK_PHOTOS} onClick={() => fileInputRef.current?.click()}>Attach photos</Button>

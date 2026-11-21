@@ -17,6 +17,8 @@ const logger = pino({
             "req.body.email",
             "req.body.name",
             "req.body.token",
+            "req.body.startToken",
+            'req.headers["x-attempt-token"]',
             "req.body.idToken",
         ],
         remove: true,

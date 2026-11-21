@@ -122,7 +122,7 @@ export default function Header() {
                                                 <Badge color="error" badgeContent={unreadCount} max={9}><NotificationsNoneRounded /></Badge>
                                             </IconButton>
                                         </Tooltip>
-                                        <Menu anchorEl={notificationAnchor} open={Boolean(notificationAnchor?.isConnected)} onClose={() => setNotificationAnchor(null)} PaperProps={{ sx: { width: 390, maxWidth: "calc(100vw - 24px)", maxHeight: 460 } }}>
+                                        <Menu slotProps={{ paper: { sx: { width: 390, maxWidth: "calc(100vw - 24px)", maxHeight: 460 } } }} anchorEl={notificationAnchor} open={Boolean(notificationAnchor?.isConnected)} onClose={() => setNotificationAnchor(null)}>
                                             <Stack direction="row" alignItems="center" justifyContent="space-between" px={2} py={1.25}>
                                                 <Box><Typography fontWeight={850}>Notifications</Typography><Typography variant="caption" color="text.secondary">{unreadCount ? `${unreadCount} unread` : "You're all caught up"}</Typography></Box>
                                                 {unreadCount > 0 && <Button size="small" onClick={markAllRead}>Mark read</Button>}
@@ -142,7 +142,7 @@ export default function Header() {
                                                 <Avatar sx={{ width: 34, height: 34 }}>{user?.name?.trim()?.[0]?.toUpperCase() || "U"}</Avatar>
                                             </IconButton>
                                         </Tooltip>
-                                        <Menu anchorEl={profileAnchor} open={Boolean(profileAnchor?.isConnected)} onClose={() => setProfileAnchor(null)} PaperProps={{ sx: { minWidth: 250 } }}>
+                                        <Menu slotProps={{ paper: { sx: { minWidth: 250 } } }} anchorEl={profileAnchor} open={Boolean(profileAnchor?.isConnected)} onClose={() => setProfileAnchor(null)}>
                                             <Box px={2} py={1.25}><Typography fontWeight={850}>{user?.name || "Account"}</Typography><Typography variant="caption" color="text.secondary">{user?.email}</Typography></Box>
                                             <Divider />
                                             {isAdmin && <MenuItem component={RouterLink} to="/admin"><SettingsOutlined sx={{ mr: 1.25 }} />Admin console</MenuItem>}
@@ -154,7 +154,7 @@ export default function Header() {
                                     </>}
 
                                     <IconButton onClick={(event) => setMobileAnchor(event.currentTarget)} aria-label="Open navigation" sx={{ display: { xs: "inline-flex", md: isAdminSurface ? "inline-flex" : "none", lg: "none" } }}><MenuIcon /></IconButton>
-                                    <Menu anchorEl={mobileAnchor} open={Boolean(mobileAnchor?.isConnected)} onClose={closeMobile} PaperProps={{ sx: { minWidth: 250 } }}>
+                                    <Menu slotProps={{ paper: { sx: { minWidth: 250 } } }} anchorEl={mobileAnchor} open={Boolean(mobileAnchor?.isConnected)} onClose={closeMobile}>
                                         {/* MUI Menu needs direct children (arrays), not Fragments, for focus and keyboard navigation. */}
                                         {isAdminSurface ? [
                                             <MenuItem key="overview" component={RouterLink} to="/admin/overview" selected={location.pathname === "/admin/overview"} onClick={closeMobile}>Overview</MenuItem>,

@@ -6,10 +6,11 @@ import { hasPendingFollowUp } from "../services/followUps.js";
 const tokenHash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 
 
-export const candidateRoundComplete = (round) => {
+export const candidateRoundComplete = (round, debuggingResponse) => {
     if (!round) return false;
     const questions = Array.isArray(round.questions) ? round.questions : [];
-    if (["system-design", "debugging"].includes(round.deliveryMode)) return Boolean(questions[0]?.answer?.trim());
+    if (round.deliveryMode === "debugging") return Boolean(debuggingResponse?.submittedAt && debuggingResponse.finalEvaluation && questions[0]?.answer?.trim());
+    if (round.deliveryMode === "system-design") return Boolean(questions[0]?.answer?.trim());
     if (round.adaptiveState?.enabled && !round.adaptiveComplete) return false;
     return questions.length > 0 && questions.every((question) => Boolean(question?.answer?.trim()) && !hasPendingFollowUp(question));
 };
@@ -40,11 +41,11 @@ export const requireCandidateRoundSequence = async (req, res, next) => {
             assessment: assessment._id,
             accessTokenHash: tokenHash(rawToken),
             status: "started",
-        }).select("+accessTokenHash rounds");
+        }).select("+accessTokenHash rounds debuggingResponses");
         if (!attempt) return res.status(401).json({ message: "Attempt unavailable" });
         if (roundIndex >= attempt.rounds.length) return res.status(400).json({ message: "Invalid interview round" });
 
-        const blocked = attempt.rounds.slice(0, roundIndex).some((round) => !candidateRoundComplete(round));
+        const blocked = attempt.rounds.slice(0, roundIndex).some((round, index) => !candidateRoundComplete(round, attempt.debuggingResponses?.find((response) => response.roundIndex === index)));
         if (blocked) return res.status(409).json({ message: "Complete the current interview round before moving ahead" });
         return next();
     } catch (error) {

@@ -252,11 +252,10 @@ export default function ResumeReviewPage() {
             )}
 
             <Dialog
-                open={previewOpen}
+ slotProps={{ paper: { sx: { height: "92vh" } } }}                open={previewOpen}
                 onClose={() => setPreviewOpen(false)}
                 fullWidth
                 maxWidth="xl"
-                PaperProps={{ sx: { height: "92vh" } }}
                 aria-labelledby="resume-preview-title"
             >
                 <DialogTitle id="resume-preview-title">Preview</DialogTitle>

@@ -254,7 +254,7 @@ export default function HiringTeamPage() {
                         <Typography fontWeight={800}>Organization name</Typography>
                         <Typography variant="body2" color="text.secondary" mt={.5}>Shown throughout the Hire workspace and on candidate assessment pages.</Typography>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} mt={1.5}>
-                            <TextField fullWidth label="Organization name" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} inputProps={{ maxLength: 120 }} />
+                            <TextField slotProps={{ htmlInput: { maxLength: 120 } }} fullWidth label="Organization name" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} />
                             <Button type="submit" variant="outlined" disabled={renaming || renameValue.trim().length < 2 || renameValue.trim() === activeOrganization?.name}>{renaming ? "Saving…" : "Save name"}</Button>
                         </Stack>
                     </Box>

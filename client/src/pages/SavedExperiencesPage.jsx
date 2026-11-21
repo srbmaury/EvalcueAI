@@ -14,7 +14,7 @@ import {
     Stack,
     Typography,
 } from "@mui/material";
-import { DeleteOutline, OpenInNew } from "@mui/icons-material";
+import { DeleteOutlined, OpenInNew } from "@mui/icons-material";
 import api from "../api/axios";
 import { useNotify } from "../context/NotificationContext";
 
@@ -140,7 +140,7 @@ export default function SavedExperiencesPage() {
                                     <Button
                                         color="error"
                                         size="small"
-                                        startIcon={removingId === experience._id ? <CircularProgress size={16} color="inherit" /> : <DeleteOutline />}
+                                        startIcon={removingId === experience._id ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlined />}
                                         disabled={removingId !== null}
                                         onClick={() => removeExperience(experience)}
                                         aria-label={`Remove ${experience.title || "interview experience"} from saved experiences`}

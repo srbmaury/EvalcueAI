@@ -286,8 +286,8 @@ export default function AdminCommercialAccessPage() {
                                     <MenuItem value="paid_pilot">Paid pilot (manual)</MenuItem>
                                 </TextField>
                             </Grid>
-                            <Grid size={{ xs: 12, md: 2 }}><TextField fullWidth type="number" label="Interviews" inputProps={{ min: 1, max: 1000 }} value={candidateInterviews} onChange={(event) => setCandidateInterviews(event.target.value)} /></Grid>
-                            <Grid size={{ xs: 12, md: 2 }}><TextField fullWidth type="number" label="Valid days" inputProps={{ min: 1, max: 365 }} value={validDays} onChange={(event) => setValidDays(event.target.value)} /></Grid>
+                            <Grid size={{ xs: 12, md: 2 }}><TextField slotProps={{ htmlInput: { min: 1, max: 1000 } }} fullWidth type="number" label="Interviews" value={candidateInterviews} onChange={(event) => setCandidateInterviews(event.target.value)} /></Grid>
+                            <Grid size={{ xs: 12, md: 2 }}><TextField slotProps={{ htmlInput: { min: 1, max: 365 } }} fullWidth type="number" label="Valid days" value={validDays} onChange={(event) => setValidDays(event.target.value)} /></Grid>
                             <Grid size={{ xs: 12, md: 5 }}><TextField fullWidth label="Internal note" value={note} onChange={(event) => setNote(event.target.value)} /></Grid>
                         </Grid>
                         <Stack direction="row" spacing={1} mt={2}>

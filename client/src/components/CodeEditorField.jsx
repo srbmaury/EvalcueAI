@@ -350,7 +350,7 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
 
                             {/* Stdin inside fullscreen */}
                             {canRun && <TextField
-                                fullWidth
+ slotProps={{ htmlInput: { style: isLightTheme ? {} : { color: "#e0e0e0" } } }}                                fullWidth
                                 multiline
                                 minRows={2}
                                 placeholder="Input for your code (stdin)"
@@ -366,7 +366,6 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                                         "& .MuiInputBase-inputMultiline": { color: "#e0e0e0" },
                                     }),
                                 }}
-                                inputProps={{ style: isLightTheme ? {} : { color: "#e0e0e0" } }}
                             />}
                         </>
                     )}
@@ -431,11 +430,10 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                                 {outputLabel}
                             </Typography>
                             <TextField
-                                value={outputValue}
+ slotProps={{ input: { readOnly: true } }}                                value={outputValue}
                                 multiline
                                 minRows={6}
                                 maxRows={12}
-                                InputProps={{ readOnly: true }}
                                 sx={{
                                     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
                                     width: "100%",
@@ -507,11 +505,10 @@ const CodeEditorField = ({ value, onChange, onFocus, minRows = 6, outlinedInputS
                         {outputLabel}
                     </Typography>
                     <TextField
-                        value={outputValue}
+ slotProps={{ input: { readOnly: true } }}                        value={outputValue}
                         multiline
                         minRows={3}
                         maxRows={10}
-                        InputProps={{ readOnly: true }}
                         sx={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
                     />
                     <Typography variant="caption" color="text.secondary">

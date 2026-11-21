@@ -641,11 +641,10 @@ const InterviewPage = () => {
             </Box>
 
             <Dialog
-                open={resumeOpen}
+ slotProps={{ paper: { sx: { height: "92vh" } } }}                open={resumeOpen}
                 onClose={() => setResumeOpen(false)}
                 fullWidth
                 maxWidth="xl"
-                PaperProps={{ sx: { height: "92vh" } }}
                 aria-labelledby="resume-dialog-title"
             >
                 <DialogTitle id="resume-dialog-title">Resume</DialogTitle>

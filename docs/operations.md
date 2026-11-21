@@ -136,7 +136,11 @@ On the server, set `CAPTCHA_ENABLED=true` and `CAPTCHA_SECRET` and enable the lo
 
 Run the React build behind a CDN and the API as a Node 22 service. Production requires a transaction-capable MongoDB replica set or sharded cluster, Redis, HTTPS, Brevo transactional email, Cloudinary for resume storage, CAPTCHA, PayU, and at least one AI provider. The code runner (`runner/`) and server STT are required only when their feature flags are enabled; see [runner/README.md](../runner/README.md) for the runner.
 
-The API process currently starts BullMQ workers and scheduled reminder/assessment tasks. Run one worker-enabled API replica until workers and schedulers are split into dedicated process types.
+Set `PROCESS_ROLE=api` on each HTTP replica, `PROCESS_ROLE=worker` on one or more BullMQ worker services, and `PROCESS_ROLE=scheduler` on exactly one scheduler service. Share the same MongoDB and Redis between all processes. Route HTTP traffic only to the API replicas and use `/health/readiness` for their health checks. The default `PROCESS_ROLE=all` is for a single-process deployment.
+
+Before rolling out, rotate any demo password previously seeded from the public manifest and revoke those accounts’ refresh sessions. Seed new demo fixtures only in a dedicated local database. Use a separate non-privileged account to test the public app.
+
+Bring up the updated runner at a separate URL and keep the current runner serving the current API. Verify the new runner before deploying the matching API configured with the new runner URL. Finish active assessments that use executable tests before switching API traffic. Convert or replace existing code-fix assessments with a source entry point that reads stdin and writes stdout, plus JSON fixtures with `stdin` and nonempty `stdout` strings. Keep the previous API and runner paired for rollback.
 
 ### Pre-deployment
 
@@ -293,7 +297,7 @@ The desktop/mobile browser suite uses deterministic API fixtures. The server E2E
 
 To validate the supplied demo accounts against the real API without changing existing data:
 
-1. From `server`, run `node src/scripts/startDemoTestServer.mjs`. This creates an ephemeral database, seeds the manifest's accounts and organization memberships, and listens on `127.0.0.1:5501`. The manifest password is read internally and is never printed. External AI, payment, email, storage and telemetry credentials are removed from this process. Stop the process to discard the database.
+1. From `server`, run `node src/scripts/startDemoTestServer.mjs`. Set a local-only `DEMO_PASSWORD` of at least 12 characters in both the API and Playwright environments. The server seeds synthetic accounts and organization memberships in an ephemeral database and listens on `127.0.0.1:5501`. External AI, payment, email, storage and telemetry credentials are removed from this process. Stop the process to discard the database.
 2. From `client`, run `VITE_API_PROXY_TARGET=http://127.0.0.1:5501 npm run dev -- --host 127.0.0.1 --port 5175 --strictPort`.
 3. From `client`, run `npm run test:e2e -- --config=playwright.local-demo.config.js`.
 

@@ -26,7 +26,7 @@ import {
 } from "@mui/material";
 import {
     Add as AddIcon,
-    DeleteOutline as DeleteIcon,
+    DeleteOutlined as DeleteIcon,
     DescriptionOutlined as ResumeIcon,
     DownloadOutlined as DownloadIcon,
     EditOutlined as EditIcon,
@@ -241,7 +241,7 @@ const ResumesPage = () => {
                 <DialogActions><Button disabled={deleting} onClick={() => setDeleteTarget(null)}>Cancel</Button><Button color="error" variant="contained" disabled={deleting} onClick={confirmDelete}>{deleting ? "Deleting…" : "Delete permanently"}</Button></DialogActions>
             </Dialog>
 
-            <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} fullWidth maxWidth="xl" PaperProps={{ sx: { height: "92vh" } }} aria-labelledby="resume-preview-title">
+            <Dialog slotProps={{ paper: { sx: { height: "92vh" } } }} open={Boolean(preview)} onClose={() => setPreview(null)} fullWidth maxWidth="xl" aria-labelledby="resume-preview-title">
                 <DialogTitle id="resume-preview-title">{preview?.fileName || "Resume preview"}</DialogTitle>
                 <DialogContent dividers sx={{ p: 0 }}>
                     {previewBlobUrl ? <iframe src={previewBlobUrl} title={`Preview of ${preview?.fileName || "resume"}`} width="100%" height="100%" style={{ border: 0 }} /> : <Stack height="100%" alignItems="center" justifyContent="center"><CircularProgress /></Stack>}

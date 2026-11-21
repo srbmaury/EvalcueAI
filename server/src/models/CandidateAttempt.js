@@ -82,6 +82,7 @@ const debuggingResponseSchema = new mongoose.Schema({
     findings: { type: [debugFindingSchema], default: [], validate: (value) => value.length <= 50 },
     testRuns: { type: [debuggingRunSummarySchema], default: [], validate: (value) => value.length <= 20 },
     finalEvaluation: { type: mongoose.Schema.Types.Mixed, default: undefined },
+    submissionClaimedAt: Date,
     submittedAt: Date,
 }, { _id: false });
 

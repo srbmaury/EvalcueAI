@@ -2,7 +2,7 @@ import useBillingPhone from "../hooks/useBillingPhone";
 import { useEffect, useState } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Container, Grid, List, ListItem, ListItemText, Stack, Typography } from "@mui/material";
-import { CheckCircleOutline } from "@mui/icons-material";
+import { CheckCircleOutlined } from "@mui/icons-material";
 import api from "../api/axios";
 import { trackEvent } from "../utils/analytics";
 import { describeError } from "../utils/errorFormatter";
@@ -89,7 +89,7 @@ export default function PricingPage() {
                     {plan.id === "pro" && !price && <Typography color="text.secondary" mt={1}>Price currently unavailable</Typography>}
                     {price && <Typography variant="h5" fontWeight={800} mt={1}>{price}<Typography component="span" color="text.secondary" fontSize="1rem"> / {intervalLabel()}</Typography></Typography>}
                     <Typography color="text.secondary" mt={1}>{plan.description}</Typography>
-                    <List>{features.map((feature) => <ListItem key={feature} disableGutters><CheckCircleOutline color="success" sx={{ mr: 1.5 }} /><ListItemText primary={feature} /></ListItem>)}</List>
+                    <List>{features.map((feature) => <ListItem key={feature} disableGutters><CheckCircleOutlined color="success" sx={{ mr: 1.5 }} /><ListItemText primary={feature} /></ListItem>)}</List>
                     <Box mt="auto" pt={2}>
                         {current ? <Button fullWidth variant="contained" disabled>Current plan</Button>
                             : plan.id === "free" ? <Button fullWidth variant="outlined" disabled>Included access</Button>

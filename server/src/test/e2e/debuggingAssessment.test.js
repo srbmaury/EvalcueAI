@@ -188,7 +188,7 @@ describe("debugging assessment API", () => {
         expect(submitted.body.attempt.rounds[0].questions[0].answer).toMatch(/Tests: 1\/1/);
     });
 
-    it("lets only one of two concurrent submits run the hidden tests, rejecting the other with 409", async () => {
+    it("lets only one of two concurrent submits run the hidden tests, returning a retryable conflict or the saved result", async () => {
         process.env.ENABLE_DEBUGGING_ASSESSMENTS = "true";
         const created = await write(agent.post("/api/assessments"), ownerAuth).send(assessmentInput(debuggingRound(), { title: "Concurrent submit" })).expect(201);
         const callsAfterCreate = runDebuggingProject.mock.calls.length; // publish validation dry-runs once
@@ -197,12 +197,18 @@ describe("debugging assessment API", () => {
         await write(agent.put(`${base}/workspace`)).set("x-attempt-token", started.body.attemptToken).send({ changedFiles: [{ path: "src/index.js", content: "fixed" }] }).expect(200);
         runDebuggingProject.mockResolvedValue({ status: "passed", passed: 1, total: 1, tests: [{ name: "handles boundary values", passed: true }] });
 
+        await write(agent.put(`/api/assessments/public/${created.body.shareToken}/attempts/${started.body.attempt._id}/answer`))
+            .set("x-attempt-token", started.body.attemptToken)
+            .send({ roundIndex: 0, questionIndex: 0, answer: "Skip the grader" })
+            .expect(400);
+
         const [first, second] = await Promise.all([
             write(agent.post(`${base}/submit`)).set("x-attempt-token", started.body.attemptToken).send({}),
             write(agent.post(`${base}/submit`)).set("x-attempt-token", started.body.attemptToken).send({}),
         ]);
         const statuses = [first.status, second.status].sort();
-        expect(statuses).toEqual([200, 409]);
+        expect(statuses[0]).toBe(200);
+        expect([200, 409]).toContain(statuses[1]);
         expect(runDebuggingProject.mock.calls.length - callsAfterCreate).toBe(1);
     });
 

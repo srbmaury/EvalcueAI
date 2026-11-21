@@ -110,13 +110,12 @@ const assessmentSchema = new mongoose.Schema({
     rounds: { type: [assessmentRoundSchema], validate: (value) => value.length >= 1 && value.length <= 5 },
 }, { timestamps: true });
 
-assessmentSchema.pre("validate", function normalizeSingleTaskRounds(next) {
+assessmentSchema.pre("validate", function normalizeSingleTaskRounds() {
     for (const round of this.rounds || []) {
         if (!["system-design", "debugging"].includes(round.deliveryMode)) continue;
         round.questionCount = 1;
         if (Array.isArray(round.questions) && round.questions.length > 1) round.questions = [round.questions[0]];
     }
-    next();
 });
 
 assessmentSchema.index({ organization: 1, createdAt: -1 });

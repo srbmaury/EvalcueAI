@@ -44,14 +44,14 @@ function FindingsPanel({ files, findings, disabled, onChange }) {
             {!findings.length && <Typography variant="body2" color="text.secondary">Add a finding when you identify a defect or risky implementation.</Typography>}
             {findings.map((finding, index) => <Paper key={index} variant="outlined" sx={{ p: 1.5 }}><Stack spacing={1.25}>
                 <Stack direction="row" gap={1} alignItems="center">
-                    <TextField select fullWidth size="small" label="Finding file" inputProps={{ "aria-label": "Finding file" }} value={finding.filePath || ""} disabled={disabled} onChange={(e) => update(index, { filePath: e.target.value })}>
+                    <TextField slotProps={{ htmlInput: { "aria-label": "Finding file" } }} select fullWidth size="small" label="Finding file" value={finding.filePath || ""} disabled={disabled} onChange={(e) => update(index, { filePath: e.target.value })}>
                         {files.map((file) => <MenuItem key={file.path} value={file.path}>{file.path}</MenuItem>)}
                     </TextField>
                     {!disabled && <IconButton aria-label={`Remove finding ${index + 1}`} color="error" onClick={() => remove(index)}><DeleteOutlineRounded /></IconButton>}
                 </Stack>
-                <TextField multiline minRows={3} label="Finding / root cause" inputProps={{ "aria-label": "Finding / root cause" }} value={finding.rootCause || ""} disabled={disabled} onChange={(e) => update(index, { rootCause: e.target.value })} />
+                <TextField slotProps={{ htmlInput: { "aria-label": "Finding / root cause" } }} multiline minRows={3} label="Finding / root cause" value={finding.rootCause || ""} disabled={disabled} onChange={(e) => update(index, { rootCause: e.target.value })} />
                 <TextField multiline minRows={2} label="Evidence" value={finding.evidence || ""} disabled={disabled} onChange={(e) => update(index, { evidence: e.target.value })} />
-                <TextField multiline minRows={3} label="Proposed fix" inputProps={{ "aria-label": "Proposed fix" }} value={finding.proposedFix || ""} disabled={disabled} onChange={(e) => update(index, { proposedFix: e.target.value })} />
+                <TextField slotProps={{ htmlInput: { "aria-label": "Proposed fix" } }} multiline minRows={3} label="Proposed fix" value={finding.proposedFix || ""} disabled={disabled} onChange={(e) => update(index, { proposedFix: e.target.value })} />
             </Stack></Paper>)}
         </Stack>
     </Paper>;

@@ -16,7 +16,7 @@ import {
     Stack,
     Typography,
 } from "@mui/material";
-import { CompareArrows, DeleteOutline } from "@mui/icons-material";
+import { CompareArrows, DeleteOutlined } from "@mui/icons-material";
 import api from "../api/axios";
 import { useNotify } from "../context/NotificationContext";
 
@@ -177,7 +177,7 @@ export default function ReviewHistoryPage() {
                                 </Stack>
                                 <Stack direction="row" alignItems="center" spacing={1} sx={{ pl: { xs: 5, sm: 0 } }}>
                                     <Chip label={`${review.atsScore ?? 0}% ATS`} color="primary" variant="outlined" />
-                                    <Button color="error" size="small" startIcon={deletingId === review._id ? <CircularProgress size={16} color="inherit" /> : <DeleteOutline />} disabled={Boolean(deletingId)} onClick={() => removeReview(review)}>Remove</Button>
+                                    <Button color="error" size="small" startIcon={deletingId === review._id ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlined />} disabled={Boolean(deletingId)} onClick={() => removeReview(review)}>Remove</Button>
                                 </Stack>
                             </Stack>
                             {review.summary && <Typography variant="body2" sx={{ mt: 2 }}>{review.summary}</Typography>}

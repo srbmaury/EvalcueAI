@@ -94,14 +94,7 @@ const ResetPasswordPage = () => {
                         <form onSubmit={onSubmit}>
                         <Stack spacing={2}>
                             <TextField
-                                label="New password"
-                                type={showNew ? "text" : "password"}
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                required
-                                helperText={newPassword ? (passwordPolicyError(newPassword) || " ") : " "}
-                                error={!!newPassword && !!passwordPolicyError(newPassword)}
-                                InputProps={{
+ slotProps={{ input: {
                                     endAdornment: (
                                         <InputAdornment position="end">
                                             <IconButton onClick={() => setShowNew((s) => !s)} edge="end" aria-label="toggle new password visibility">
@@ -109,17 +102,16 @@ const ResetPasswordPage = () => {
                                             </IconButton>
                                         </InputAdornment>
                                     ),
-                                }}
+                                } }}                                label="New password"
+                                type={showNew ? "text" : "password"}
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                required
+                                helperText={newPassword ? (passwordPolicyError(newPassword) || " ") : " "}
+                                error={!!newPassword && !!passwordPolicyError(newPassword)}
                             />
                             <TextField
-                                label="Confirm new password"
-                                type={showConfirm ? "text" : "password"}
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                required
-                                helperText={confirmPassword && confirmPassword !== newPassword ? "Passwords do not match" : " "}
-                                error={!!confirmPassword && confirmPassword !== newPassword}
-                                InputProps={{
+ slotProps={{ input: {
                                     endAdornment: (
                                         <InputAdornment position="end">
                                             <IconButton onClick={() => setShowConfirm((s) => !s)} edge="end" aria-label="toggle confirm password visibility">
@@ -127,7 +119,13 @@ const ResetPasswordPage = () => {
                                             </IconButton>
                                         </InputAdornment>
                                     ),
-                                }}
+                                } }}                                label="Confirm new password"
+                                type={showConfirm ? "text" : "password"}
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                                helperText={confirmPassword && confirmPassword !== newPassword ? "Passwords do not match" : " "}
+                                error={!!confirmPassword && confirmPassword !== newPassword}
                             />
                             <Captcha ref={captchaRef} onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken("")} />
                             <Button type="submit" variant="contained" disabled={disabled}>
