@@ -37,7 +37,7 @@ const readJson = (req) => new Promise((resolve, reject) => {
 //   GET  /metrics           Prometheus metrics
 //   GET  /v1/runtimes       runtimes whose toolchain passed the startup probe
 //   POST /v1/snippets       { runtime, source, stdin } -> compile and run one file
-//   POST /v1/projects       { runtime, files, entryFile, tests } -> compare the entry program output with trusted fixtures
+//   POST /v2/projects       { runtime, files, entryFile, tests } -> compare the entry program output with trusted fixtures
 export const createApp = ({ token, jobs, queue, runtimes, metrics }) => createServer(async (req, res) => {
     try {
         if (req.method === "GET" && req.url === "/healthz") {
@@ -52,7 +52,7 @@ export const createApp = ({ token, jobs, queue, runtimes, metrics }) => createSe
             return send(res, 200, text, "text/plain; version=0.0.4");
         }
 
-        const route = req.method === "POST" && { "/v1/snippets": ["snippet", parseSnippet, jobs.runSnippet], "/v1/projects": ["project", parseProject, jobs.runProject] }[req.url];
+        const route = req.method === "POST" && { "/v1/snippets": ["snippet", parseSnippet, jobs.runSnippet], "/v2/projects": ["project", parseProject, jobs.runProject] }[req.url];
         if (!route) return send(res, 404, { error: "Not found" });
         const [kind, parse, run] = route;
         const input = parse(await readJson(req));

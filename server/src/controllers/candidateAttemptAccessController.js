@@ -128,15 +128,29 @@ export const recordIntegrityEvent = async (req, res, next) => {
     } catch (error) { return next(error); }
 };
 
+export const getCandidateEvaluationStatus = async (req, res, next) => {
+    try {
+        const assessment = await Assessment.findOne({ shareToken: req.params.shareToken }).select("_id");
+        const attempt = assessment && await findAttempt(assessment._id, req.params.attemptId, req.get("x-attempt-token"));
+        if (!attempt) return res.status(404).json({ message: "Attempt unavailable" });
+        res.set("Cache-Control", "no-store");
+        return res.json({ status: attempt.status });
+    } catch (error) { return next(error); }
+};
+
 export const submitCandidateAttempt = async (req, res, next) => {
     try {
-        const assessment = await findContinuableAssessment(req.params.shareToken);
+        const assessment = await Assessment.findOne({ shareToken: req.params.shareToken, status: { $in: ["active", "closed"] } });
         if (!assessment) { observeCandidateAction("submit", "unavailable", null); return res.status(404).json({ message: "Assessment unavailable" }); }
         const authorized = await findAttempt(assessment._id, req.params.attemptId, req.get("x-attempt-token"));
         if (!authorized) { observeCandidateAction("submit", "unauthorized", assessment); return res.status(401).json({ message: "Attempt unavailable" }); }
         if (authorized.status === "evaluating") return res.status(202).json({ submitted: true, status: "evaluating", message: "Your assessment is being evaluated." });
         if (authorized.status === "submitted") return res.json({ submitted: true, status: "submitted", message: "Your assessment has already been submitted." });
         if (authorized.status !== "started" && authorized.status !== "evaluation_failed") return res.status(409).json({ message: "Attempt cannot be submitted" });
+
+        if (authorized.status === "started" && assessment.expiresAt && assessment.expiresAt <= new Date()) {
+            return res.status(404).json({ message: "Assessment unavailable" });
+        }
 
         const unanswered = !authorized.rounds.length || authorized.rounds.some((round, index) => !candidateRoundComplete(round, authorized.debuggingResponses?.find((response) => response.roundIndex === index)));
         if (unanswered) { observeCandidateAction("submit", "incomplete", assessment); return res.status(400).json({ message: "Answer every question and follow-up before submitting" }); }

@@ -64,7 +64,7 @@ describe("runner snippets", live, () => {
 });
 
 const project = async (runtime, files, entryFile, stdout) =>
-    (await post("/v1/projects", { runtime, files, entryFile, tests: [{ stdin: "", stdout, name: "result" }] })).body;
+    (await post("/v2/projects", { runtime, files, entryFile, tests: [{ stdin: "", stdout, name: "result" }] })).body;
 
 describe("runner projects", live, () => {
     for (const [runtime, path, content] of [
@@ -85,7 +85,7 @@ describe("runner projects", live, () => {
     });
 
     it("rejects path traversal", async () => {
-        const response = await post("/v1/projects", { runtime: "python-3", files: [{ path: "../escape.py", content: "" }], tests: [{ path: "../escape.py" }] });
+        const response = await post("/v2/projects", { runtime: "python-3", files: [{ path: "../escape.py", content: "" }], tests: [{ path: "../escape.py" }] });
         assert.equal(response.status, 400);
     });
 });

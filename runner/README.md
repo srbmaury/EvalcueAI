@@ -43,7 +43,7 @@ GET  /metrics        -> Prometheus text: runner_jobs_total, runner_job_duration_
 GET  /v1/runtimes    -> { runtimes: [{ id, label, version }] }
 POST /v1/snippets    { runtime, source, stdin? }
                      -> { status: ok|compile_error|runtime_error|timeout|killed, stdout, stderr, compileOutput, exitCode, durationMs, truncated }
-POST /v1/projects    { runtime, files: [{ path, content }], entryFile, tests: [{ stdin, stdout, name }] }
+POST /v2/projects    { runtime, files: [{ path, content }], entryFile, tests: [{ stdin, stdout, name }] }
                      -> { status: completed|compile_error|timeout, compileOutput, tests: [{ name, passed, status, output }], durationMs }
 ```
 

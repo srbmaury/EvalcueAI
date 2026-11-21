@@ -6,6 +6,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import dotenv from "dotenv";
+import { demoUsers as users, demoOrganizations as organizations } from "../shared/demoAccounts.mjs";
 dotenv.config();
 
 const serverDir = process.cwd();
@@ -26,57 +27,6 @@ const importFromServer = async (relativePath) =>
 const { default: User } = await importFromServer("src/models/User.js");
 const { default: Organization } = await importFromServer("src/models/Organization.js");
 const { default: OrganizationMembership } = await importFromServer("src/models/OrganizationMembership.js");
-
-const users = [
-  ...Array.from({ length: 10 }, (_, i) => ({
-    email: `candidate${String(i + 1).padStart(2, "0")}@srbmaury.com`,
-    name: `Demo Candidate ${String(i + 1).padStart(2, "0")}`,
-    role: "user",
-  })),
-  { email: "owner@srbmaury.com", name: "Demo Hiring Owner", role: "user" },
-  { email: "recruiter1@srbmaury.com", name: "Demo Recruiter 1", role: "user" },
-  { email: "recruiter2@srbmaury.com", name: "Demo Recruiter 2", role: "user" },
-  { email: "manager1@srbmaury.com", name: "Demo Hiring Manager 1", role: "user" },
-  { email: "reviewer1@srbmaury.com", name: "Demo Reviewer 1", role: "user" },
-  { email: "reviewer2@srbmaury.com", name: "Demo Reviewer 2", role: "user" },
-  { email: "owner2@srbmaury.com", name: "Demo Hiring Owner 2", role: "user" },
-  { email: "orgadmin2@srbmaury.com", name: "Demo Organization Admin 2", role: "user" },
-  { email: "recruiter3@srbmaury.com", name: "Demo Recruiter 3", role: "user" },
-  { email: "recruiter4@srbmaury.com", name: "Demo Recruiter 4", role: "user" },
-  { email: "manager2@srbmaury.com", name: "Demo Hiring Manager 2", role: "user" },
-  { email: "reviewer3@srbmaury.com", name: "Demo Reviewer 3", role: "user" },
-  { email: "reviewer4@srbmaury.com", name: "Demo Reviewer 4", role: "user" },
-];
-
-const organizations = [
-  {
-    name: "Srbmaury Demo Engineering",
-    ownerEmail: "owner@srbmaury.com",
-    members: [
-      ["owner@srbmaury.com", "owner"],
-      ["recruiter1@srbmaury.com", "recruiter"],
-      ["recruiter2@srbmaury.com", "recruiter"],
-      ["manager1@srbmaury.com", "hiring_manager"],
-      ["reviewer1@srbmaury.com", "reviewer"],
-      ["reviewer2@srbmaury.com", "reviewer"],
-    ],
-  },
-  {
-    name: "Srbmaury Demo Talent",
-    ownerEmail: "owner2@srbmaury.com",
-    members: [
-      ["owner2@srbmaury.com", "owner"],
-      ["orgadmin2@srbmaury.com", "admin"],
-      ["recruiter3@srbmaury.com", "recruiter"],
-      ["recruiter4@srbmaury.com", "recruiter"],
-      ["manager2@srbmaury.com", "hiring_manager"],
-      ["reviewer3@srbmaury.com", "reviewer"],
-      ["reviewer4@srbmaury.com", "reviewer"],
-      ["recruiter2@srbmaury.com", "reviewer"],
-      ["manager1@srbmaury.com", "recruiter"],
-    ],
-  },
-];
 
 await mongoose.connect(process.env.MONGO_URI);
 

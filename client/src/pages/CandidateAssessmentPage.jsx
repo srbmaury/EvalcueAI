@@ -59,7 +59,7 @@ export default function CandidateAssessmentPage() {
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
-    const [submitted, setSubmitted] = useState(false);
+    const evaluationStatus = attempt?.status;
     const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
     const [consent, setConsent] = useState(false);
     const [integrityConsent, setIntegrityConsent] = useState(false);
@@ -165,6 +165,13 @@ export default function CandidateAssessmentPage() {
 
     useEffect(() => {
         (async () => {
+            const saved = readSavedAttempt(storageKey);
+            if (saved?.attemptToken && ["evaluating", "evaluation_failed"].includes(saved.attempt?.status)) {
+                setAttempt(saved.attempt);
+                setAttemptToken(saved.attemptToken);
+                setLoading(false);
+                return;
+            }
             try {
                 const { data } = await api.get(`/assessments/public/${shareToken}`, { params: invitationId ? { invite: invitationId } : undefined });
                 setAssessment(data);
@@ -175,7 +182,6 @@ export default function CandidateAssessmentPage() {
                         setEmailLocked(Boolean(invite?.emailLocked && invite?.email));
                     } catch { /* manual identity remains available */ }
                 }
-                const saved = readSavedAttempt(storageKey);
                 if (saved?.attempt && saved?.attemptToken) {
                     setAttempt(saved.attempt);
                     setAttemptToken(saved.attemptToken);
@@ -214,6 +220,11 @@ export default function CandidateAssessmentPage() {
     // update-depth limit, so the local copy is written once typing pauses (and when the page is hidden).
     const pendingLocalSaveRef = useRef(null);
     useEffect(() => {
+        if (attempt?.status === "submitted") {
+            pendingLocalSaveRef.current = null;
+            removeSavedAttempt(storageKey);
+            return undefined;
+        }
         if (!attempt || !attemptToken) return undefined;
         const save = () => {
             pendingLocalSaveRef.current = null;
@@ -596,16 +607,48 @@ export default function CandidateAssessmentPage() {
         if (!pendingFollowUpFor(nextRound, nextRound.questions[activeQuestionIndex])) goToNextQuestion(nextAttempt);
     };
 
+    useEffect(() => {
+        if (evaluationStatus !== "evaluating" || !candidateToolBase || !attemptToken) return undefined;
+        const controller = new AbortController();
+        let timer;
+        const refresh = async () => {
+            try {
+                const { data } = await api.get(`${candidateToolBase}/evaluation-status`, {
+                    headers: { "x-attempt-token": attemptToken },
+                    skipAuthRedirect: true,
+                    signal: controller.signal,
+                });
+                if (controller.signal.aborted) return;
+                if (["submitted", "evaluation_failed"].includes(data.status)) {
+                    setAttempt((current) => ({ ...current, status: data.status }));
+                    return;
+                }
+            } catch {
+                // A transient network error should preserve the recoverable attempt.
+            }
+            if (!controller.signal.aborted) timer = window.setTimeout(refresh, 10_000);
+        };
+        timer = window.setTimeout(refresh, 10_000);
+        return () => {
+            controller.abort();
+            window.clearTimeout(timer);
+        };
+    }, [attemptToken, candidateToolBase, evaluationStatus]);
+
     const submit = async () => {
         stopHandsFree();
         setSubmitConfirmOpen(false);
         setBusy(true);
         try {
-            await api.post(`${candidateToolBase}/submit`, {}, { headers: candidateToolHeaders, skipAuthRedirect: true });
-            removeSavedAttempt(storageKey);
+            const { data } = await api.post(`${candidateToolBase}/submit`, {}, { headers: candidateToolHeaders, skipAuthRedirect: true });
             setRestoreNotice("");
-            setSubmitted(true);
-            notify("Assessment submitted successfully.", "success");
+            if (data.status === "evaluating") {
+                persist({ ...attempt, status: "evaluating" });
+            } else {
+                pendingLocalSaveRef.current = null;
+                removeSavedAttempt(storageKey);
+                setAttempt((current) => ({ ...current, status: "submitted" }));
+            }
         } catch (err) {
             notify(describeError(err, "Your assessment could not be submitted."), "error");
         } finally { setBusy(false); }
@@ -621,15 +664,28 @@ export default function CandidateAssessmentPage() {
     const integrityRecovery = attempt ? integrityRecoveryReason({ integrity: assessment?.integrity, cameraReady: runtimeCameraReady, fullscreenActive }) : "";
 
     if (loading) return <Stack minHeight="70vh" justifyContent="center" alignItems="center"><CircularProgress /></Stack>;
-    if (!assessment) return <Container maxWidth="sm" sx={{ py: 8 }}><Alert severity="error">{error}</Alert></Container>;
-    if (submitted) return (
+    if (["evaluating", "evaluation_failed", "submitted"].includes(evaluationStatus)) return (
         <Container maxWidth="sm" sx={{ py: 8 }}>
             <Stack spacing={3}>
-                <Paper variant="outlined" sx={{ p: 5, textAlign: "center" }}><Typography component="h1" variant="h4" fontWeight={850}>Assessment submitted</Typography><Typography color="text.secondary" mt={2}>Your responses were sent to the recruiting team. You can safely close this page.</Typography></Paper>
-                {attemptToken && <SelfIdentificationCard endpoint={`${candidateToolBase}/self-identification`} headers={candidateToolHeaders} />}
+                <Paper variant="outlined" sx={{ p: 5, textAlign: "center" }}>
+                    <Typography component="h1" variant="h4" fontWeight={850}>
+                        {evaluationStatus === "submitted" ? "Assessment submitted" : "Responses received"}
+                    </Typography>
+                    {evaluationStatus === "evaluating" && <Typography mt={2}>Your responses are being evaluated. You can check back in this tab.</Typography>}
+                    {evaluationStatus === "evaluation_failed" && (
+                        <Stack spacing={2} mt={2}>
+                            <Alert severity="warning">{error || "Evaluation failed. Your responses are saved."}</Alert>
+                            <Button disabled={busy} onClick={submit}>Retry evaluation</Button>
+                        </Stack>
+                    )}
+                    {evaluationStatus === "submitted" && <Typography color="text.secondary" mt={2}>Your responses were sent to the recruiting team. You can safely close this page.</Typography>}
+                </Paper>
+                {evaluationStatus === "submitted" && attemptToken && <SelfIdentificationCard endpoint={`${candidateToolBase}/self-identification`} headers={candidateToolHeaders} />}
             </Stack>
         </Container>
     );
+
+    if (!assessment) return <Container maxWidth="sm" sx={{ py: 8 }}><Alert severity="error">{error}</Alert></Container>;
 
     const plannedUnits = assessment.rounds.reduce((sum, round) => sum + (["system-design", "debugging"].includes(round.deliveryMode) ? 1 : round.questionCount), 0);
 
