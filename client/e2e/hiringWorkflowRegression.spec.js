@@ -142,6 +142,30 @@ test("editing an existing draft publishes with content PATCH followed by one sta
     await expect(page).toHaveURL(/\/hire\/assessments\/a1$/);
 });
 
+test("a published assessment retains missing recipients after an invitation request fails @desktop-only", async ({ page }) => {
+    await mockSignedIn(page);
+    let assessment = baseAssessment({ status: "draft", inviteOnly: true });
+    await page.route("**/api/assessments/a1", (route) => {
+        if (route.request().method() === "GET") return json(route, { assessment, attempts: [] });
+        assessment = { ...assessment, ...route.request().postDataJSON() };
+        return json(route, assessment);
+    });
+    await page.route("**/api/assessments/a1/invitations", (route) => {
+        assessment.invitations = [{ _id: "invite-1", email: "queued@example.com", status: "queued" }];
+        return json(route, { message: "Invitation response unavailable" }, 503);
+    });
+
+    await page.goto("/hire/assessments?create=1&edit=a1");
+    for (let i = 0; i < 3; i += 1) await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByLabel("Candidate emails").fill("queued@example.com, missing@example.com");
+    await page.getByRole("button", { name: "Publish assessment" }).click();
+
+    await expect(page).toHaveURL(/\/hire\/assessments\/a1$/);
+    await expect(page.getByLabel("Candidate emails")).toHaveValue("missing@example.com");
+    await page.reload();
+    await expect(page.getByLabel("Candidate emails")).toHaveValue("missing@example.com");
+});
+
 test("editing a draft preserves its assessment timezone and wall-clock schedule", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Builder regression runs once");
     await mockSignedIn(page);

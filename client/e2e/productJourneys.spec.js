@@ -329,7 +329,7 @@ test("candidate completes an assessment without seeing private feedback", async 
         const body = await route.request().postDataJSON();
         return json(route, { attempt: { ...attempt, rounds: [{ ...attempt.rounds[0], questions: [{ ...attempt.rounds[0].questions[0], answer: body.answer }] }] } });
     });
-    await page.route("**/api/assessments/public/share-1/attempts/attempt-1/submit", (route) => json(route, { received: true }));
+    await page.route("**/api/assessments/public/share-1/attempts/attempt-1/submit", (route) => json(route, { submitted: true, status: "submitted" }));
     await page.goto("/assessment/share-1");
     await expect(page.getByRole("heading", { name: "Before you begin" })).toBeVisible();
     await expect(page.getByText(/score|private feedback/i)).toHaveCount(0);

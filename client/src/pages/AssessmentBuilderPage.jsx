@@ -442,7 +442,7 @@ export default function AssessmentBuilderPage() {
                 } catch {
                     clearLocalDraft(draftKey);
                     notify(`Assessment ${publishNow ? "published" : "scheduled"}. Review the invitation list before retrying any missing invitations.`, "warning");
-                    navigate(`/hire/assessments/${savedAssessment._id}`, { replace: true });
+                    navigate(`/hire/assessments/${savedAssessment._id}`, { replace: true, state: { retryInvitationEmails: candidates.map(({ email }) => email) } });
                     return;
                 }
             }

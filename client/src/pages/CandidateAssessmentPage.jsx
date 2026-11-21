@@ -28,12 +28,16 @@ import { candidateTranscriptionConfig } from "../utils/hiringVoicePolicy";
 import { describeError } from "../utils/errorFormatter";
 import { buildTranscriptionHint, replaceLastOccurrence } from "../utils/speechTranscription";
 
-const LOCAL_SAVE_DELAY_MS = 400;
+import {
+    clearSubmissionIntent,
+    readSavedAttempt,
+    recoverCandidateSubmission,
+    removeSavedAttempt,
+    useCandidateSubmission,
+    writeSavedAttempt,
+} from "../features/candidateAssessment/useCandidateSubmission";
 
-// Attempts are tab-scoped so a shared device never resumes another person's attempt.
-const readSavedAttempt = (key) => { try { return JSON.parse(window.sessionStorage?.getItem(key) || "null"); } catch { return null; } };
-const writeSavedAttempt = (key, value) => { try { window.sessionStorage?.setItem(key, JSON.stringify(value)); } catch { /* local recovery is best effort */ } };
-const removeSavedAttempt = (key) => { try { window.sessionStorage?.removeItem(key); } catch { /* no-op */ } };
+const LOCAL_SAVE_DELAY_MS = 400;
 
 const formatTime = (seconds) => {
     const safe = Math.max(0, Math.floor(seconds));
@@ -164,10 +168,13 @@ export default function CandidateAssessmentPage() {
     });
 
     useEffect(() => {
+        const controller = new AbortController();
         (async () => {
             const saved = readSavedAttempt(storageKey);
-            if (saved?.attemptToken && ["evaluating", "evaluation_failed"].includes(saved.attempt?.status)) {
-                setAttempt(saved.attempt);
+            const recovered = await recoverCandidateSubmission({ saved, storageKey, shareToken, signal: controller.signal });
+            if (controller.signal.aborted) return;
+            if (recovered) {
+                setAttempt(recovered);
                 setAttemptToken(saved.attemptToken);
                 setLoading(false);
                 return;
@@ -198,9 +205,10 @@ export default function CandidateAssessmentPage() {
                 setLoading(false);
             }
         })();
+        return () => controller.abort();
     }, [invitationId, shareToken, storageKey]);
 
-    const persist = useCallback((nextAttempt, token = attemptToken, nextDirty = dirty) => {
+    const saveAttemptToSession = useCallback((nextAttempt, token = attemptToken, nextDirty = dirty) => {
         const savedAt = new Date().toISOString();
         setAttempt(nextAttempt);
         setLastSavedAt(savedAt);
@@ -223,6 +231,7 @@ export default function CandidateAssessmentPage() {
         if (attempt?.status === "submitted") {
             pendingLocalSaveRef.current = null;
             removeSavedAttempt(storageKey);
+            clearSubmissionIntent(storageKey);
             return undefined;
         }
         if (!attempt || !attemptToken) return undefined;
@@ -301,7 +310,7 @@ export default function CandidateAssessmentPage() {
             setActiveQuestionIndex(0);
             setRoundTransition(null);
             setRestoreNotice("");
-            persist(data.attempt, data.attemptToken, {});
+            saveAttemptToSession(data.attempt, data.attemptToken, {});
             removeSavedAttempt(startKey);
             pendingStart.current = null;
         } catch (err) {
@@ -410,7 +419,7 @@ export default function CandidateAssessmentPage() {
             const nextDirty = { ...dirty };
             delete nextDirty[key];
             setDirty(nextDirty);
-            persist(data.attempt, attemptToken, nextDirty);
+            saveAttemptToSession(data.attempt, attemptToken, nextDirty);
             return data.attempt;
         } catch (err) {
             notify(describeError(err, "Your response could not be saved."), "error");
@@ -427,7 +436,7 @@ export default function CandidateAssessmentPage() {
     );
     const saveCandidateIntro = async (body) => {
         const { data } = await api.put(`${candidateToolBase}/intro`, body, { headers: candidateToolHeaders, skipAuthRedirect: true });
-        persist({ ...attempt, candidateIntroAt: data.candidateIntroAt });
+        saveAttemptToSession({ ...attempt, candidateIntroAt: data.candidateIntroAt });
     };
     const activeQuestion = activeRound?.questions?.[activeQuestionIndex];
     const activePendingFollowUp = pendingFollowUpFor(activeRound, activeQuestion);
@@ -562,7 +571,7 @@ export default function CandidateAssessmentPage() {
                 transcript: activeQuestion.answer,
                 diagramData: activeQuestion.diagramData || "",
             }, { headers: candidateToolHeaders, skipAuthRedirect: true });
-            persist(data.attempt);
+            saveAttemptToSession(data.attempt);
             finishRoundSoftly(data.attempt, activeRoundIndex);
             return true;
         } catch (err) {
@@ -607,51 +616,18 @@ export default function CandidateAssessmentPage() {
         if (!pendingFollowUpFor(nextRound, nextRound.questions[activeQuestionIndex])) goToNextQuestion(nextAttempt);
     };
 
-    useEffect(() => {
-        if (evaluationStatus !== "evaluating" || !candidateToolBase || !attemptToken) return undefined;
-        const controller = new AbortController();
-        let timer;
-        const refresh = async () => {
-            try {
-                const { data } = await api.get(`${candidateToolBase}/evaluation-status`, {
-                    headers: { "x-attempt-token": attemptToken },
-                    skipAuthRedirect: true,
-                    signal: controller.signal,
-                });
-                if (controller.signal.aborted) return;
-                if (["submitted", "evaluation_failed"].includes(data.status)) {
-                    setAttempt((current) => ({ ...current, status: data.status }));
-                    return;
-                }
-            } catch {
-                // A transient network error should preserve the recoverable attempt.
-            }
-            if (!controller.signal.aborted) timer = window.setTimeout(refresh, 10_000);
-        };
-        timer = window.setTimeout(refresh, 10_000);
-        return () => {
-            controller.abort();
-            window.clearTimeout(timer);
-        };
-    }, [attemptToken, candidateToolBase, evaluationStatus]);
-
-    const submit = async () => {
+    const submitAttempt = useCandidateSubmission({
+        shareToken, storageKey, attempt, attemptToken, saveAttemptToSession, setAttempt, notify,
+    });
+    const handleSubmit = async () => {
         stopHandsFree();
         setSubmitConfirmOpen(false);
         setBusy(true);
         try {
-            const { data } = await api.post(`${candidateToolBase}/submit`, {}, { headers: candidateToolHeaders, skipAuthRedirect: true });
-            setRestoreNotice("");
-            if (data.status === "evaluating") {
-                persist({ ...attempt, status: "evaluating" });
-            } else {
-                pendingLocalSaveRef.current = null;
-                removeSavedAttempt(storageKey);
-                setAttempt((current) => ({ ...current, status: "submitted" }));
-            }
-        } catch (err) {
-            notify(describeError(err, "Your assessment could not be submitted."), "error");
-        } finally { setBusy(false); }
+            if (await submitAttempt()) setRestoreNotice("");
+        } finally {
+            setBusy(false);
+        }
     };
 
     const allRoundsComplete = Boolean(attempt?.rounds?.length) && attempt.rounds.every(roundComplete);
@@ -664,18 +640,20 @@ export default function CandidateAssessmentPage() {
     const integrityRecovery = attempt ? integrityRecoveryReason({ integrity: assessment?.integrity, cameraReady: runtimeCameraReady, fullscreenActive }) : "";
 
     if (loading) return <Stack minHeight="70vh" justifyContent="center" alignItems="center"><CircularProgress /></Stack>;
-    if (["evaluating", "evaluation_failed", "submitted"].includes(evaluationStatus)) return (
+    if (["submission_pending", "evaluating", "evaluation_failed", "submitted", "revoked"].includes(evaluationStatus)) return (
         <Container maxWidth="sm" sx={{ py: 8 }}>
             <Stack spacing={3}>
                 <Paper variant="outlined" sx={{ p: 5, textAlign: "center" }}>
                     <Typography component="h1" variant="h4" fontWeight={850}>
-                        {evaluationStatus === "submitted" ? "Assessment submitted" : "Responses received"}
+                        {({ submitted: "Assessment submitted", revoked: "Attempt unavailable", submission_pending: "Checking submission" })[evaluationStatus] || "Responses received"}
                     </Typography>
                     {evaluationStatus === "evaluating" && <Typography mt={2}>Your responses are being evaluated. You can check back in this tab.</Typography>}
-                    {evaluationStatus === "evaluation_failed" && (
+                    {["submission_pending", "evaluation_failed"].includes(evaluationStatus) && (
                         <Stack spacing={2} mt={2}>
-                            <Alert severity="warning">{error || "Evaluation failed. Your responses are saved."}</Alert>
-                            <Button disabled={busy} onClick={submit}>Retry evaluation</Button>
+                            <Alert severity="warning">{evaluationStatus === "submission_pending"
+                                ? "We could not confirm your submission. Your responses are saved."
+                                : "Evaluation failed. Your responses are saved."}</Alert>
+                            <Button disabled={busy} onClick={handleSubmit}>{evaluationStatus === "submission_pending" ? "Retry submission" : "Retry evaluation"}</Button>
                         </Stack>
                     )}
                     {evaluationStatus === "submitted" && <Typography color="text.secondary" mt={2}>Your responses were sent to the recruiting team. You can safely close this page.</Typography>}
@@ -824,7 +802,7 @@ export default function CandidateAssessmentPage() {
                                 headers={candidateToolHeaders}
                                 canRun={assessment.capabilities?.codeExecution !== false}
                                 onSubmitted={(nextAttempt) => {
-                                    persist(nextAttempt);
+                                    saveAttemptToSession(nextAttempt);
                                     finishRoundSoftly(nextAttempt, activeRoundIndex);
                                 }}
                             />
@@ -863,7 +841,7 @@ export default function CandidateAssessmentPage() {
             )}
         </Container>
 
-        <SubmitConfirmDialog open={submitConfirmOpen} roundCount={attempt?.rounds?.length || 0} busy={busy} onClose={() => setSubmitConfirmOpen(false)} onSubmit={submit} />
+        <SubmitConfirmDialog open={submitConfirmOpen} roundCount={attempt?.rounds?.length || 0} busy={busy} onClose={() => setSubmitConfirmOpen(false)} onSubmit={handleSubmit} />
         </>
     );
 }

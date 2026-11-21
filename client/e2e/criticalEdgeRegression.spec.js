@@ -220,12 +220,13 @@ test("candidate submission failure is retryable without losing the completed att
     const token = "share-submit-retry";
     const started = attemptPayload({ question: "Completed question", answer: "A saved answer." });
     let submitCalls = 0;
+    await page.route(`**/api/assessments/public/${token}/attempts/${started.attempt._id}/evaluation-status`, (route) => json(route, { status: "started" }));
     await page.route(`**/api/assessments/public/${token}`, (route) => json(route, publicAssessment()));
     await page.route(`**/api/assessments/public/${token}/start`, (route) => json(route, started, 201));
     await page.route(`**/api/assessments/public/${token}/attempts/${started.attempt._id}/submit`, (route) => {
         submitCalls += 1;
         if (submitCalls === 1) return json(route, { message: "Submission service temporarily unavailable" }, 503);
-        return json(route, { accepted: true }, 202);
+        return json(route, { submitted: true, status: "submitted" });
     });
 
     await page.goto(`/assessment/${token}`);

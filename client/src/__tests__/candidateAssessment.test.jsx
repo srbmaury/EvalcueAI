@@ -25,6 +25,26 @@ const begin = async () => {
 };
 
 describe("candidate assessment interview UX", () => {
+    it("recovers an accepted submission after a lost response and an expired link", async () => {
+        const storageKey = "assessment-attempt:share-token-123456789:open";
+        sessionStorage.setItem(storageKey, JSON.stringify({ attempt: { _id: "attempt", status: "started", rounds: [] }, attemptToken: "token" }));
+        sessionStorage.setItem(`${storageKey}:submission`, JSON.stringify("attempt"));
+        get.mockImplementation(async (url) => {
+            if (url.endsWith("/evaluation-status")) return { data: { status: "submitted" } };
+            if (url === "/assessments/public/share-token-123456789") throw new Error("Assessment expired");
+            return { data: {} };
+        });
+
+        renderCandidate();
+
+        expect(await screen.findByRole("heading", { name: "Assessment submitted" })).toBeTruthy();
+        expect(get).toHaveBeenCalledWith(expect.stringContaining("/attempts/attempt/evaluation-status"), expect.objectContaining({
+            headers: { "X-Attempt-Token": "token" },
+        }));
+        expect(get.mock.calls.some(([url]) => url === "/assessments/public/share-token-123456789")).toBe(false);
+        await waitFor(() => expect(sessionStorage.getItem(`${storageKey}:submission`)).toBeNull());
+    });
+
     it("shows expectations and consent without exposing private evaluation", async () => {
         get.mockResolvedValue({ data: {
             title: "Backend screen", organizationName: "Acme", jobRole: "Backend Engineer",

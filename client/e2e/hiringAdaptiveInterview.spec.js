@@ -261,7 +261,7 @@ test("candidate completes all three chained AI follow-ups before a conversationa
             attempt: { _id: "attempt-followups", startedAt: new Date().toISOString(), rounds: [{ ...roundBase, questions: [currentQuestion] }] },
         });
     });
-    await page.route(`**/api/assessments/public/${shareToken}/attempts/attempt-followups/submit`, (route) => json(route, { received: true }));
+    await page.route(`**/api/assessments/public/${shareToken}/attempts/attempt-followups/submit`, (route) => json(route, { submitted: true, status: "submitted" }));
 
     await startPublicAssessment(page, shareToken, "Followup Candidate", "followups@example.com");
     await page.getByRole("button", { name: "Type / code" }).click();
